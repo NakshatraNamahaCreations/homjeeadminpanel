@@ -11,17 +11,19 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-   useEffect(() => {
+  useEffect(() => {
     if (isAuthed()) navigate("/dashboard"); // already logged in
   }, [navigate]);
 
-  const normalizeMobile = (val) => String(val || "").replace(/\D/g, "");
+  // keep only digits and clamp to 10
+  const sanitizeTo10Digits = (val) =>
+    String(val || "").replace(/\D/g, "").slice(0, 10);
 
   const handleLogin = async () => {
-    const mobileNumber = normalizeMobile(input);
+    const mobileNumber = sanitizeTo10Digits(input);
 
-    if (!mobileNumber || !/^\d{10,15}$/.test(mobileNumber)) {
-      setError("Please enter a valid mobile number (digits only).");
+    if (!/^\d{10}$/.test(mobileNumber)) {
+      setError("Phone number must be exactly 10 digits.");
       return;
     }
 
@@ -41,15 +43,14 @@ const Login = () => {
         throw new Error(data?.message || "Failed to send OTP");
       }
 
-      // success → go to OTP screen; pass mobile + (optionally) ttl/debug otp
-      const params = new URLSearchParams({
-        input: mobileNumber,
-        ttl: String(data?.expiresInSeconds ?? ""),
-        // NOTE: debugOtp only in non-production backend; don't rely on it
-        debugOtp: data?.debugOtp || "",
+      // success → go to OTP screen; pass mobile + ttl + (optionally) debug otp
+      navigate("/otp-verification", {
+        state: {
+          input: mobileNumber,
+          ttl: data?.expiresInSeconds ?? "",
+          otp: data?.otp || "",
+        },
       });
-
-      navigate(`/otp-verification?${params.toString()}`);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -66,16 +67,34 @@ const Login = () => {
         <p style={styles.subText}>Enter your phone number</p>
 
         <input
-          type="text"
+          type="tel"
+          inputMode="numeric"
+          pattern="\d{10}"
+          maxLength={10}
+          autoComplete="tel"
           placeholder="Phone Number (10 digits)"
           style={styles.input}
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={(e) => {
+            const val = sanitizeTo10Digits(e.target.value);
+            setInput(val);
+            // live validation message while typing (optional)
+            if (val.length > 0 && val.length < 10) {
+              setError("Phone number must be exactly 10 digits.");
+            } else {
+              setError("");
+            }
+          }}
           disabled={loading}
         />
+
         {error && <p style={styles.error}>{error}</p>}
 
-        <button onClick={handleLogin} style={styles.button} disabled={loading}>
+        <button
+          onClick={handleLogin}
+          style={styles.button}
+          disabled={loading || input.length !== 10}
+        >
           {loading ? "Sending OTP..." : "Continue"}
         </button>
       </div>
