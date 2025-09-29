@@ -1,13 +1,23 @@
+// export default Enquiries;
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import CreateLeadModal from "./CreateLeadModal";
 import { FaMapMarkerAlt, FaPhone, FaArrowLeft } from "react-icons/fa";
-import { Button, Modal } from "react-bootstrap";
+import { Button, Modal , Form } from "react-bootstrap";
+import EditEnquiryModal from "./EditEnquiryModal";
 
 const genUID = () => `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
-/* ---------- Reusable confirm modal ---------- */
-const ConfirmModal = ({ show, title, message, confirmText = "Confirm", cancelText = "Cancel", onConfirm, onCancel }) => {
+
+const ConfirmModal = ({
+  show,
+  title,
+  message,
+  confirmText = "Confirm",
+  cancelText = "Cancel",
+  onConfirm,
+  onCancel,
+}) => {
   return (
     <Modal show={show} onHide={onCancel} centered>
       <Modal.Header closeButton>
@@ -26,133 +36,242 @@ const ConfirmModal = ({ show, title, message, confirmText = "Confirm", cancelTex
   );
 };
 
+
+const ReminderModal = ({ show, onClose, enquiry, onUpdated, moveToOld }) => {
+  const [newDate, setNewDate] = useState("");
+
+  const handleSave = async () => {
+    if (!newDate || !enquiry?.bookingId) return;
+
+    try {
+      const res = await fetch(
+        `https://homjee-backend.onrender.com/api/bookings/update-user-booking/${enquiry.bookingId}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            selectedSlot: {
+              ...enquiry.raw.selectedSlot,
+              slotDate: newDate, // update only slotDate
+            },
+          }),
+        }
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to update");
+
+      // update UI
+      onUpdated?.(data.booking);
+
+      // move enquiry to old with note
+      moveToOld(
+        {
+          ...enquiry,
+          raw: { ...enquiry.raw, selectedSlot: data.booking.selectedSlot },
+        },
+        "Reminder set"
+      );
+
+      onClose();
+    } catch (err) {
+      alert(err.message || "Failed to set reminder");
+    }
+  };
+
+  return (
+    <Modal show={show} onHide={onClose} centered>
+      <Modal.Header closeButton>
+        <Modal.Title style={{ fontSize: 16 }}>Set Reminder</Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
+        <Form.Group>
+          <Form.Label>Choose new reminder date</Form.Label>
+          <Form.Control
+            type="date"
+            value={newDate}
+            onChange={(e) => setNewDate(e.target.value)}
+          />
+        </Form.Group>
+      </Modal.Body>
+      <Modal.Footer>
+        <Button variant="secondary" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button variant="danger" onClick={handleSave}>
+          Save Reminder
+        </Button>
+      </Modal.Footer>
+    </Modal>
+  );
+};
+
 const Enquiries = () => {
   const [showOld, setShowOld] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [visibleLeads, setVisibleLeads] = useState(6); // State for pagination
   const navigate = useNavigate();
 
   const [newEnquiries, setNewEnquiries] = useState([]);
   const [oldEnquiries, setOldEnquiries] = useState([]);
+const [showEdit, setShowEdit] = useState(false);
 
   const [expandedEnquiryUID, setExpandedEnquiryUID] = useState(null);
   const [selectedLead, setSelectedLead] = useState(null);
   const [selectedIsOld, setSelectedIsOld] = useState(false);
+const [showReminder, setShowReminder] = useState(false);
 
-  // confirm modal state
   const [confirmState, setConfirmState] = useState({
     show: false,
     title: "",
     message: "",
-    note: "", // "Dismissed" | "Marked as Unread"
+    note: "",
   });
 
   useEffect(() => {
     const fetchPendingBookings = async () => {
       try {
-        const res = await fetch("https://homjee-backend.onrender.com/api/bookings/get-all-enquiries");
+        const res = await fetch(
+          "https://homjee-backend.onrender.com/api/bookings/get-all-enquiries"
+        );
         const data = await res.json();
 
         if (data.allEnquies) {
-          const filtered = data.allEnquies.filter(
-            (booking) => booking.bookingDetails?.status === "Pending"
-          );
+          // Get current date for comparison
+          const currentDate = new Date();
+          const twoDaysInMs = 2 * 24 * 60 * 60 * 1000; // 2 days in milliseconds
 
-          // const transformed = filtered.map((booking) => {
-          //   const serviceNames = (booking?.service || [])
-          //     .map((s) => s?.serviceName)
-          //     .filter(Boolean)
-          //     .join(", ");
+          // Filter and sort enquiries by bookingDate in descending order
+          const filtered = data.allEnquies
+            .filter((booking) => booking.bookingDetails?.status === "Pending")
+            .sort(
+              (a, b) =>
+                new Date(b.bookingDetails.bookingDate) -
+                new Date(a.bookingDetails.bookingDate)
+            );
 
-          //   const categories = [
-          //     ...new Set((booking?.service || []).map((s) => s?.category).filter(Boolean)),
-          //   ].join(", ");
+          // Transform and split into new and old enquiries
+          const newLeads = [];
+          const oldLeads = [];
 
-          //   return {
-          //     _uid: genUID(),
-          //     date: new Date(booking.bookingDetails.bookingDate).toLocaleDateString(
-          //       "en-GB",
-          //       { day: "2-digit", month: "2-digit", year: "numeric" }
-          //     ),
-          //     time: booking.bookingDetails.bookingTime || "",
-          //     name: booking.customer?.name || "",
-          //     contact: booking.customer?.phone ? `+91 ${booking.customer.phone}` : "",
-          //     category: categories || "Service",
-          //     formName : formName || "",
-          //     filledData: {
-          //       serviceType: serviceNames || "",
-          //       location: booking.address?.streetArea || "",
-          //       houseNumber: booking.address?.houseFlatNumber || "",
-          //       landmark: booking.address?.landMark || "",
-          //       timeSlot: booking.selectedSlot?.slotTime || "",
-          //       payment:
-          //         booking.bookingDetails?.paymentStatus === "Paid"
-          //           ? `₹${booking.bookingDetails?.paidAmount || 0} (Paid)`
-          //           : "(Unpaid)",
-          //     },
-          //     googleLocation: `https://maps.google.com/?q=0,0`,
-          //   };
-          // });
-const transformed = filtered.map((booking) => {
-  // 1) Safely derive formName from whatever your API sends
-  const derivedFormName =
-    booking?.formName ??
-    booking?.form?.name ??
-    booking?.form?.title ??
-    booking?.meta?.formName ??
-    booking?.source?.formName ??
-    "Website Service Page"; // final fallback
+          filtered.forEach((booking) => {
+            const bookingDate = new Date(booking.bookingDetails.bookingDate);
+            const timeDiff = currentDate - bookingDate;
 
-  // 2) Service names and categories (as you had)
-  const serviceNames = (booking?.service || [])
-    .map((s) => s?.serviceName)
-    .filter(Boolean)
-    .join(", ");
+              const derivedFormName =
+            booking?.formName ?? booking?.form?.name ?? booking?.form?.title ?? booking?.meta?.formName ?? booking?.source?.formName ?? "NA";
 
-  const categories = [
-    ...new Set((booking?.service || []).map((s) => s?.category).filter(Boolean)),
-  ].join(", ");
+            const serviceNames = (booking?.service || [])
+              .map((s) => s?.serviceName)
+              .filter(Boolean)
+              .join(", ");
 
-  // 3) Date/time safe formatting
-  const rawDate = booking?.bookingDetails?.bookingDate;
-  const dateStr = rawDate
-    ? new Date(rawDate).toLocaleDateString("en-GB", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      })
-    : "—";
+            const categories = [
+              ...new Set(
+                (booking?.service || []).map((s) => s?.category).filter(Boolean)
+              ),
+            ].join(", ");
 
-  const timeStr = booking?.bookingDetails?.bookingTime || "—";
+            const rawDate = booking?.selectedSlot?.slotDate;
+            const dateStr = rawDate
+              ? new Date(rawDate).toLocaleDateString("en-GB", {
+                  day: "2-digit",
+                  month: "2-digit",
+                  year: "numeric",
+                })
+              : "—";
 
-  // 4) Google map link from coordinates if available
-  const coords = booking?.address?.location?.coordinates; // [lng, lat]
-  const [lng, lat] = Array.isArray(coords) && coords.length === 2 ? coords : [0, 0];
-  const googleLocation = `https://maps.google.com/?q=${lat},${lng}`;
+            const timeStr = booking?.selectedSlot?.slotTime || "—";
 
-  return {
-    _uid: genUID(),
-    date: dateStr,
-    time: timeStr,
-    name: booking?.customer?.name || "",
-    contact: booking?.customer?.phone ? `+91 ${booking.customer.phone}` : "",
-    category: categories || "Service",
-    formName: derivedFormName, // <-- use the variable you defined
-    filledData: {
-      serviceType: serviceNames || "",
-      location: booking?.address?.streetArea || "",
-      houseNumber: booking?.address?.houseFlatNumber || "",
-      landmark: booking?.address?.landMark || "",
-      timeSlot: booking?.selectedSlot?.slotTime || "",
-      payment:
-        booking?.bookingDetails?.paymentStatus === "Paid"
-          ? `₹${booking?.bookingDetails?.paidAmount || 0} (Paid)`
-          : "(Unpaid)",
-    },
-    googleLocation,
-  };
-});
+            const coords = booking?.address?.location?.coordinates;
+            const [lng, lat] =
+              Array.isArray(coords) && coords.length === 2 ? coords : [0, 0];
+            const googleLocation = `https://maps.google.com/?q=${lat},${lng}`;
 
-          setNewEnquiries(transformed);
+            
+   const createdDate = new Date(booking?.createdDate);
+          const createdTime = new Date(booking?.createdDate).toLocaleTimeString();
+
+            // const enquiry = {
+            //   _uid: genUID(),
+            //   date: dateStr,
+            //   time: timeStr,
+            //   name: booking?.customer?.name || "",
+            //   contact: booking?.customer?.phone
+            //     ? `+91 ${booking.customer.phone}`
+            //     : "",
+            //   category: categories || "Service",
+            //   formName: derivedFormName,
+            //   filledData: {
+            //     serviceType: serviceNames || "",
+            //     location: booking?.address?.streetArea || "",
+            //     houseNumber: booking?.address?.houseFlatNumber || "",
+            //     landmark: booking?.address?.landMark || "",
+            //     timeSlot: booking?.selectedSlot?.slotTime || "",
+            //     payment:
+            //       booking?.bookingDetails?.paymentStatus === "Paid"
+            //         ? `₹${booking?.bookingDetails?.paidAmount || 0} (Paid)`
+            //         : "(Unpaid)",
+            //   },
+            //   googleLocation,
+            //    createdDate: createdDate.toLocaleDateString("en-GB", {
+            //   day: "2-digit",
+            //   month: "2-digit",
+            //   year: "numeric",
+            // }), // Format created date
+            // createdTime,
+            // };
+            const enquiry = {
+  _uid: genUID(),
+  // --- for display ---
+  date: dateStr,
+  time: timeStr,
+  name: booking?.customer?.name || "",
+  contact: booking?.customer?.phone ? `+91 ${booking.customer.phone}` : "",
+  category: categories || "Service",
+  formName: derivedFormName,
+  filledData: {
+    serviceType: serviceNames || "",
+    location: booking?.address?.streetArea || "",
+    houseNumber: booking?.address?.houseFlatNumber || "",
+    landmark: booking?.address?.landMark || "",
+    timeSlot: booking?.selectedSlot?.slotTime || "",
+    payment:
+      booking?.bookingDetails?.paymentStatus === "Paid"
+        ? `₹${booking?.bookingDetails?.paidAmount || 0} (Paid)`
+        : "(Unpaid)",
+  },
+  googleLocation,
+  createdDate: createdDate.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }),
+  createdTime,
+
+  // --- keep raw fields for editing ---
+  bookingId: booking?._id,
+  raw: {
+    customer: booking?.customer || {},
+    service: booking?.service || [],
+    bookingDetails: booking?.bookingDetails || {},
+    address: booking?.address || {},
+    selectedSlot: booking?.selectedSlot || {},
+    isEnquiry: booking?.isEnquiry ?? true,
+    formName: booking?.formName || "",
+  },
+};
+
+
+            // Move to oldEnquiries if older than 2 days
+            if (timeDiff > twoDaysInMs) {
+              oldLeads.push({ ...enquiry, note: "Moved to Old (Older than 2 days)" });
+            } else {
+              newLeads.push(enquiry);
+            }
+          });
+
+          setNewEnquiries(newLeads);
+          setOldEnquiries(oldLeads);
         }
       } catch (err) {
         console.error("Error fetching bookings:", err);
@@ -177,7 +296,6 @@ const transformed = filtered.map((booking) => {
     setExpandedEnquiryUID((prev) => (prev === uid ? null : uid));
   };
 
-  // ---- Moving logic ----
   const moveToOld = (lead, note = "") => {
     if (!lead) return;
     setOldEnquiries((prev) => [
@@ -185,12 +303,73 @@ const transformed = filtered.map((booking) => {
       ...prev,
     ]);
     setNewEnquiries((prev) => prev.filter((e) => e._uid !== lead._uid));
-    // Switch to Old tab and return to list view
+
     setShowOld(true);
     handleBackToList();
   };
 
-  // ---- Open confirmation modal for actions ----
+  const upsertEditedIntoLists = (updatedBooking) => {
+  // rebuild a display object (enquiry) from updatedBooking using the SAME logic you used in fetch
+  // but we can minimally patch the current selected lead to keep it simple.
+
+  const patch = (list) =>
+    list.map((item) => {
+      if (item._uid !== selectedLead?._uid) return item;
+
+      const b = updatedBooking;
+      const categories = [...new Set((b?.service || []).map(s => s?.category).filter(Boolean))].join(", ");
+      const serviceNames = (b?.service || [])
+        .map(s => s?.serviceName)
+        .filter(Boolean)
+        .join(", ");
+
+      const rawDate = b?.selectedSlot?.slotDate;
+      const dateStr = rawDate
+        ? new Date(rawDate).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" })
+        : "—";
+      const timeStr = b?.selectedSlot?.slotTime || "—";
+
+      return {
+        ...item,
+        date: dateStr,
+        time: timeStr,
+        name: b?.customer?.name || "",
+        contact: b?.customer?.phone ? `+91 ${b.customer.phone}` : "",
+        category: categories || "Service",
+        formName: b?.formName || item.formName,
+        filledData: {
+          ...item.filledData,
+          serviceType: serviceNames || "",
+          location: b?.address?.streetArea || "",
+          houseNumber: b?.address?.houseFlatNumber || "",
+          landmark: b?.address?.landMark || "",
+          timeSlot: b?.selectedSlot?.slotTime || "",
+          payment:
+            b?.bookingDetails?.paymentStatus === "Paid"
+              ? `₹${b?.bookingDetails?.paidAmount || 0} (Paid)`
+              : "(Unpaid)",
+        },
+        // keep raw up-to-date
+        raw: {
+          customer: b?.customer || {},
+          service: b?.service || [],
+          bookingDetails: b?.bookingDetails || {},
+          address: b?.address || {},
+          selectedSlot: b?.selectedSlot || {},
+          isEnquiry: b?.isEnquiry ?? item?.raw?.isEnquiry,
+          formName: b?.formName || item?.raw?.formName,
+        },
+      };
+    });
+
+  if (selectedIsOld) {
+    setOldEnquiries((prev) => patch(prev));
+  } else {
+    setNewEnquiries((prev) => patch(prev));
+  }
+};
+
+
   const confirmDismiss = () => {
     if (!selectedLead || selectedIsOld) return;
     setConfirmState({
@@ -223,6 +402,57 @@ const transformed = filtered.map((booking) => {
     setConfirmState((s) => ({ ...s, show: false }));
   };
 
+  // Handle Load More button click
+
+
+  const upsertEditedIntoListsReturnSelected = (currentSelected, updatedBooking) => {
+  // Rebuild the same object for the selected lead (same as the patch logic above)
+  const b = updatedBooking;
+  const categories = [...new Set((b?.service || []).map(s => s?.category).filter(Boolean))].join(", ");
+  const serviceNames = (b?.service || [])
+    .map(s => s?.serviceName)
+    .filter(Boolean)
+    .join(", ");
+
+  const rawDate = b?.selectedSlot?.slotDate;
+  const dateStr = rawDate
+    ? new Date(rawDate).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" })
+    : "—";
+  const timeStr = b?.selectedSlot?.slotTime || "—";
+
+  return {
+    ...currentSelected,
+    date: dateStr,
+    time: timeStr,
+    name: b?.customer?.name || "",
+    contact: b?.customer?.phone ? `+91 ${b.customer.phone}` : "",
+    category: categories || "Service",
+    formName: b?.formName || currentSelected.formName,
+    filledData: {
+      ...currentSelected.filledData,
+      serviceType: serviceNames || "",
+      location: b?.address?.streetArea || "",
+      houseNumber: b?.address?.houseFlatNumber || "",
+      landmark: b?.address?.landMark || "",
+      timeSlot: b?.selectedSlot?.slotTime || "",
+      payment:
+        b?.bookingDetails?.paymentStatus === "Paid"
+          ? `₹${b?.bookingDetails?.paidAmount || 0} (Paid)`
+          : "(Unpaid)",
+    },
+    raw: {
+      customer: b?.customer || {},
+      service: b?.service || [],
+      bookingDetails: b?.bookingDetails || {},
+      address: b?.address || {},
+      selectedSlot: b?.selectedSlot || {},
+      isEnquiry: b?.isEnquiry ?? currentSelected?.raw?.isEnquiry,
+      formName: b?.formName || currentSelected?.raw?.formName,
+    },
+  };
+};
+
+
   return (
     <div style={styles.container}>
       <div style={styles.headerContainer}>
@@ -239,6 +469,7 @@ const transformed = filtered.map((booking) => {
           onClick={() => {
             setShowOld(false);
             handleBackToList();
+            // setVisibleLeads(6); // Reset visible leads when switching tabs
           }}
         >
           New Enquiries ({newEnquiries.length})
@@ -248,6 +479,7 @@ const transformed = filtered.map((booking) => {
           onClick={() => {
             setShowOld(true);
             handleBackToList();
+            // setVisibleLeads(6); // Reset visible leads when switching tabs
           }}
         >
           Old Enquiries ({oldEnquiries.length})
@@ -257,51 +489,78 @@ const transformed = filtered.map((booking) => {
       {expandedEnquiryUID === null ? (
         // ---- LIST VIEW ----
         <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-          {(showOld ? oldEnquiries : newEnquiries).map((enquiry) => (
-            <div
-              key={enquiry._uid}
-              style={styles.card}
-              onClick={() => toggleEnquiry(enquiry._uid, showOld)}
-            >
-              <div style={styles.cardHeader}>
+          {(showOld ? oldEnquiries : newEnquiries)
+            .slice(0, visibleLeads)
+            .map((enquiry) => (
+              <div
+                key={enquiry._uid}
+                style={styles.card}
+                onClick={() => toggleEnquiry(enquiry._uid, showOld)}
+              >
+                <div style={styles.cardHeader}>
+                  <p
+                    style={{
+                      fontSize: "14px",
+                      fontWeight: "bold",
+                      color:
+                        enquiry.category === "Deep Cleaning" ? "red" : "#008E00",
+                    }}
+                  >
+                    {enquiry.category}
+                  </p>
+                  <p style={{ fontSize: "12px", fontWeight: 600 }}>
+                    {enquiry.date}
+                  </p>
+                </div>
+
+                <div style={styles.cardHeader}>
+                  <p style={{ fontWeight: "bold", fontSize: "14px" }}>
+                    {enquiry.name}
+                  </p>
+                  <p
+                    style={{
+                      fontSize: "12px",
+                      fontWeight: 600,
+                      marginTop: "-1%",
+                    }}
+                  >
+                    {enquiry.time}
+                  </p>
+                </div>
+
                 <p
                   style={{
-                    fontSize: "14px",
-                    fontWeight: "bold",
-                    color: enquiry.category === "Deep Cleaning" ? "red" : "#008E00",
+                    display: "flex",
+                    alignItems: "center",
+                    fontSize: "12px",
+                    marginTop: "-1%",
                   }}
                 >
-                  {enquiry.category}
+                  <FaMapMarkerAlt style={{ marginRight: 5 }} />
+                  {enquiry.filledData?.location}
                 </p>
-                <p style={{ fontSize: "12px", fontWeight: 600 }}>{enquiry.date}</p>
+
+                {showOld && enquiry.note ? (
+                  <p style={{ fontSize: 11, color: "#777", marginTop: 6 }}>
+                    Moved to Old: <strong>{enquiry.note}</strong>
+                  </p>
+                ) : null}
               </div>
-
-              <div style={styles.cardHeader}>
-                <p style={{ fontWeight: "bold", fontSize: "14px" }}>{enquiry.name}</p>
-                <p style={{ fontSize: "12px", fontWeight: 600, marginTop: "-1%" }}>
-                  {enquiry.time}
-                </p>
-              </div>
-
-              <p
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  fontSize: "12px",
-                  marginTop: "-1%",
-                }}
-              >
-                <FaMapMarkerAlt style={{ marginRight: 5 }} />
-                {enquiry.filledData?.location}
-              </p>
-
-              {showOld && enquiry.note ? (
-                <p style={{ fontSize: 11, color: "#777", marginTop: 6 }}>
-                  Moved to Old: <strong>{enquiry.note}</strong>
-                </p>
-              ) : null}
-            </div>
-          ))}
+            ))}
+          {/* Load More Button */}
+          {(showOld ? oldEnquiries : newEnquiries).length > visibleLeads && (
+            <button
+              style={{
+                ...styles.buttonPrimary,
+                marginTop: "15px",
+                backgroundColor: "#e0e0e0",
+                alignSelf: "center",
+              }}
+              onClick={handleLoadMore}
+            >
+              Load More
+            </button>
+          )}
         </div>
       ) : (
         // ---- DETAILS VIEW ----
@@ -334,7 +593,8 @@ const transformed = filtered.map((booking) => {
                   <p className="fw-bold mb-1">{selectedLead?.name}</p>
 
                   <p className="text-muted mb-1" style={{ fontSize: "12px" }}>
-                    <FaMapMarkerAlt className="me-1" /> {selectedLead?.filledData?.location}
+                    <FaMapMarkerAlt className="me-1" />{" "}
+                    {selectedLead?.filledData?.location}
                   </p>
                   <p className="text-muted mb-1" style={{ fontSize: "14px" }}>
                     <FaPhone className="me-1" /> {selectedLead?.contact}
@@ -350,25 +610,27 @@ const transformed = filtered.map((booking) => {
                   </p>
                   <button
                     className="btn btn-danger mb-2 w-100"
-                    style={{ borderRadius: "8px", fontSize: "12px", padding: "4px 8px" }}
+                    style={{
+                      borderRadius: "8px",
+                      fontSize: "12px",
+                      padding: "4px 8px",
+                    }}
                   >
                     Directions
                   </button>
                   <button
                     className="btn btn-outline-danger w-100"
-                    style={{ borderRadius: "8px", fontSize: "12px", padding: "4px 8px" }}
+                    style={{
+                      borderRadius: "8px",
+                      fontSize: "12px",
+                      padding: "4px 8px",
+                    }}
                   >
                     Call
                   </button>
                 </div>
               </div>
 
-              {/* <p
-                className="text-dark fw-semibold mb-1"
-                style={{ fontSize: "14px", marginTop: "2%" }}
-              >
-                Package Name: Deluxe Cleaning Package
-              </p> */}
               <hr />
 
               <div className="d-flex justify-content-between mt-4">
@@ -388,10 +650,10 @@ const transformed = filtered.map((booking) => {
                       <strong>{selectedLead?.formName || "—"}</strong>
                     </p>
                     <p style={{ fontSize: "12px" }}>
-                      <span className="text-muted">Form Filling Time&Date:</span>{" "}
-                      <strong>
-                        ({selectedLead?.date} {selectedLead?.time})
-                      </strong>
+                      <span className="text-muted">
+                        Form Filling Time&Date:
+                      </span>{" "}
+              {selectedLead?.createdDate} at {selectedLead?.createdTime}
                     </p>
                     {selectedIsOld && selectedLead?.note ? (
                       <p style={{ fontSize: "12px", marginTop: 8 }}>
@@ -408,40 +670,54 @@ const transformed = filtered.map((booking) => {
                 <div className="mt-4 d-flex">
                   <button
                     className="btn btn-secondary me-2"
-                    style={{ borderRadius: "8px", fontSize: "10px", padding: "4px" }}
+                    style={{
+                      borderRadius: "8px",
+                      fontSize: "10px",
+                      padding: "4px",
+                    }}
+                     onClick={() => setShowEdit(true)}
                   >
                     Edit Enquiry
                   </button>
 
                   <button
                     className="btn btn-secondary me-2"
-                    style={{ borderRadius: "8px", fontSize: "10px", padding: "4px" }}
+                    style={{
+                      borderRadius: "8px",
+                      fontSize: "10px",
+                      padding: "4px",
+                    }}
                     onClick={confirmDismiss}
                   >
                     Dismiss
                   </button>
 
-                  <button
-                    className="btn btn-secondary me-2"
-                    style={{ borderRadius: "8px", fontSize: "10px", padding: "4px" }}
-                  >
-                    Set Reminder
-                  </button>
+                 <button
+  className="btn btn-secondary me-2"
+  style={{
+    borderRadius: "8px",
+    fontSize: "10px",
+    padding: "4px",
+  }}
+  onClick={() => setShowReminder(true)}
+>
+  Set Reminder
+</button>
+
 
                   <button
                     className="btn btn-secondary me-2"
-                    style={{ borderRadius: "8px", fontSize: "10px", padding: "4px" }}
+                    style={{
+                      borderRadius: "8px",
+                      fontSize: "10px",
+                      padding: "4px",
+                    }}
                     onClick={confirmMarkAsUnread}
                   >
                     Mark as Unread
                   </button>
 
-                  <button
-                    className="btn btn-danger"
-                    style={{ borderRadius: "8px", fontSize: "10px" }}
-                  >
-                    Cancel Lead
-                  </button>
+               
                 </div>
               ) : null}
             </div>
@@ -461,6 +737,35 @@ const transformed = filtered.map((booking) => {
         onConfirm={handleConfirmOk}
         onCancel={handleConfirmCancel}
       />
+      {showEdit && selectedLead && (
+  <EditEnquiryModal
+    show={showEdit}
+    onClose={() => setShowEdit(false)}
+    enquiry={selectedLead}
+    onUpdated={(updatedBooking) => {
+      upsertEditedIntoLists(updatedBooking);
+      // keep the details pane in sync
+      setSelectedLead((prev) => prev ? upsertEditedIntoListsReturnSelected(prev, updatedBooking) : prev);
+    }}
+  />
+)}
+
+{showReminder && selectedLead && (
+  <ReminderModal
+    show={showReminder}
+    onClose={() => setShowReminder(false)}
+    enquiry={selectedLead}
+    onUpdated={(updatedBooking) => {
+      upsertEditedIntoLists(updatedBooking);
+      setSelectedLead((prev) =>
+        prev ? upsertEditedIntoListsReturnSelected(prev, updatedBooking) : prev
+      );
+    }}
+    moveToOld={moveToOld}
+  />
+)}
+
+
     </div>
   );
 };
@@ -532,4 +837,3 @@ const styles = {
 };
 
 export default Enquiries;
-

@@ -2,163 +2,138 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import CreateLeadModal from "./CreateLeadModal";
 import { FaMapMarkerAlt } from "react-icons/fa";
+import { useLocation } from "react-router-dom";
+import { toast } from "react-toastify";
 
 const NewLeads = () => {
   const navigate = useNavigate();
+   const location = useLocation();
   const [showModal, setShowModal] = useState(false);
   const [showAll, setShowAll] = useState(false);
   const [city, setCity] = useState("");
   const [service, setService] = useState("");
   const [completedLeads, setCompletedLeads] = useState([]);
 
-  // useEffect(() => {
-  //   const fetchAllLeads = async () => {
-  //     try {
-  //       const res = await fetch("https://homjee-backend.onrender.com/api/bookings/get-all-leads");
-  //       const data = await res.json();
-  //       console.log("Fetched data:", data);
-
-  //       const leadsData = data.allLeads || data.bookings || [];
-  //       const transformed = leadsData.map((booking, index) => {
-          
-  //         const serviceNames = booking.service.map((s) => s.serviceName).join(", ");
-  //         const categories = [...new Set(booking.service.map((s) => s.category))].join(", ");
-
-  //         return {
-  //           id: booking._id || index + 1,
-  //           date: new Date(booking.bookingDetails.bookingDate).toLocaleDateString("en-GB", {
-  //             day: "2-digit",
-  //             month: "2-digit",
-  //             year: "numeric",
-  //           }),
-  //           time: booking.bookingDetails.bookingTime,
-  //           name: booking.customer.name,
-  //           contact: "+91 " + booking.customer.phone,
-  //           formName: categories,
-  //           serviceType: serviceNames,
-  //           location: booking.address.streetArea,
-  //           status: booking.bookingDetails.status,
-  //           filledData: {
-  //             serviceType: serviceNames,
-  //             location: {
-  //               name: booking.address.streetArea || "Unknown Location",
-  //               lat: booking.address.location?.coordinates?.[1] || 0, // Latitude: 12.9005387
-  //               lng: booking.address.location?.coordinates?.[0] || 0, // Longitude: 77.5231078
-  //             },
-  //             houseNumber: booking.address.houseFlatNumber || "",
-  //             landmark: booking.address.landMark || "",
-  //             timeSlot: booking.selectedSlot?.slotTime || "",
-  //             payment: `${
-  //               booking.bookingDetails.paymentStatus === "Paid"
-  //                 ? "₹" + booking.bookingDetails.paidAmount + " (Paid)"
-  //                 : "Unpaid"
-  //             }`,
-  //             assignedVendor: booking.assignedProfessional?.name || "",
-  //           },
-  //         };
-  //       });
-
-  //       console.log("Transformed leads:", transformed); // Log transformed data
-  //       setCompletedLeads(transformed);
-  //     } catch (err) {
-  //       console.error("Error loading leads:", err);
-  //     }
-  //   };
-
-  //   fetchAllLeads();
-  // }, []);
-
-
-  useEffect(() => {
-  const fetchAllLeads = async () => {
-    try {
-      const res = await fetch("https://homjee-backend.onrender.com/api/bookings/get-all-leads");
-      if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`);
-
-      const data = await res.json();
-      const leadsData = data?.allLeads || data?.bookings || [];
-
-      const transformed = leadsData.map((booking, index) => {
-        // ---- form name from backend with safe fallbacks ----
-     // ---- form name from backend with safe fallbacks ----
-const derivedFormName =
-  (
-    booking?.formName ??
-    booking?.form?.name ??
-    booking?.form?.title ??
-    booking?.meta?.formName
-  ) ||
-  [...new Set((booking?.service || [])
-    .map((s) => s?.category)
-    .filter(Boolean))].join(", ") ||
-  "—";
-
-
-        // ---- service names ----
-        const serviceNames = (booking?.service || [])
-          .map((s) => s?.serviceName)
-          .filter(Boolean)
-          .join(", ");
-
-        // ---- booking date/time (form filling date & time) ----
-        const rawDate = booking?.bookingDetails?.bookingDate;
-        const date = rawDate
-          ? new Date(rawDate).toLocaleDateString("en-GB", {
-              day: "2-digit",
-              month: "2-digit",
-              year: "numeric",
-            })
-          : "N/A";
-        const time = booking?.bookingDetails?.bookingTime || "N/A";
-
-        // ---- location + coords ----
-        const streetArea = booking?.address?.streetArea || "Unknown Location";
-        const coords = booking?.address?.location?.coordinates; // [lng, lat]
-        const [lng, lat] = Array.isArray(coords) && coords.length === 2 ? coords : [0, 0];
-
-        return {
-          id: booking?._id || index + 1,
-          date,
-          time,
-          name: booking?.customer?.name || "Unknown Customer",
-          contact: booking?.customer?.phone ? `+91 ${booking.customer.phone}` : "N/A",
-          formName: derivedFormName,
-          serviceType: serviceNames,
-          location: streetArea,
-          status: booking?.bookingDetails?.status || "N/A",
-          filledData: {
-            serviceType: serviceNames,
-            location: {
-              name: streetArea,
-              lat,
-              lng,
-            },
-            houseNumber: booking?.address?.houseFlatNumber || "",
-            landmark: booking?.address?.landMark || "",
-            timeSlot: booking?.selectedSlot?.slotTime || "",
-            payment:
-              booking?.bookingDetails?.paymentStatus === "Paid"
-                ? `₹${booking?.bookingDetails?.paidAmount || 0} (Paid)`
-                : "Unpaid",
-            assignedVendor: booking?.assignedProfessional?.name || "",
-          },
-        };
-      });
-
-      setCompletedLeads(transformed);
-    } catch (err) {
-      console.error("Error loading leads:", err);
-      setCompletedLeads([]);
-    }
+  // helper to format a date to IST
+  const toISTParts = (isoLike) => {
+    if (!isoLike) return { d: "N/A", t: "N/A" };
+    const d = new Date(isoLike);
+    if (isNaN(d.getTime())) return { d: "N/A", t: "N/A" };
+    const date = d.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Kolkata" });
+    const time = d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" });
+    return { d: date, t: time };
   };
 
-  fetchAllLeads();
-}, []);
+   useEffect(() => {
+    if (location.state?.cancelled) {
+      toast.success("Lead is cancelled"); // ✅ show toast
+      navigate(location.pathname, { replace: true }); 
+      // clears the state so toast doesn't reappear on refresh
+    }
+  }, [location, navigate]);
+
+  useEffect(() => {
+    const fetchAllLeads = async () => {
+      try {
+        const res = await fetch("https://homjee-backend.onrender.com/api/bookings/get-all-leads");
+        if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`);
+
+        const data = await res.json();
+        const leadsData = data?.allLeads || data?.bookings || [];
+
+        const transformed = leadsData.map((booking, index) => {
+          // ---- form name (derived) ----
+          const derivedFormName =
+            (
+              booking?.formName ??
+              booking?.form?.name ??
+              booking?.form?.title ??
+              booking?.meta?.formName
+            ) ||
+            [...new Set((booking?.service || []).map((s) => s?.category).filter(Boolean))].join(", ") ||
+            "—";
+
+          // ---- service names ----
+          const serviceNames = (booking?.service || [])
+            .map((s) => s?.serviceName)
+            .filter(Boolean)
+            .join(", ");
+
+          // ---- unique service categories ----
+          const serviceCategories = [
+            ...new Set((booking?.service || []).map((s) => s?.category).filter(Boolean))
+          ].join(", ");
+
+          // ---- selected slot date/time (what you show as lead date/time) ----
+          const rawSlotDate = booking?.selectedSlot?.slotDate; // e.g., "2025-09-09"
+          const date = rawSlotDate
+            ? new Date(rawSlotDate).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" })
+            : "N/A";
+          const time = booking?.selectedSlot?.slotTime || "N/A";
+
+          // ---- location + coords ----
+          const streetArea = booking?.address?.streetArea || "Unknown Location";
+          const coords = booking?.address?.location?.coordinates; // [lng, lat]
+          const [lng, lat] = Array.isArray(coords) && coords.length === 2 ? coords : [0, 0];
+
+          // ---- created date/time (for Form Details) ----
+          const createdAtISO = booking?.createdDate || booking?.bookingDetails?.bookingDate || null;
+          const { d: createdAtLocalDate, t: createdAtLocalTime } = toISTParts(createdAtISO);
+
+          return {
+            id: booking?._id || index + 1,
+            createdAt: createdAtISO,                // raw, for sorting
+            createdAtLocalDate,                     // "DD/MM/YYYY" in IST
+            createdAtLocalTime,                     // "HH:MM AM/PM" in IST
+            date,                                   // selected slot date (existing)
+            time,                                   // selected slot time (existing)
+            name: booking?.customer?.name || "Unknown Customer",
+            contact: booking?.customer?.phone ? `+91 ${booking.customer.phone}` : "N/A",
+            formName: derivedFormName,
+            serviceCategory: serviceCategories,
+            serviceType: serviceNames,
+            location: streetArea,
+            status: booking?.bookingDetails?.status || "N/A",
+            filledData: {
+              serviceCategory: serviceCategories,
+              serviceType: serviceNames,
+              location: {
+                name: streetArea,
+                lat,
+                lng,
+              },
+              houseNumber: booking?.address?.houseFlatNumber || "",
+              landmark: booking?.address?.landMark || "",
+              timeSlot: booking?.selectedSlot?.slotTime || "",
+              payment:
+                booking?.bookingDetails?.paymentStatus === "Paid"
+                  ? `₹${booking?.bookingDetails?.paidAmount || 0} (Paid)`
+                  : "Unpaid",
+              assignedVendor: booking?.assignedProfessional?.name || "",
+              // also pass created-at in case you prefer reading from filledData later
+              createdAtLocalDate,
+              createdAtLocalTime,
+            },
+          };
+        });
+
+        const sorted = transformed.sort(
+          (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+        );
+        setCompletedLeads(sorted);
+      } catch (err) {
+        console.error("Error loading leads:", err);
+        setCompletedLeads([]);
+      }
+    };
+
+    fetchAllLeads();
+  }, []);
 
   const filteredLeads = completedLeads.filter(
     (lead) =>
-      (city === "" || lead.location.toLowerCase().includes(city.toLowerCase())) &&
-      (service === "" || lead.serviceType.toLowerCase().includes(service.toLowerCase()))
+      (city === "" || (lead.location || "").toLowerCase().includes(city.toLowerCase())) &&
+      (service === "" || (lead.serviceType || "").toLowerCase().includes(service.toLowerCase()))
   );
 
   return (
@@ -190,10 +165,10 @@ const derivedFormName =
                 style={{
                   fontSize: "14px",
                   fontWeight: "bold",
-                  color: lead.filledData?.serviceType === "Deep Cleaning" ? "red" : "#008E00",
+                  color: (lead.filledData?.serviceCategory || "").includes("Deep Cleaning") ? "red" : "#008E00",
                 }}
               >
-                {lead.formName}
+                {lead.filledData?.serviceCategory || "N/A"}
               </p>
               <p style={styles.leadName}>{lead.name}</p>
               <p style={styles.leadInfo}>
@@ -227,9 +202,9 @@ const derivedFormName =
 };
 
 const styles = {
-  container: { padding: "20px", fontFamily: "'Poppins', sans-serif", marginLeft: "", minHeight: "100vh" },
+  container: { padding: "20px", fontFamily: "'Poppins', sans-serif", minHeight: "100vh" },
   header: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" },
-  heading: { fontSize: "", fontWeight: "bold", color: "#333" },
+  heading: { fontWeight: "bold", color: "#333" },
   buttonPrimary: { color: "black", padding: "10px 15px", borderRadius: "5px", border: "none", cursor: "pointer", fontWeight: "bold", fontSize: "13px" },
   dropdown: { padding: "8px", borderRadius: "5px", border: "1px solid #ccc", marginRight: "10px", fontSize: "12px" },
   leadList: { display: "flex", flexDirection: "column", gap: "12px" },
@@ -246,7 +221,6 @@ const styles = {
   leadTime: { textAlign: "right", fontSize: "14px" },
   leadName: { fontSize: "13px", fontWeight: "bold", color: "#333" },
   leadInfo: { fontSize: "12px", color: "#555", marginTop: "-13px" },
-  leadService: { fontSize: "14px", fontWeight: "bold", color: "#008E00" },
   buttonView: { backgroundColor: "#ed1f24", color: "white", padding: "6px 12px", borderRadius: "5px", border: "none", cursor: "pointer", fontWeight: "bold", fontSize: "10px" },
   buttonLoadMore: { color: "black", padding: "4px 10px", borderRadius: "10px", border: "black", cursor: "pointer", marginTop: "15px", fontWeight: "600", fontSize: "12px" },
 };

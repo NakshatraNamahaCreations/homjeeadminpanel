@@ -2,9 +2,11 @@ import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import logo from "../assets/logo.svg";
 import { FaSignOutAlt, FaPlus, FaBell, FaBars } from "react-icons/fa";
+import CreateLeadModal from "../pages/CreateLeadModal";
 
 const Header = ({ toggleSidebar }) => {
   const [showTooltip, setShowTooltip] = useState(false);
+    const [showModal, setShowModal] = useState(false);
 
   const styles = {
     header: {
@@ -66,13 +68,14 @@ const Header = ({ toggleSidebar }) => {
           onMouseLeave={() => setShowTooltip(false)}
           style={{ position: "relative" }}
         >
-          <FaPlus style={{ color: "red", cursor: "pointer" }} />
+          <FaPlus  onClick={() => setShowModal(true)} style={{ color: "red", cursor: "pointer" }} />
           <div style={styles.tooltip}>New Lead/Enquiry</div>
         </div>
 
         <Link to="/notification">
           <FaBell size={18} color="red" />
         </Link>
+            {showModal && <CreateLeadModal onClose={() => setShowModal(false)} />}
       </div>
     </header>
   );
