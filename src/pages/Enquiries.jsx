@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import CreateLeadModal from "./CreateLeadModal";
 import { FaMapMarkerAlt, FaPhone, FaArrowLeft } from "react-icons/fa";
-import { Button, Modal , Form } from "react-bootstrap";
+import { Button, Modal, Form } from "react-bootstrap";
 import EditEnquiryModal from "./EditEnquiryModal";
 
 const genUID = () => `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -113,12 +113,12 @@ const Enquiries = () => {
 
   const [newEnquiries, setNewEnquiries] = useState([]);
   const [oldEnquiries, setOldEnquiries] = useState([]);
-const [showEdit, setShowEdit] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
 
   const [expandedEnquiryUID, setExpandedEnquiryUID] = useState(null);
   const [selectedLead, setSelectedLead] = useState(null);
   const [selectedIsOld, setSelectedIsOld] = useState(false);
-const [showReminder, setShowReminder] = useState(false);
+  const [showReminder, setShowReminder] = useState(false);
 
   const [confirmState, setConfirmState] = useState({
     show: false,
@@ -157,8 +157,8 @@ const [showReminder, setShowReminder] = useState(false);
             const bookingDate = new Date(booking.bookingDetails.bookingDate);
             const timeDiff = currentDate - bookingDate;
 
-              const derivedFormName =
-            booking?.formName ?? booking?.form?.name ?? booking?.form?.title ?? booking?.meta?.formName ?? booking?.source?.formName ?? "NA";
+            const derivedFormName =
+              booking?.formName ?? booking?.form?.name ?? booking?.form?.title ?? booking?.meta?.formName ?? booking?.source?.formName ?? "NA";
 
             const serviceNames = (booking?.service || [])
               .map((s) => s?.serviceName)
@@ -174,10 +174,10 @@ const [showReminder, setShowReminder] = useState(false);
             const rawDate = booking?.selectedSlot?.slotDate;
             const dateStr = rawDate
               ? new Date(rawDate).toLocaleDateString("en-GB", {
-                  day: "2-digit",
-                  month: "2-digit",
-                  year: "numeric",
-                })
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric",
+              })
               : "—";
 
             const timeStr = booking?.selectedSlot?.slotTime || "—";
@@ -187,9 +187,9 @@ const [showReminder, setShowReminder] = useState(false);
               Array.isArray(coords) && coords.length === 2 ? coords : [0, 0];
             const googleLocation = `https://maps.google.com/?q=${lat},${lng}`;
 
-            
-   const createdDate = new Date(booking?.createdDate);
-          const createdTime = new Date(booking?.createdDate).toLocaleTimeString();
+
+            const createdDate = new Date(booking?.createdDate);
+            const createdTime = new Date(booking?.createdDate).toLocaleTimeString();
 
             // const enquiry = {
             //   _uid: genUID(),
@@ -221,45 +221,45 @@ const [showReminder, setShowReminder] = useState(false);
             // createdTime,
             // };
             const enquiry = {
-  _uid: genUID(),
-  // --- for display ---
-  date: dateStr,
-  time: timeStr,
-  name: booking?.customer?.name || "",
-  contact: booking?.customer?.phone ? `+91 ${booking.customer.phone}` : "",
-  category: categories || "Service",
-  formName: derivedFormName,
-  filledData: {
-    serviceType: serviceNames || "",
-    location: booking?.address?.streetArea || "",
-    houseNumber: booking?.address?.houseFlatNumber || "",
-    landmark: booking?.address?.landMark || "",
-    timeSlot: booking?.selectedSlot?.slotTime || "",
-    payment:
-      booking?.bookingDetails?.paymentStatus === "Paid"
-        ? `₹${booking?.bookingDetails?.paidAmount || 0} (Paid)`
-        : "(Unpaid)",
-  },
-  googleLocation,
-  createdDate: createdDate.toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }),
-  createdTime,
+              _uid: genUID(),
+              // --- for display ---
+              date: dateStr,
+              time: timeStr,
+              name: booking?.customer?.name || "",
+              contact: booking?.customer?.phone ? `+91 ${booking.customer.phone}` : "",
+              category: categories || "Service",
+              formName: derivedFormName,
+              filledData: {
+                serviceType: serviceNames || "",
+                location: booking?.address?.streetArea || "",
+                houseNumber: booking?.address?.houseFlatNumber || "",
+                landmark: booking?.address?.landMark || "",
+                timeSlot: booking?.selectedSlot?.slotTime || "",
+                payment:
+                  booking?.bookingDetails?.paymentStatus === "Paid"
+                    ? `₹${booking?.bookingDetails?.paidAmount || 0} (Paid)`
+                    : "(Unpaid)",
+              },
+              googleLocation,
+              createdDate: createdDate.toLocaleDateString("en-GB", {
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric",
+              }),
+              createdTime,
 
-  // --- keep raw fields for editing ---
-  bookingId: booking?._id,
-  raw: {
-    customer: booking?.customer || {},
-    service: booking?.service || [],
-    bookingDetails: booking?.bookingDetails || {},
-    address: booking?.address || {},
-    selectedSlot: booking?.selectedSlot || {},
-    isEnquiry: booking?.isEnquiry ?? true,
-    formName: booking?.formName || "",
-  },
-};
+              // --- keep raw fields for editing ---
+              bookingId: booking?._id,
+              raw: {
+                customer: booking?.customer || {},
+                service: booking?.service || [],
+                bookingDetails: booking?.bookingDetails || {},
+                address: booking?.address || {},
+                selectedSlot: booking?.selectedSlot || {},
+                isEnquiry: booking?.isEnquiry ?? true,
+                formName: booking?.formName || "",
+              },
+            };
 
 
             // Move to oldEnquiries if older than 2 days
@@ -309,65 +309,65 @@ const [showReminder, setShowReminder] = useState(false);
   };
 
   const upsertEditedIntoLists = (updatedBooking) => {
-  // rebuild a display object (enquiry) from updatedBooking using the SAME logic you used in fetch
-  // but we can minimally patch the current selected lead to keep it simple.
+    // rebuild a display object (enquiry) from updatedBooking using the SAME logic you used in fetch
+    // but we can minimally patch the current selected lead to keep it simple.
 
-  const patch = (list) =>
-    list.map((item) => {
-      if (item._uid !== selectedLead?._uid) return item;
+    const patch = (list) =>
+      list.map((item) => {
+        if (item._uid !== selectedLead?._uid) return item;
 
-      const b = updatedBooking;
-      const categories = [...new Set((b?.service || []).map(s => s?.category).filter(Boolean))].join(", ");
-      const serviceNames = (b?.service || [])
-        .map(s => s?.serviceName)
-        .filter(Boolean)
-        .join(", ");
+        const b = updatedBooking;
+        const categories = [...new Set((b?.service || []).map(s => s?.category).filter(Boolean))].join(", ");
+        const serviceNames = (b?.service || [])
+          .map(s => s?.serviceName)
+          .filter(Boolean)
+          .join(", ");
 
-      const rawDate = b?.selectedSlot?.slotDate;
-      const dateStr = rawDate
-        ? new Date(rawDate).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" })
-        : "—";
-      const timeStr = b?.selectedSlot?.slotTime || "—";
+        const rawDate = b?.selectedSlot?.slotDate;
+        const dateStr = rawDate
+          ? new Date(rawDate).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" })
+          : "—";
+        const timeStr = b?.selectedSlot?.slotTime || "—";
 
-      return {
-        ...item,
-        date: dateStr,
-        time: timeStr,
-        name: b?.customer?.name || "",
-        contact: b?.customer?.phone ? `+91 ${b.customer.phone}` : "",
-        category: categories || "Service",
-        formName: b?.formName || item.formName,
-        filledData: {
-          ...item.filledData,
-          serviceType: serviceNames || "",
-          location: b?.address?.streetArea || "",
-          houseNumber: b?.address?.houseFlatNumber || "",
-          landmark: b?.address?.landMark || "",
-          timeSlot: b?.selectedSlot?.slotTime || "",
-          payment:
-            b?.bookingDetails?.paymentStatus === "Paid"
-              ? `₹${b?.bookingDetails?.paidAmount || 0} (Paid)`
-              : "(Unpaid)",
-        },
-        // keep raw up-to-date
-        raw: {
-          customer: b?.customer || {},
-          service: b?.service || [],
-          bookingDetails: b?.bookingDetails || {},
-          address: b?.address || {},
-          selectedSlot: b?.selectedSlot || {},
-          isEnquiry: b?.isEnquiry ?? item?.raw?.isEnquiry,
-          formName: b?.formName || item?.raw?.formName,
-        },
-      };
-    });
+        return {
+          ...item,
+          date: dateStr,
+          time: timeStr,
+          name: b?.customer?.name || "",
+          contact: b?.customer?.phone ? `+91 ${b.customer.phone}` : "",
+          category: categories || "Service",
+          formName: b?.formName || item.formName,
+          filledData: {
+            ...item.filledData,
+            serviceType: serviceNames || "",
+            location: b?.address?.streetArea || "",
+            houseNumber: b?.address?.houseFlatNumber || "",
+            landmark: b?.address?.landMark || "",
+            timeSlot: b?.selectedSlot?.slotTime || "",
+            payment:
+              b?.bookingDetails?.paymentStatus === "Paid"
+                ? `₹${b?.bookingDetails?.paidAmount || 0} (Paid)`
+                : "(Unpaid)",
+          },
+          // keep raw up-to-date
+          raw: {
+            customer: b?.customer || {},
+            service: b?.service || [],
+            bookingDetails: b?.bookingDetails || {},
+            address: b?.address || {},
+            selectedSlot: b?.selectedSlot || {},
+            isEnquiry: b?.isEnquiry ?? item?.raw?.isEnquiry,
+            formName: b?.formName || item?.raw?.formName,
+          },
+        };
+      });
 
-  if (selectedIsOld) {
-    setOldEnquiries((prev) => patch(prev));
-  } else {
-    setNewEnquiries((prev) => patch(prev));
-  }
-};
+    if (selectedIsOld) {
+      setOldEnquiries((prev) => patch(prev));
+    } else {
+      setNewEnquiries((prev) => patch(prev));
+    }
+  };
 
 
   const confirmDismiss = () => {
@@ -406,51 +406,51 @@ const [showReminder, setShowReminder] = useState(false);
 
 
   const upsertEditedIntoListsReturnSelected = (currentSelected, updatedBooking) => {
-  // Rebuild the same object for the selected lead (same as the patch logic above)
-  const b = updatedBooking;
-  const categories = [...new Set((b?.service || []).map(s => s?.category).filter(Boolean))].join(", ");
-  const serviceNames = (b?.service || [])
-    .map(s => s?.serviceName)
-    .filter(Boolean)
-    .join(", ");
+    // Rebuild the same object for the selected lead (same as the patch logic above)
+    const b = updatedBooking;
+    const categories = [...new Set((b?.service || []).map(s => s?.category).filter(Boolean))].join(", ");
+    const serviceNames = (b?.service || [])
+      .map(s => s?.serviceName)
+      .filter(Boolean)
+      .join(", ");
 
-  const rawDate = b?.selectedSlot?.slotDate;
-  const dateStr = rawDate
-    ? new Date(rawDate).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" })
-    : "—";
-  const timeStr = b?.selectedSlot?.slotTime || "—";
+    const rawDate = b?.selectedSlot?.slotDate;
+    const dateStr = rawDate
+      ? new Date(rawDate).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" })
+      : "—";
+    const timeStr = b?.selectedSlot?.slotTime || "—";
 
-  return {
-    ...currentSelected,
-    date: dateStr,
-    time: timeStr,
-    name: b?.customer?.name || "",
-    contact: b?.customer?.phone ? `+91 ${b.customer.phone}` : "",
-    category: categories || "Service",
-    formName: b?.formName || currentSelected.formName,
-    filledData: {
-      ...currentSelected.filledData,
-      serviceType: serviceNames || "",
-      location: b?.address?.streetArea || "",
-      houseNumber: b?.address?.houseFlatNumber || "",
-      landmark: b?.address?.landMark || "",
-      timeSlot: b?.selectedSlot?.slotTime || "",
-      payment:
-        b?.bookingDetails?.paymentStatus === "Paid"
-          ? `₹${b?.bookingDetails?.paidAmount || 0} (Paid)`
-          : "(Unpaid)",
-    },
-    raw: {
-      customer: b?.customer || {},
-      service: b?.service || [],
-      bookingDetails: b?.bookingDetails || {},
-      address: b?.address || {},
-      selectedSlot: b?.selectedSlot || {},
-      isEnquiry: b?.isEnquiry ?? currentSelected?.raw?.isEnquiry,
-      formName: b?.formName || currentSelected?.raw?.formName,
-    },
+    return {
+      ...currentSelected,
+      date: dateStr,
+      time: timeStr,
+      name: b?.customer?.name || "",
+      contact: b?.customer?.phone ? `+91 ${b.customer.phone}` : "",
+      category: categories || "Service",
+      formName: b?.formName || currentSelected.formName,
+      filledData: {
+        ...currentSelected.filledData,
+        serviceType: serviceNames || "",
+        location: b?.address?.streetArea || "",
+        houseNumber: b?.address?.houseFlatNumber || "",
+        landmark: b?.address?.landMark || "",
+        timeSlot: b?.selectedSlot?.slotTime || "",
+        payment:
+          b?.bookingDetails?.paymentStatus === "Paid"
+            ? `₹${b?.bookingDetails?.paidAmount || 0} (Paid)`
+            : "(Unpaid)",
+      },
+      raw: {
+        customer: b?.customer || {},
+        service: b?.service || [],
+        bookingDetails: b?.bookingDetails || {},
+        address: b?.address || {},
+        selectedSlot: b?.selectedSlot || {},
+        isEnquiry: b?.isEnquiry ?? currentSelected?.raw?.isEnquiry,
+        formName: b?.formName || currentSelected?.raw?.formName,
+      },
+    };
   };
-};
 
 
   return (
@@ -653,7 +653,7 @@ const [showReminder, setShowReminder] = useState(false);
                       <span className="text-muted">
                         Form Filling Time&Date:
                       </span>{" "}
-              {selectedLead?.createdDate} at {selectedLead?.createdTime}
+                      {selectedLead?.createdDate} at {selectedLead?.createdTime}
                     </p>
                     {selectedIsOld && selectedLead?.note ? (
                       <p style={{ fontSize: "12px", marginTop: 8 }}>
@@ -675,7 +675,7 @@ const [showReminder, setShowReminder] = useState(false);
                       fontSize: "10px",
                       padding: "4px",
                     }}
-                     onClick={() => setShowEdit(true)}
+                    onClick={() => setShowEdit(true)}
                   >
                     Edit Enquiry
                   </button>
@@ -692,17 +692,17 @@ const [showReminder, setShowReminder] = useState(false);
                     Dismiss
                   </button>
 
-                 <button
-  className="btn btn-secondary me-2"
-  style={{
-    borderRadius: "8px",
-    fontSize: "10px",
-    padding: "4px",
-  }}
-  onClick={() => setShowReminder(true)}
->
-  Set Reminder
-</button>
+                  <button
+                    className="btn btn-secondary me-2"
+                    style={{
+                      borderRadius: "8px",
+                      fontSize: "10px",
+                      padding: "4px",
+                    }}
+                    onClick={() => setShowReminder(true)}
+                  >
+                    Set Reminder
+                  </button>
 
 
                   <button
@@ -717,7 +717,7 @@ const [showReminder, setShowReminder] = useState(false);
                     Mark as Unread
                   </button>
 
-               
+
                 </div>
               ) : null}
             </div>
@@ -738,32 +738,32 @@ const [showReminder, setShowReminder] = useState(false);
         onCancel={handleConfirmCancel}
       />
       {showEdit && selectedLead && (
-  <EditEnquiryModal
-    show={showEdit}
-    onClose={() => setShowEdit(false)}
-    enquiry={selectedLead}
-    onUpdated={(updatedBooking) => {
-      upsertEditedIntoLists(updatedBooking);
-      // keep the details pane in sync
-      setSelectedLead((prev) => prev ? upsertEditedIntoListsReturnSelected(prev, updatedBooking) : prev);
-    }}
-  />
-)}
+        <EditEnquiryModal
+          show={showEdit}
+          onClose={() => setShowEdit(false)}
+          enquiry={selectedLead}
+          onUpdated={(updatedBooking) => {
+            upsertEditedIntoLists(updatedBooking);
+            // keep the details pane in sync
+            setSelectedLead((prev) => prev ? upsertEditedIntoListsReturnSelected(prev, updatedBooking) : prev);
+          }}
+        />
+      )}
 
-{showReminder && selectedLead && (
-  <ReminderModal
-    show={showReminder}
-    onClose={() => setShowReminder(false)}
-    enquiry={selectedLead}
-    onUpdated={(updatedBooking) => {
-      upsertEditedIntoLists(updatedBooking);
-      setSelectedLead((prev) =>
-        prev ? upsertEditedIntoListsReturnSelected(prev, updatedBooking) : prev
-      );
-    }}
-    moveToOld={moveToOld}
-  />
-)}
+      {showReminder && selectedLead && (
+        <ReminderModal
+          show={showReminder}
+          onClose={() => setShowReminder(false)}
+          enquiry={selectedLead}
+          onUpdated={(updatedBooking) => {
+            upsertEditedIntoLists(updatedBooking);
+            setSelectedLead((prev) =>
+              prev ? upsertEditedIntoListsReturnSelected(prev, updatedBooking) : prev
+            );
+          }}
+          moveToOld={moveToOld}
+        />
+      )}
 
 
     </div>

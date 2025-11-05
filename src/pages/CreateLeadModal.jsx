@@ -28,7 +28,7 @@ const loadGoogleMaps = () =>
   });
 
 const AddressPickerModal = ({
- initialLatLng,
+  initialLatLng,
   initialAddress = "",
   onClose,
   onSelect,
@@ -41,7 +41,7 @@ const AddressPickerModal = ({
   const [addr, setAddr] = useState(initialAddress || "");
   const [houseFlat, setHouseFlat] = useState("");
   const [landmark, setLandmark] = useState("");
-   const [latLng, setLatLng] = useState(initialLatLng || null);
+  const [latLng, setLatLng] = useState(initialLatLng || null);
   const [saving, setSaving] = useState(false);
   const [houseFlatError, setHouseFlatError] = useState("");
 
@@ -58,93 +58,93 @@ const AddressPickerModal = ({
     return true;
   };
 
-useEffect(() => {
-  let map, autocomplete, marker, geocoder;
+  useEffect(() => {
+    let map, autocomplete, marker, geocoder;
 
-  const reverseGeocode = (pos) => {
-    if (!geocoderRef.current) return;
-    geocoderRef.current.geocode({ location: pos }, (results, status) => {
-      if (status === "OK" && results?.length) {
-        setAddr(results[0].formatted_address);
-      }
-    });
-  };
+    const reverseGeocode = (pos) => {
+      if (!geocoderRef.current) return;
+      geocoderRef.current.geocode({ location: pos }, (results, status) => {
+        if (status === "OK" && results?.length) {
+          setAddr(results[0].formatted_address);
+        }
+      });
+    };
 
-  const init = async (posToUse) => {
-    await loadGoogleMaps();
-    geocoder = new window.google.maps.Geocoder();
-    geocoderRef.current = geocoder;
+    const init = async (posToUse) => {
+      await loadGoogleMaps();
+      geocoder = new window.google.maps.Geocoder();
+      geocoderRef.current = geocoder;
 
-    map = new window.google.maps.Map(mapRef.current, {
-      center: posToUse,
-      zoom: 16,
-      streetViewControl: false,
-      mapTypeControl: false,
-    });
+      map = new window.google.maps.Map(mapRef.current, {
+        center: posToUse,
+        zoom: 16,
+        streetViewControl: false,
+        mapTypeControl: false,
+      });
 
-    marker = new window.google.maps.Marker({
-      map,
-      position: posToUse,
-      draggable: true,
-    });
-    markerRef.current = marker;
+      marker = new window.google.maps.Marker({
+        map,
+        position: posToUse,
+        draggable: true,
+      });
+      markerRef.current = marker;
 
-    const autocomplete = new window.google.maps.places.Autocomplete(inputRef.current, {
-      fields: ["formatted_address", "geometry"],
-    });
+      const autocomplete = new window.google.maps.places.Autocomplete(inputRef.current, {
+        fields: ["formatted_address", "geometry"],
+      });
 
-    autocomplete.addListener("place_changed", () => {
-      const place = autocomplete.getPlace();
-      if (!place.geometry) return;
-      const pos = {
-        lat: place.geometry.location.lat(),
-        lng: place.geometry.location.lng(),
-      };
-      setLatLng(pos);
-      setAddr(place.formatted_address || "");
-      map.panTo(pos);
-      marker.setPosition(pos);
-    });
-
-    map.addListener("click", (e) => {
-      const pos = { lat: e.latLng.lat(), lng: e.latLng.lng() };
-      setLatLng(pos);
-      marker.setPosition(pos);
-      reverseGeocode(pos);
-    });
-
-    marker.addListener("dragend", () => {
-      const pos = {
-        lat: marker.getPosition().lat(),
-        lng: marker.getPosition().lng(),
-      };
-      setLatLng(pos);
-      reverseGeocode(pos);
-    });
-
-    if (!initialAddress) reverseGeocode(posToUse);
-  };
-
-  // ✅ Try current location first
-  if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const currentPos = {
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
+      autocomplete.addListener("place_changed", () => {
+        const place = autocomplete.getPlace();
+        if (!place.geometry) return;
+        const pos = {
+          lat: place.geometry.location.lat(),
+          lng: place.geometry.location.lng(),
         };
-        setLatLng(currentPos);
-        init(currentPos);
-      },
-      () => {
-        // fallback if user blocks location
-        init(initialLatLng || { lat: 12.9716, lng: 77.5946 }); // default to Bangalore
-      }
-    );
-  } else {
-    init(initialLatLng || { lat: 12.9716, lng: 77.5946 });
-  }
-}, [initialLatLng, initialAddress]);
+        setLatLng(pos);
+        setAddr(place.formatted_address || "");
+        map.panTo(pos);
+        marker.setPosition(pos);
+      });
+
+      map.addListener("click", (e) => {
+        const pos = { lat: e.latLng.lat(), lng: e.latLng.lng() };
+        setLatLng(pos);
+        marker.setPosition(pos);
+        reverseGeocode(pos);
+      });
+
+      marker.addListener("dragend", () => {
+        const pos = {
+          lat: marker.getPosition().lat(),
+          lng: marker.getPosition().lng(),
+        };
+        setLatLng(pos);
+        reverseGeocode(pos);
+      });
+
+      if (!initialAddress) reverseGeocode(posToUse);
+    };
+
+    // ✅ Try current location first
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const currentPos = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          };
+          setLatLng(currentPos);
+          init(currentPos);
+        },
+        () => {
+          // fallback if user blocks location
+          init(initialLatLng || { lat: 12.9716, lng: 77.5946 }); // default to Bangalore
+        }
+      );
+    } else {
+      init(initialLatLng || { lat: 12.9716, lng: 77.5946 });
+    }
+  }, [initialLatLng, initialAddress]);
 
 
 
@@ -329,14 +329,14 @@ const formatTime = (time) => {
   const [hours, minutes] = time.split(":");
   const ampm = minutes.split(" ")[1];
   let newHour = parseInt(hours);
-  
+
   if (ampm === "PM" && newHour !== 12) {
     newHour += 12;
   }
   if (ampm === "AM" && newHour === 12) {
     newHour = 0;
   }
-  
+
   return `${String(newHour).padStart(2, "0")}:${minutes.split(" ")[0]}`;
 };
 
@@ -344,25 +344,25 @@ const TimePickerModal = ({ onClose, onSelect, approxHours = 5 }) => {
   const [dates] = useState(nextNDays(14));
   const [selectedDate, setSelectedDate] = useState(yyyymmdd(dates[0]));
   const [selectedTime, setSelectedTime] = useState("");
-    const [availableTimes, setAvailableTimes] = useState([]); 
+  const [availableTimes, setAvailableTimes] = useState([]);
 
   useEffect(() => {
-  const currentTime = new Date();
-  const currentHour = currentTime.getHours();
-  const currentMinute = currentTime.getMinutes();
-  
-  // Calculate time 3 hours from now
-  const threeHoursLater = new Date(currentTime);
-  threeHoursLater.setHours(currentHour + 3, currentMinute, 0, 0);
-  const threeHoursLaterString = `${String(threeHoursLater.getHours()).padStart(2, "0")}:${String(threeHoursLater.getMinutes()).padStart(2, "0")}`;
-  
+    const currentTime = new Date();
+    const currentHour = currentTime.getHours();
+    const currentMinute = currentTime.getMinutes();
 
-  const filteredTimes = hoursList.filter(time => {
-    return formatTime(time) > threeHoursLaterString;
-  }).slice(0, 10); 
+    // Calculate time 3 hours from now
+    const threeHoursLater = new Date(currentTime);
+    threeHoursLater.setHours(currentHour + 3, currentMinute, 0, 0);
+    const threeHoursLaterString = `${String(threeHoursLater.getHours()).padStart(2, "0")}:${String(threeHoursLater.getMinutes()).padStart(2, "0")}`;
 
-  setAvailableTimes(filteredTimes);
-}, [selectedDate]); 
+
+    const filteredTimes = hoursList.filter(time => {
+      return formatTime(time) > threeHoursLaterString;
+    }).slice(0, 10);
+
+    setAvailableTimes(filteredTimes);
+  }, [selectedDate]);
 
 
   const proceed = () => {
@@ -536,7 +536,7 @@ const CreateLeadModal = ({ onClose }) => {
     houseNo: "",
     landmark: "",
     serviceType: "",
-    
+
     timeSlot: "",
     slotDate: "",
     slotTime: "",
@@ -545,13 +545,13 @@ const CreateLeadModal = ({ onClose }) => {
     packages: [],
     selectedPackage: "",
     coordinates: { lat: 0, lng: 0 },
-      formName: "admin panel", 
-  createdDate: "", 
-  createdTime: "",
+    formName: "admin panel",
+    createdDate: "",
+    createdTime: "",
   });
 
 
-   const [categories, setCategories] = useState([]); 
+  const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
 
   const [errors, setErrors] = useState({
@@ -610,16 +610,16 @@ const CreateLeadModal = ({ onClose }) => {
         if (value && parseFloat(value) <= 0) return "Total Amount must be greater than 0";
         return "";
       case "bookingAmount":
-  if ((leadData.serviceType === "Deep Cleaning" || leadData.serviceType === "House Painting") && !value) {
-    return "Booking Amount is required";
-  }
-  if (value && !/^\d+(\.\d{1,2})?$/.test(value)) {
-    return "Booking Amount must be a valid number";
-  }
-  if (value && parseFloat(value) <= 0) {
-    return "Booking Amount must be greater than 0";
-  }
-  return "";
+        if ((leadData.serviceType === "Deep Cleaning" || leadData.serviceType === "House Painting") && !value) {
+          return "Booking Amount is required";
+        }
+        if (value && !/^\d+(\.\d{1,2})?$/.test(value)) {
+          return "Booking Amount must be a valid number";
+        }
+        if (value && parseFloat(value) <= 0) {
+          return "Booking Amount must be greater than 0";
+        }
+        return "";
 
       case "customPackage":
         if (value && value.length > 100) return "Custom Package must be 100 characters or less";
@@ -632,119 +632,119 @@ const CreateLeadModal = ({ onClose }) => {
 
 
 
-const handleChange = async (e) => {
-  const { name, value } = e.target;
-  let sanitizedValue = value;
+  const handleChange = async (e) => {
+    const { name, value } = e.target;
+    let sanitizedValue = value;
 
-  if (name === "name") {
-    sanitizedValue = value.replace(/[^a-zA-Z\s]/g, ''); 
-  } else if (name === "contact") {
-    sanitizedValue = value.replace(/\D/g, '').slice(0, 10); 
-  }
+    if (name === "name") {
+      sanitizedValue = value.replace(/[^a-zA-Z\s]/g, '');
+    } else if (name === "contact") {
+      sanitizedValue = value.replace(/\D/g, '').slice(0, 10);
+    }
 
 
-  if (name === "serviceType" && value === "House Painting") {
-    try {
-      const response = await axios.get("https://homjee-backend.onrender.com/api/service/latest");
-      const siteVisitCharge = response.data.data.siteVisitCharge || "99"; 
+    if (name === "serviceType" && value === "House Painting") {
+      try {
+        const response = await axios.get("https://homjee-backend.onrender.com/api/service/latest");
+        const siteVisitCharge = response.data.data.siteVisitCharge || "99";
+        setLeadData((prev) => ({
+          ...prev,
+          [name]: value,
+          bookingAmount: siteVisitCharge,
+        }));
+      } catch (error) {
+        console.error("Error fetching site visit charge:", error);
+      }
+    }
+
+
+    else if (name === "serviceType" && value === "Deep Cleaning") {
+      try {
+        const response = await axios.get("https://homjee-backend.onrender.com/api/deeppackage/deep-cleaning-packages");
+        setCategories(response.data.data);
+        setLeadData((prev) => ({
+          ...prev,
+          [name]: value,
+          selectedPackage: "",
+          totalAmount: 0,
+          bookingAmount: 0,
+          packages: [],
+        }));
+      } catch (error) {
+        console.error("Error fetching deep cleaning packages:", error);
+      }
+    }
+
+
+    else if (name === "selectedPackage") {
+      const selectedPackage = categories.find(pkg => pkg._id === value);
+      if (selectedPackage) {
+        setLeadData((prev) => ({
+          ...prev,
+          selectedPackage: value,
+          totalAmount: prev.totalAmount + selectedPackage.totalAmount,
+          bookingAmount: prev.bookingAmount + selectedPackage.bookingAmount,
+        }));
+      }
+    }
+
+    // Update other fields
+    else {
       setLeadData((prev) => ({
         ...prev,
-        [name]: value,
-        bookingAmount: siteVisitCharge, 
-      }));
-    } catch (error) {
-      console.error("Error fetching site visit charge:", error);
-    }
-  }
-  
-
-  else if (name === "serviceType" && value === "Deep Cleaning") {
-    try {
-      const response = await axios.get("https://homjee-backend.onrender.com/api/deeppackage/deep-cleaning-packages");
-      setCategories(response.data.data); 
-      setLeadData((prev) => ({
-        ...prev,
-        [name]: value,
-        selectedPackage: "", 
-        totalAmount: 0, 
-        bookingAmount: 0,
-        packages: [], 
-      }));
-    } catch (error) {
-      console.error("Error fetching deep cleaning packages:", error);
-    }
-  }
-
-
-  else if (name === "selectedPackage") {
-    const selectedPackage = categories.find(pkg => pkg._id === value);
-    if (selectedPackage) {
-      setLeadData((prev) => ({
-        ...prev,
-        selectedPackage: value,
-        totalAmount: prev.totalAmount + selectedPackage.totalAmount,
-        bookingAmount: prev.bookingAmount + selectedPackage.bookingAmount, 
+        [name]: sanitizedValue,
+        packages: name === "serviceType" ? [] : prev.packages,
+        totalAmount:
+          name === "totalAmount"
+            ? value
+            : prev.totalAmount,
+        bookingAmount: name === "bookingAmount" ? value : prev.bookingAmount,
       }));
     }
-  }
 
-  // Update other fields
-  else {
-    setLeadData((prev) => ({
-      ...prev,
-      [name]: sanitizedValue,
-      packages: name === "serviceType" ? [] : prev.packages,
-      totalAmount:
-        name === "totalAmount"
-          ? value
-          : prev.totalAmount,
-      bookingAmount: name === "bookingAmount" ? value : prev.bookingAmount,
-    }));
-  }
-
-  setErrors((prev) => ({ ...prev, [name]: validateField(name, sanitizedValue) }));
-};
+    setErrors((prev) => ({ ...prev, [name]: validateField(name, sanitizedValue) }));
+  };
 
 
   const handleCategorySelect = (category) => {
 
-  setSelectedCategory(category);
+    setSelectedCategory(category);
 
 
-  setLeadData((prev) => ({
-    ...prev,
-    totalAmount: (prev.totalAmount || 0) + category.totalAmount, 
-    bookingAmount: (prev.bookingAmount || 0) + category.bookingAmount, 
-  }));
-};
+    setLeadData((prev) => ({
+      ...prev,
+      totalAmount: (prev.totalAmount || 0) + category.totalAmount,
+      bookingAmount: (prev.bookingAmount || 0) + category.bookingAmount,
+    }));
+  };
 
 
 
 
-const addPackage = () => {
-  const { selectedPackage, packages } = leadData;
-  if (selectedPackage && !packages.includes(selectedPackage)) {
-    const selectedCategory = categories.find((pkg) => pkg._id === selectedPackage);
-    if (selectedCategory) {
-      setLeadData((prevState) => ({
-        ...prevState,
-        packages: [...prevState.packages, selectedCategory],
-        totalAmount: prevState.totalAmount + selectedCategory.totalAmount,
-        bookingAmount: prevState.bookingAmount + selectedCategory.bookingAmount,
-        selectedPackage: "",
-      }));
+  const addPackage = () => {
+    const { selectedPackage, packages } = leadData;
+    if (selectedPackage && !packages.includes(selectedPackage)) {
+      const selectedCategory = categories.find((pkg) => pkg._id === selectedPackage);
+      if (selectedCategory) {
+        setLeadData((prevState) => ({
+          ...prevState,
+          packages: [...prevState.packages, selectedCategory],
+          totalAmount: prevState.totalAmount + selectedCategory.totalAmount,
+          bookingAmount: prevState.bookingAmount + selectedCategory.bookingAmount,
+          selectedPackage: "",
+        }));
+      }
     }
-  }
-};
+  };
 
-const removePackage = (pkgToRemove) => {
-  setLeadData((prevState) => ({
-    ...prevState,
-    packages: prevState.packages.filter((pkg) => pkg._id !== pkgToRemove._id),
-    totalAmount: prevState.totalAmount - pkgToRemove.totalAmount,
-    bookingAmount: prevState.bookingAmount - pkgToRemove.bookingAmount,
-  }));
-};
+  const removePackage = (pkgToRemove) => {
+    setLeadData((prevState) => ({
+      ...prevState,
+      packages: prevState.packages.filter((pkg) => pkg._id !== pkgToRemove._id),
+      totalAmount: prevState.totalAmount - pkgToRemove.totalAmount,
+      bookingAmount: prevState.bookingAmount - pkgToRemove.bookingAmount,
+    }));
+  };
   const addCustomPackage = () => {
     const trimmed = customPackage.trim();
     const error = validateField("customPackage", trimmed);
@@ -791,8 +791,8 @@ const removePackage = (pkgToRemove) => {
       setSuccess("");
 
       const now = new Date();
-    const createdDate = now.toISOString().slice(0, 10); 
-    const createdTime = now.toISOString().slice(11, 19);
+      const createdDate = now.toISOString().slice(0, 10);
+      const createdTime = now.toISOString().slice(11, 19);
 
       const services = leadData.packages.map((pkg) => ({
         category: leadData.serviceType,
@@ -812,21 +812,21 @@ const removePackage = (pkgToRemove) => {
           services.length > 0
             ? services
             : [
-                {
-                  category: leadData.serviceType,
-                  subCategory: leadData.serviceType,
-                  serviceName: leadData.serviceType,
-                  price: leadData.totalAmount || 0,
-                  quantity: 1,
-                },
-              ],
+              {
+                category: leadData.serviceType,
+                subCategory: leadData.serviceType,
+                serviceName: leadData.serviceType,
+                price: leadData.totalAmount || 0,
+                quantity: 1,
+              },
+            ],
         bookingDetails: {
           bookingDate: new Date().toISOString(),
           bookingTime: leadData.slotTime,
-      paidAmount: parseFloat(leadData.bookingAmount) || 99,
-amountYetToPay:
-  (parseFloat(leadData.totalAmount || 0) -
-    (parseFloat(leadData.bookingAmount) || 0)) || 0,
+          paidAmount: parseFloat(leadData.bookingAmount) || 99,
+          amountYetToPay:
+            (parseFloat(leadData.totalAmount || 0) -
+              (parseFloat(leadData.bookingAmount) || 0)) || 0,
 
         },
         address: {
@@ -840,9 +840,9 @@ amountYetToPay:
         },
         selectedSlot: { slotDate: leadData.slotDate, slotTime: leadData.slotTime },
         isEnquiry: true,
-            formName: "admin panel",
-      createdDate, 
-      createdTime,
+        formName: "admin panel",
+        createdDate,
+        createdTime,
       };
 
       await axios.post(
@@ -952,49 +952,49 @@ amountYetToPay:
           </div>
 
 
-  {leadData.serviceType === "Deep Cleaning" && (
-  <div style={styles.packageSelectionContainer}>
-    {/* <label style={styles.label}>Select Cleaning Package</label> */}
-    <div style={styles.packageSelectorContainer}>
-      <select
-        onChange={(e) => setLeadData((prev) => ({ ...prev, selectedPackage: e.target.value }))}
-        value={leadData.selectedPackage || ""}
-        style={styles.selectBox}
-      >
-        <option value="" disabled>Select Package</option>
-        {categories.map((category) => (
-          <option key={category._id} value={category._id}>
-            {category.name} - ₹{category.totalAmount}
-          </option>
-        ))}
-      </select>
-      <button onClick={addPackage} style={styles.addButton}>
-        +
-      </button>
-    </div>
-  </div>
-)}
+          {leadData.serviceType === "Deep Cleaning" && (
+            <div style={styles.packageSelectionContainer}>
+              {/* <label style={styles.label}>Select Cleaning Package</label> */}
+              <div style={styles.packageSelectorContainer}>
+                <select
+                  onChange={(e) => setLeadData((prev) => ({ ...prev, selectedPackage: e.target.value }))}
+                  value={leadData.selectedPackage || ""}
+                  style={styles.selectBox}
+                >
+                  <option value="" disabled>Select Package</option>
+                  {categories.map((category) => (
+                    <option key={category._id} value={category._id}>
+                      {category.name} - ₹{category.totalAmount}
+                    </option>
+                  ))}
+                </select>
+                <button onClick={addPackage} style={styles.addButton}>
+                  +
+                </button>
+              </div>
+            </div>
+          )}
 
-  {leadData.serviceType === "Deep Cleaning" && (
-<div style={styles.selectedPackagesContainer}>
+          {leadData.serviceType === "Deep Cleaning" && (
+            <div style={styles.selectedPackagesContainer}>
 
-  <ul style={styles.packageList}>
-    {leadData.packages.map((pkg) => (
-      <li key={pkg._id} style={styles.packageItem}>
-        <span>{pkg.name} - ₹{pkg.totalAmount}</span>
-        <FaTimes
-          style={styles.removeIcon}
-          onClick={() => removePackage(pkg)}
-        />
-      </li>
-    ))}
-  </ul>
-</div>
-)}
+              <ul style={styles.packageList}>
+                {leadData.packages.map((pkg) => (
+                  <li key={pkg._id} style={styles.packageItem}>
+                    <span>{pkg.name} - ₹{pkg.totalAmount}</span>
+                    <FaTimes
+                      style={styles.removeIcon}
+                      onClick={() => removePackage(pkg)}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
 
 
-      
+
 
 
 
@@ -1115,8 +1115,8 @@ amountYetToPay:
       )}
 
       <ToastContainer position="top-right"
-  autoClose={1500}
-  style={{ marginTop: "40px" }}  />
+        autoClose={1500}
+        style={{ marginTop: "40px" }} />
     </div>
   );
 };

@@ -78,7 +78,7 @@
 //     setPayments([...payments, newPayment]);
 //     setShowModal(false);
 //   };
-  
+
 
 //   return (
 //     <Container className="mt-4" style={{marginLeft:"", fontFamily:'Poppins, sans-serif'}}>
@@ -288,7 +288,7 @@
 //         </Form>
 //       </Modal.Body>
 //       <Modal.Footer>
-     
+
 //         <Button style={{color:'black', borderColor:'black', backgroundColor:'white', fontWeight:'600'}} onClick={() => generatePaymentLink(formData)}>
 //           Generate Payment Link
 //         </Button>
@@ -311,7 +311,7 @@ const MoneyDashboard = () => {
   const [payments, setPayments] = useState([]);
   const [filters, setFilters] = useState({ city: "", service: "", period: "" });
   const [formData, setFormData] = useState({
-    type: "customer", 
+    type: "customer",
     name: "",
     phone: "",
     amount: "",
@@ -341,7 +341,7 @@ const MoneyDashboard = () => {
     fetchPayments();
   }, []);
 
-const calculateTotals = (payments) => {
+  const calculateTotals = (payments) => {
     let totalSalesCalc = 0;
     let pendingAmountCalc = 0;
     let cashAmountCalc = 0;
@@ -373,9 +373,9 @@ const calculateTotals = (payments) => {
     setPendingAmount(pendingAmountCalc);
     setCashAmount(cashAmountCalc);
     setUpiAmount(upiAmountCalc);
-};
+  };
 
- const trendUp = true;
+  const trendUp = true;
   const filteredPayments = payments.filter((payment) =>
     filter === "paid" ? payment.bookingDetails.paymentStatus === "Paid" : payment.bookingDetails.paymentStatus === "Unpaid"
   );
@@ -398,31 +398,31 @@ const calculateTotals = (payments) => {
     setShowModal(false);
   };
 
-// Prepare CSV Data
-const csvData = filteredPayments.flatMap((payment) =>
-  payment.service.map((service) => {
-    const serviceAmount = service.price * service.quantity;
-    const bookingDate = new Date(payment.bookingDetails.bookingDate);
-    const formattedDate = bookingDate.toLocaleDateString('en-GB');
-    const formattedTime = bookingDate.toLocaleTimeString('en-GB', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    });
+  // Prepare CSV Data
+  const csvData = filteredPayments.flatMap((payment) =>
+    payment.service.map((service) => {
+      const serviceAmount = service.price * service.quantity;
+      const bookingDate = new Date(payment.bookingDetails.bookingDate);
+      const formattedDate = bookingDate.toLocaleDateString('en-GB');
+      const formattedTime = bookingDate.toLocaleTimeString('en-GB', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+      });
 
-    return {
-      "Date & Time": `${formattedDate} ${formattedTime}`,
-      "Customer Name": payment.customer?.name || "",
-      "Order ID": payment.bookingDetails?.paymentId || "",
-      "Vendor Name": payment.assignedProfessional?.name || "Not Assigned",
-      "Context": payment.bookingDetails?.context || "",
-      "Payment ID": payment.bookingDetails?.paymentId || "",
-      "Amount": serviceAmount,
-      "Service": service.category || "",
-      "City": payment.address?.landMark || "",
-    };
-  })
-);
+      return {
+        "Date & Time": `${formattedDate} ${formattedTime}`,
+        "Customer Name": payment.customer?.name || "",
+        "Order ID": payment.bookingDetails?.paymentId || "",
+        "Vendor Name": payment.assignedProfessional?.name || "Not Assigned",
+        "Context": payment.bookingDetails?.context || "",
+        "Payment ID": payment.bookingDetails?.paymentId || "",
+        "Amount": serviceAmount,
+        "Service": service.category || "",
+        "City": payment.address?.landMark || "",
+      };
+    })
+  );
 
   return (
     <Container className="mt-4" style={{ fontFamily: 'Poppins, sans-serif' }}>
@@ -449,18 +449,18 @@ const csvData = filteredPayments.flatMap((payment) =>
             <option value="Last Month">Last Month</option>
             <option value="All Time">All Time</option>
           </Form.Select>
-          <Button 
-            style={{ 
-              whiteSpace: 'nowrap', 
-              color: 'black', 
-              fontSize: '12px', 
+          <Button
+            style={{
+              whiteSpace: 'nowrap',
+              color: 'black',
+              fontSize: '12px',
               fontWeight: '700',
-              border: '1px solid #000', 
+              border: '1px solid #000',
               borderRadius: '4px',
               backgroundColor: 'transparent',
               outline: 'none',
               boxShadow: 'none'
-            }} 
+            }}
             onClick={() => setShowModal(true)}
           >
             Create Payment Link
@@ -471,31 +471,31 @@ const csvData = filteredPayments.flatMap((payment) =>
       <Row className="mb-4">
         <Col md={6}>
           <Card className="p-3 shadow-sm">
-            <h6 className="fw-bold" style={{fontSize:'14px'}}>
-              Total Sales: ₹{totalSales.toLocaleString()} 
-              <span className="fw-bold " style={{color:'green'}}>
+            <h6 className="fw-bold" style={{ fontSize: '14px' }}>
+              Total Sales: ₹{totalSales.toLocaleString()}
+              <span className="fw-bold " style={{ color: 'green' }}>
                 {totalSales > 0 ? <FaArrowUp color="green" /> : <FaArrowDown color="red" />} +10%
               </span>
             </h6>
-            <p style={{fontSize:'12px'}}>Cash Payment: ₹{cashAmount.toLocaleString()}</p>
-            <p style={{fontSize:'12px'}}>UPI Payment: ₹{upiAmount.toLocaleString()}</p>
+            <p style={{ fontSize: '12px' }}>Cash Payment: ₹{cashAmount.toLocaleString()}</p>
+            <p style={{ fontSize: '12px' }}>UPI Payment: ₹{upiAmount.toLocaleString()}</p>
           </Card>
         </Col>
         <Col md={6}>
           <Card className="p-3 shadow-sm">
-            <h6 className="fw-bold" style={{fontSize:'14px'}}>Amount Yet to Be Collected: ₹{pendingAmount.toLocaleString()}</h6>
-             <p style={{fontSize:'12px', marginBottom:'1%'}}>Coins sold : 
+            <h6 className="fw-bold" style={{ fontSize: '14px' }}>Amount Yet to Be Collected: ₹{pendingAmount.toLocaleString()}</h6>
+            <p style={{ fontSize: '12px', marginBottom: '1%' }}>Coins sold :
               {/* <span className="fw-bold " style={{color:'green'}}>{trendUp ? <FaArrowUp color="green" /> : <FaArrowDown color="red" />} +15%</span> */}
-              </p>
-            <p style={{fontSize:'12px'}}>Income from Coins Sale :
+            </p>
+            <p style={{ fontSize: '12px' }}>Income from Coins Sale :
               {/* <span className="fw-bold " style={{color:'green'}}>{trendUp ? <FaArrowUp color="green" /> : <FaArrowDown color="red" />} +20%</span> */}
-              </p>
+            </p>
           </Card>
         </Col>
       </Row>
 
       <div>
-        <h4 className="fw-bold" style={{fontSize:"14px"}}>Payments List</h4>
+        <h4 className="fw-bold" style={{ fontSize: "14px" }}>Payments List</h4>
         <div className="mb-3">
           <button
             className={`btn ${filter === "paid" ? "btn-dark text-white" : "btn-outline-dark"} me-2`}
@@ -515,7 +515,7 @@ const csvData = filteredPayments.flatMap((payment) =>
 
         <Table striped bordered hover>
           <thead>
-            <tr style={{fontSize:'12px'}}>
+            <tr style={{ fontSize: '12px' }}>
               <th>Date & Time</th>
               <th>Customer</th>
               <th>Order Id</th>
@@ -533,24 +533,24 @@ const csvData = filteredPayments.flatMap((payment) =>
               return payment.service.map((service, serviceIndex) => {
                 if (!uniqueCategories.includes(service.category)) {
                   uniqueCategories.push(service.category);
-                      const serviceAmount = service.price * service.quantity;
-             const bookingDate = new Date(payment.bookingDetails.bookingDate);
-        const formattedDate = bookingDate.toLocaleDateString('en-GB'); 
-        const formattedTime = bookingDate.toLocaleTimeString('en-GB', { 
-          hour: '2-digit', 
-          minute: '2-digit', 
-          hour12: true 
-        }); 
+                  const serviceAmount = service.price * service.quantity;
+                  const bookingDate = new Date(payment.bookingDetails.bookingDate);
+                  const formattedDate = bookingDate.toLocaleDateString('en-GB');
+                  const formattedTime = bookingDate.toLocaleTimeString('en-GB', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: true
+                  });
                   return (
-                    <tr key={`${index}-${serviceIndex}`} style={{fontSize:'12px'}}>
-                   <td>{formattedDate} {formattedTime}</td>
+                    <tr key={`${index}-${serviceIndex}`} style={{ fontSize: '12px' }}>
+                      <td>{formattedDate} {formattedTime}</td>
                       <td>{payment.customer.name}</td>
                       <td>{payment.bookingDetails.paymentId}</td>
                       {/* <td>{payment.service.map((service) => service.serviceName).join(", ")}</td> */}
-                       <td>{payment.assignedProfessional ? payment.assignedProfessional.name : 'Not Assigned'}</td>
+                      <td>{payment.assignedProfessional ? payment.assignedProfessional.name : 'Not Assigned'}</td>
                       <td>{payment.bookingDetails.context}</td>
                       <td>{payment.bookingDetails.paymentId}</td>
-                        <td>₹{serviceAmount.toLocaleString()}</td>
+                      <td>₹{serviceAmount.toLocaleString()}</td>
                       <td>{service.category}</td>
                       <td>{payment.address.landMark}</td>
                     </tr>
@@ -562,20 +562,20 @@ const csvData = filteredPayments.flatMap((payment) =>
           </tbody>
         </Table>
 
-       <CSVLink 
-  data={csvData} 
-  filename={`${filter}-payments.csv`} 
-  className="btn btn-success mt-3" 
-  style={{fontSize:"12px"}}
->
-  Export to CSV
-</CSVLink>
+        <CSVLink
+          data={csvData}
+          filename={`${filter}-payments.csv`}
+          className="btn btn-success mt-3"
+          style={{ fontSize: "12px" }}
+        >
+          Export to CSV
+        </CSVLink>
 
       </div>
 
       <Modal show={showModal} onHide={() => setShowModal(false)}>
         <Modal.Header closeButton>
-          <Modal.Title style={{fontSize:'16px'}}>Create Payment Link</Modal.Title>
+          <Modal.Title style={{ fontSize: '16px' }}>Create Payment Link</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <Form>

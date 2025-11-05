@@ -9,7 +9,7 @@ const BOOKINGS_API =
   "https://homjee-backend.onrender.com/api/bookings/get-all-bookings";
 
 /** ---- Helpers ---- */
-const monthShort = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const monthShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 const fmtDateLabel = (isoLike) => {
   if (!isoLike) return "";
@@ -79,7 +79,7 @@ const toCardRowLead = (raw, cityOptions) => {
     name: raw?.customer?.name || "—",
     date: fmtDateLabel(dateRaw),
     time: fmtTime(timeRaw),
-    service: firstServiceCategory(raw?.service), 
+    service: firstServiceCategory(raw?.service),
     address: street || "—",
     city,
   };
@@ -93,7 +93,7 @@ const Dashboard = () => {
   const [customDate, setCustomDate] = useState({ start: "", end: "" });
 
   const serviceOptions = ["All Services", "House Painting", "Deep Cleaning"];
-  const cityOptions = ["All Cities", "Bangalore",  "Pune", ];
+  const cityOptions = ["All Cities", "Bangalore", "Pune",];
 
   const timePeriodOptions = [
     "Last 7 Days",
@@ -104,110 +104,110 @@ const Dashboard = () => {
     "Custom Period",
   ];
 
- 
+
   const [enquiriesRaw, setEnquiriesRaw] = useState([]);
   const [leadsRaw, setLeadsRaw] = useState([]);
   const [bookingsCount, setBookingsCount] = useState(0);
-   const [ongoingCount, setOngoingCount] = useState(0);
-   const [upcomingCount , setUpcomingCount]= useState(0);
-   const [totalSales, setTotalSales] = useState(0);
+  const [ongoingCount, setOngoingCount] = useState(0);
+  const [upcomingCount, setUpcomingCount] = useState(0);
+  const [totalSales, setTotalSales] = useState(0);
 
-useEffect(() => {
-  const load = async () => {
-    try {
-      const [enqRes, leadsRes, bookingsRes] = await Promise.all([
-        fetch(ENQUIRIES_API),
-        fetch(LEADS_API),
-        fetch(BOOKINGS_API),
-      ]);
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const [enqRes, leadsRes, bookingsRes] = await Promise.all([
+          fetch(ENQUIRIES_API),
+          fetch(LEADS_API),
+          fetch(BOOKINGS_API),
+        ]);
 
-      const enqJson = await enqRes.json().catch(() => ({}));
-      const leadsJson = await leadsRes.json().catch(() => ({}));
-      const bookingsJson = await bookingsRes.json().catch(() => ({}));
+        const enqJson = await enqRes.json().catch(() => ({}));
+        const leadsJson = await leadsRes.json().catch(() => ({}));
+        const bookingsJson = await bookingsRes.json().catch(() => ({}));
 
-      setEnquiriesRaw(
-        Array.isArray(enqJson?.allEnquies) ? enqJson.allEnquies : []
-      );
-      setLeadsRaw(Array.isArray(leadsJson?.allLeads) ? leadsJson.allLeads : []);
+        setEnquiriesRaw(
+          Array.isArray(enqJson?.allEnquies) ? enqJson.allEnquies : []
+        );
+        setLeadsRaw(Array.isArray(leadsJson?.allLeads) ? leadsJson.allLeads : []);
 
-      // ✅ Total bookings count
-   if (Array.isArray(bookingsJson?.bookings)) {
-  // ✅ Count
-  setBookingsCount(bookingsJson.bookings.length);
+        // ✅ Total bookings count
+        if (Array.isArray(bookingsJson?.bookings)) {
+          // ✅ Count
+          setBookingsCount(bookingsJson.bookings.length);
 
-  // ✅ Sum price × quantity for each service in each booking
-  const sales = bookingsJson.bookings.reduce((acc, booking) => {
-    const services = booking?.service || [];
-    const bookingTotal = services.reduce((sum, s) => {
-      const price = Number(s?.price) || 0;
-      const qty = Number(s?.quantity) || 1;
-      return sum + price * qty;
-    }, 0);
-    return acc + bookingTotal;
-  }, 0);
+          // ✅ Sum price × quantity for each service in each booking
+          const sales = bookingsJson.bookings.reduce((acc, booking) => {
+            const services = booking?.service || [];
+            const bookingTotal = services.reduce((sum, s) => {
+              const price = Number(s?.price) || 0;
+              const qty = Number(s?.quantity) || 1;
+              return sum + price * qty;
+            }, 0);
+            return acc + bookingTotal;
+          }, 0);
 
-  setTotalSales(sales);
-} else {
-  setBookingsCount(0);
-  setTotalSales(0);
-}
+          setTotalSales(sales);
+        } else {
+          setBookingsCount(0);
+          setTotalSales(0);
+        }
 
 
-      // ✅ Ongoing projects count
-      if (Array.isArray(leadsJson?.allLeads)) {
-        const statuses = ["Ongoing", "Pending", "Job Ongoing", "Job Ended"];
-        const ongoing = leadsJson.allLeads.filter((lead) =>
-          statuses.includes(lead?.bookingDetails?.status)
-        ).length;
-        setOngoingCount(ongoing);
+        // ✅ Ongoing projects count
+        if (Array.isArray(leadsJson?.allLeads)) {
+          const statuses = ["Ongoing", "Pending", "Job Ongoing", "Job Ended"];
+          const ongoing = leadsJson.allLeads.filter((lead) =>
+            statuses.includes(lead?.bookingDetails?.status)
+          ).length;
+          setOngoingCount(ongoing);
 
-        // ✅ Upcoming projects (tomorrow or day after tomorrow)
-        const today = new Date();
-        const startOfDay = (dt) =>
-          new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
+          // ✅ Upcoming projects (tomorrow or day after tomorrow)
+          const today = new Date();
+          const startOfDay = (dt) =>
+            new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
 
-        const tomorrow = new Date(startOfDay(today));
-        tomorrow.setDate(today.getDate() + 1);
+          const tomorrow = new Date(startOfDay(today));
+          tomorrow.setDate(today.getDate() + 1);
 
-        const dayAfter = new Date(startOfDay(today));
-        dayAfter.setDate(today.getDate() + 2);
+          const dayAfter = new Date(startOfDay(today));
+          dayAfter.setDate(today.getDate() + 2);
 
-        const isUpcoming = (slotDate) => {
-          if (!slotDate) return false;
-          const d = new Date(slotDate);
-          const sd = startOfDay(d).getTime();
-          return (
-            sd === tomorrow.getTime() ||
-            sd === dayAfter.getTime()
-          );
-        };
+          const isUpcoming = (slotDate) => {
+            if (!slotDate) return false;
+            const d = new Date(slotDate);
+            const sd = startOfDay(d).getTime();
+            return (
+              sd === tomorrow.getTime() ||
+              sd === dayAfter.getTime()
+            );
+          };
 
-        const upcoming = leadsJson.allLeads.filter((lead) =>
-          isUpcoming(lead?.selectedSlot?.slotDate)
-        ).length;
+          const upcoming = leadsJson.allLeads.filter((lead) =>
+            isUpcoming(lead?.selectedSlot?.slotDate)
+          ).length;
 
-        setUpcomingCount(upcoming);
-      } else {
+          setUpcomingCount(upcoming);
+        } else {
+          setOngoingCount(0);
+          setUpcomingCount(0);
+        }
+      } catch (e) {
+        console.warn("Failed to load data:", e);
+        setEnquiriesRaw([]);
+        setLeadsRaw([]);
+        setBookingsCount(0);
         setOngoingCount(0);
         setUpcomingCount(0);
       }
-    } catch (e) {
-      console.warn("Failed to load data:", e);
-      setEnquiriesRaw([]);
-      setLeadsRaw([]);
-      setBookingsCount(0);
-      setOngoingCount(0);
-      setUpcomingCount(0);
-    }
-  };
-  load();
-}, []);
+    };
+    load();
+  }, []);
 
 
-   const keyMetricsData = [
+  const keyMetricsData = [
     { title: "Total Sales", value: totalSales, trend: "+10%", color: "#E3F2FD", fontSize: "12px" },
     { title: "Amount Yet to Be Collected", value: 0, trend: "-5%", color: "#FFEBEE", fontSize: "12px" },
-    { title: "Total Leads",     value: bookingsCount, trend: "+8%", color: "#E8F5E9", fontSize: "12px" },
+    { title: "Total Leads", value: bookingsCount, trend: "+8%", color: "#E8F5E9", fontSize: "12px" },
     { title: "Ongoing Projects", value: ongoingCount, trend: "+2%", color: "#FFF3E0", fontSize: "12px" },
     { title: "Upcoming Projects", value: upcomingCount, trend: "-3%", color: "#F3E5F5", fontSize: "12px" },
   ];
@@ -233,17 +233,17 @@ useEffect(() => {
   // Only last 4 items for display
   const last4Enquiries = filteredEnquiries.slice(-4);
   const last4NewLeads = filteredNewLeads.slice(-4);
-  
- const updatedKeyMetrics = keyMetricsData;
-//  const updatedKeyMetrics = keyMetricsData.map((metric) => {
-//   if (metric.title === "Total Leads") {
-//     return metric;
-//   }
-//   return {
-//     ...metric,
-//     value: Math.floor(metric.value * (Math.random() * 0.5 + 0.75)),
-//   };
-// });
+
+  const updatedKeyMetrics = keyMetricsData;
+  //  const updatedKeyMetrics = keyMetricsData.map((metric) => {
+  //   if (metric.title === "Total Leads") {
+  //     return metric;
+  //   }
+  //   return {
+  //     ...metric,
+  //     value: Math.floor(metric.value * (Math.random() * 0.5 + 0.75)),
+  //   };
+  // });
 
 
   const payments = [
