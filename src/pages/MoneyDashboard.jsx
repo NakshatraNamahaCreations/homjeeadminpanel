@@ -1,315 +1,34 @@
-// import React, { useState } from "react";
-// import { Modal, Button, Table, Form, Container, Row, Col, Card } from "react-bootstrap";
-// import { FaArrowUp, FaArrowDown } from "react-icons/fa";
-// import { CSVLink } from "react-csv";
-
-// const MoneyDashboard = () => {
-//   const [showModal, setShowModal] = useState(false);
-//   const [payments, setPayments] = useState([
-//     {
-//       date: "2025-02-12 10:30 AM",
-//       customer: "John Doe",
-//       vendor: "Vendor A",
-//       context: "Booking Payment",
-//       paymentId: "PAY12345",
-//       amount: "2000",
-//       service: "House Painting",
-//       status: "Paid",
-//       city: "bengaluru",
-//     },
-//     {
-//       date: "2025-02-11 02:45 PM",
-//       customer: "Jane Smith",
-//       vendor: "Vendor B",
-//       context: "Second Partial Payment",
-//       paymentId: "PAY12346",
-//       amount: "5500",
-//       service: "Deep Cleaning",
-//       status: "Pending",
-//       city: "Mumbai",
-//     },
-//     {
-//       date: "2025-02-10 01:15 PM",
-//       customer: "Michael Johnson",
-//       vendor: "Vendor C",
-//       context: "Advance Payment",
-//       paymentId: "PAY12347",
-//       amount: "8000",
-//       service: "Home Renovation",
-//       status: "Pending",
-//       city: "Mumbai",
-//     }
-//   ]);
-//   const [filters, setFilters] = useState({ city: "", service: "", period: "" });
-//   const [formData, setFormData] = useState({
-//     type: "customer", // Default selection
-//     name: "",
-//     phone: "",
-//     amount: "",
-//     service: "",
-//     city: "",
-//     context: "others",
-//   });
-
-//   const [filter, setFilter] = useState("paid");
-
-//   const filteredPayments = payments.filter((payment) =>
-//     filter === "paid" ? payment.status === "Paid" : payment.status === "Pending"
-//   );
-
-//   const totalSales = 5000000;
-//   const pendingAmount = 1200000;
-//   const trendUp = true;
-
-//   const handleInputChange = (e) => {
-//     setFormData({ ...formData, [e.target.name]: e.target.value });
-//   };
-
-//   const generatePaymentLink = () => {
-//     const newPayment = {
-//       date: new Date().toLocaleString(),
-//       customer: formData.name,
-//       vendor: "Vendor Name",
-//       context: formData.comment,
-//       paymentId: Math.random().toString(36).substr(2, 9),
-//       amount: formData.amount,
-//       service: formData.service,
-//     };
-//     setPayments([...payments, newPayment]);
-//     setShowModal(false);
-//   };
-
-
-//   return (
-//     <Container className="mt-4" style={{marginLeft:"", fontFamily:'Poppins, sans-serif'}}>
-//       <Row className="mb-3 align-items-center">
-//         <Col><h5 className="fw-bold" style={{}}>Money Dashboard</h5></Col>
-//         <Col className="d-flex justify-content-end gap-2">
-//           <Form.Select className="w-auto" style={{ height: "38px", fontSize:'12px' }} onChange={(e) => setFilters({ ...filters, city: e.target.value })}>
-//             <option value="">Select City</option>
-//             <option value="Bangalore">Bangalore</option>
-//             <option value="Pune">Pune</option>
-//           </Form.Select>
-//           <Form.Select className="w-auto" style={{ height: "38px", fontSize:'12px' }} onChange={(e) => setFilters({ ...filters, service: e.target.value })}>
-//             <option value="">Select Service</option>
-//             <option value="House Painting">House Painters & WaterProffing</option>
-//             <option value="Deep Cleaning">Deep Cleaning</option>
-//             <option value="Deep Cleaning">Home Interior</option>
-//             <option value="Deep Cleaning">Packers & Movers</option>
-//           </Form.Select>
-//           <Form.Select className="w-auto" style={{ height: "38px", fontSize:'12px' }} onChange={(e) => setFilters({ ...filters, period: e.target.value })}>
-//             <option value="">Select Period</option>
-//             <option value="Last 7 Days">Last 7 Days</option>
-//             <option value="Last 30 Days">Last 30 Days</option>
-//             <option value="Last 30 Days">This Month</option>
-//             <option value="Last 30 Days">Lost Month</option>
-//             <option value="Last 30 Days">All Time</option>
-
-//           </Form.Select>
-//           <Button 
-//     style={{ 
-//         whiteSpace: 'nowrap', 
-//         color: 'black', 
-//         fontSize: '12px', 
-//         fontWeight:'700',
-//         border: '1px solid #000', 
-//         borderRadius: '4px',
-//         backgroundColor: 'transparent',
-//         outline: 'none',
-//         boxShadow: 'none'
-//     }} 
-//     onClick={() => setShowModal(true)}
-// >
-//     Create Payment Link
-// </Button>
-
-//         </Col>
-//       </Row>
-
-//       <Row className="mb-4">
-//         <Col md={6}>
-//           <Card className="p-3 shadow-sm">
-//             <h6 className="fw-bold" style={{fontSize:'14px'}}>Total Sales: ₹{totalSales.toLocaleString()} <span className="fw-bold " style={{color:'green'}}>{trendUp ? <FaArrowUp color="green" /> : <FaArrowDown color="red" />} +10%</span></h6>
-//             <p style={{fontSize:'12px', marginBottom:'1%'}}>Online Payment Received :2,43,878 <span className="fw-bold " style={{color:'green'}}>{trendUp ? <FaArrowUp color="green" /> : <FaArrowDown color="red" />} +15%</span></p>
-//             <p style={{fontSize:'12px'}}>Cash Payment Received :2,430 <span className="fw-bold " style={{color:'green'}}>{trendUp ? <FaArrowUp color="green" /> : <FaArrowDown color="red" />} +20%</span></p>
-//           </Card>
-//         </Col>
-//         <Col md={6}>
-//           <Card className="p-3 shadow-sm">
-//             <h6 className="fw-bold"  style={{fontSize:'14px'}}>Amount Yet to Be Collected: ₹{pendingAmount.toLocaleString()} <span className="fw-bold" style={{color:'green'}}>{trendUp ? <FaArrowUp color="green" /> : <FaArrowDown color="red" />} +5%</span></h6>
-//             <p style={{fontSize:'12px', marginBottom:'1%'}}>Coins sold :265 <span className="fw-bold" style={{color:'green'}}>{trendUp ? <FaArrowUp color="green" /> : <FaArrowDown color="red" />} +5%</span> </p>
-//             <p style={{fontSize:'12px'}}>Income from Coins Sale :2635 <span className="fw-bold" style={{color:'green'}}>{trendUp ? <FaArrowUp color="green" /> : <FaArrowDown color="red" />} +5%</span> </p>
-//           </Card>
-//         </Col>
-//       </Row>
-
-//       <div>
-//       <h4 className="fw-bold" style={{fontSize:"14px"}}>Payments List</h4>
-//       <div className="mb-3">
-//     <button
-//         className={`btn ${filter === "paid" ? "btn-dark text-white" : "btn-outline-dark"} me-2`}
-//         onClick={() => setFilter("paid")}
-//         style={{ fontSize: '12px' }}
-//     >
-//         Paid List
-//     </button>
-
-//     <button
-//         className={`btn ${filter === "pending" ? "btn-dark text-white" : "btn-outline-dark"}`}
-//         onClick={() => setFilter("pending")}
-//         style={{ fontSize: '12px' }}
-//     >
-//         Pending List
-//     </button>
-// </div>
-
-//       <Table striped bordered hover>
-//         <thead>
-//           <tr style={{fontSize:'12px'}}>
-//             <th>Date & Time</th>
-//             <th>Customer</th>
-//             <th>Order Id</th>
-//             <th>Vendor</th>
-//             <th>Context</th>
-//             <th>Payment ID</th>
-//             <th>Amount</th>
-//             <th>Service</th>
-//             <th>City</th>
-//           </tr>
-//         </thead>
-//         <tbody>
-//           {filteredPayments.map((payment, index) => (
-//             <tr key={index} style={{fontSize:'12px'}}>
-//               <td>{payment.date}</td>
-//               <td>{payment.customer}</td>
-//               <td>223ASFR</td>
-//               <td>{payment.vendor}</td>
-//               <td>{payment.context}</td>
-//               <td>{payment.paymentId}</td>
-//               <td>₹{payment.amount}</td>
-//               <td>{payment.service}</td>
-//               <td>{payment.city}</td>
-//             </tr>
-//           ))}
-//         </tbody>
-//       </Table>
-//       <CSVLink data={filteredPayments} filename={`${filter}-payments.csv`} className="btn btn-success mt-3" style={{fontSize:"12px"}}>
-//         Export to CSV
-//       </CSVLink>
-//     </div>
-
-//     <Modal show={showModal} onHide={() => setShowModal(false)}>
-//       <Modal.Header closeButton>
-//         <Modal.Title style={{fontSize:'16px'}}>Create Payment Link</Modal.Title>
-//       </Modal.Header>
-//       <Modal.Body>
-//         <Form>
-//           {/* Customer / Vendor Toggle */}
-//           <Form.Group className="mb-3">
-//             <Form.Check
-//               inline
-//               label="Customer"
-//               type="radio"
-//               name="type"
-//               value="customer"
-//               checked={formData.type === "customer"}
-//               onChange={handleInputChange}
-//             />
-//             <Form.Check
-//               inline
-//               label="Vendor"
-//               type="radio"
-//               name="type"
-//               value="vendor"
-//               checked={formData.type === "vendor"}
-//               onChange={handleInputChange}
-//             />
-//           </Form.Group>
-
-//           {/* Common Fields */}
-//           <Form.Group className="mb-3">
-//             <Form.Label>Name:</Form.Label>
-//             <Form.Control type="text" name="name" onChange={handleInputChange} />
-//           </Form.Group>
-
-//           <Form.Group className="mb-3">
-//             <Form.Label>Phone No.:</Form.Label>
-//             <Form.Control type="text" name="phone" onChange={handleInputChange} />
-//           </Form.Group>
-
-//           <Form.Group className="mb-3">
-//             <Form.Label>Amount:</Form.Label>
-//             <Form.Control type="number" name="amount" onChange={handleInputChange} />
-//           </Form.Group>
-
-//           {/* Service & City Dropdowns */}
-//           <Form.Group className="mb-3">
-//             <Form.Label>Service:</Form.Label>
-//             <Form.Select name="service" onChange={handleInputChange}>
-//               <option value="">Select Service</option>
-//               <option value="House Painting">House Painting</option>
-//               <option value="Deep Cleaning">Deep Cleaning</option>
-//               <option value="Interior">Interior</option>
-//               <option value="Packers & Movers">Packers & Movers</option>
-//             </Form.Select>
-//           </Form.Group>
-
-//           <Form.Group className="mb-3">
-//             <Form.Label>City:</Form.Label>
-//             <Form.Select name="city" onChange={handleInputChange}>
-//               <option value="">Select City</option>
-//               <option value="Bangalore">Bangalore</option>
-//               <option value="Pune">Pune</option>
-//             </Form.Select>
-//           </Form.Group>
-
-//           {/* Context Selection for Vendor */}
-//           {formData.type === "vendor" && (
-//             <Form.Group className="mb-3">
-//               <Form.Label>Context:</Form.Label>
-//               <Form.Check
-//                 type="radio"
-//                 label="Others"
-//                 name="context"
-//                 value="others"
-//                 checked={formData.context === "others"}
-//                 onChange={handleInputChange}
-//               />
-//               <Form.Check
-//                 type="radio"
-//                 label="Coins"
-//                 name="context"
-//                 value="coins"
-//                 checked={formData.context === "coins"}
-//                 onChange={handleInputChange}
-//               />
-//             </Form.Group>
-//           )}
-//         </Form>
-//       </Modal.Body>
-//       <Modal.Footer>
-
-//         <Button style={{color:'black', borderColor:'black', backgroundColor:'white', fontWeight:'600'}} onClick={() => generatePaymentLink(formData)}>
-//           Generate Payment Link
-//         </Button>
-//       </Modal.Footer>
-//     </Modal>
-//     </Container>
-//   );
-// };
-
-// export default MoneyDashboard;
-
-
 import React, { useState, useEffect } from "react";
-import { Modal, Button, Table, Form, Container, Row, Col, Card } from "react-bootstrap";
+import {
+  Modal,
+  Button,
+  Table,
+  Form,
+  Container,
+  Row,
+  Col,
+  Card,
+} from "react-bootstrap";
 import { FaArrowUp, FaArrowDown } from "react-icons/fa";
 import { CSVLink } from "react-csv";
+import axios from "axios";
+import { BASE_URL } from "../utils/config";
 
 const MoneyDashboard = () => {
   const [showModal, setShowModal] = useState(false);
   const [payments, setPayments] = useState([]);
-  const [filters, setFilters] = useState({ city: "", service: "", period: "" });
+  const [filter, setFilter] = useState("paid"); // 'paid' | 'pending'
+
+  const [filters, setFilters] = useState({
+    service: "All Services",
+    city: "All Cities",
+  });
+
+  const [customDate, setCustomDate] = useState({
+    start: "",
+    end: "",
+  });
+
   const [formData, setFormData] = useState({
     type: "customer",
     name: "",
@@ -320,267 +39,353 @@ const MoneyDashboard = () => {
     context: "others",
   });
 
-  const [filter, setFilter] = useState("paid");
+  // Totals
   const [totalSales, setTotalSales] = useState(0);
   const [pendingAmount, setPendingAmount] = useState(0);
   const [cashAmount, setCashAmount] = useState(0);
-  const [upiAmount, setUpiAmount] = useState(0);
+  const [onlineAmount, setOnlineAmount] = useState(0); // UPI
 
+  // -------------------------
+  // Fetch leads (GET /bookings/get-all-leads)
+  // -------------------------
+  const fetchPayments = async () => {
+    try {
+      const res = await axios.get(`${BASE_URL}/bookings/get-all-leads`, {
+        params: {
+          service: filters.service === "All Services" ? "" : filters.service,
+          city: filters.city === "All Cities" ? "" : filters.city,
+          startDate: customDate.start || "",
+          endDate: customDate.end || "",
+        },
+      });
+
+      const leads = res?.data?.allLeads || [];
+      setPayments(leads);
+      calculateTotals(leads);
+    } catch (err) {
+      console.error("Error fetching leads:", err);
+      setPayments([]);
+      setTotalSales(0);
+      setPendingAmount(0);
+      setCashAmount(0);
+      setOnlineAmount(0);
+    }
+  };
+
+  // initial load
   useEffect(() => {
-    // Fetch the payment data from the API
-    const fetchPayments = async () => {
-      const response = await fetch("https://homjee-backend.onrender.com/api/bookings/get-all-leads");
-      const data = await response.json();
-
-      if (data && data.allLeads) {
-        setPayments(data.allLeads);
-        calculateTotals(data.allLeads);
-      }
-    };
-
     fetchPayments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const calculateTotals = (payments) => {
+  // -------------------------
+  // Totals calculation (Dashboard logic)
+  // -------------------------
+  const calculateTotals = (list) => {
     let totalSalesCalc = 0;
-    let pendingAmountCalc = 0;
-    let cashAmountCalc = 0;
-    let upiAmountCalc = 0;
+    let pendingCalc = 0;
+    let cashCalc = 0;
+    let onlineCalc = 0;
 
-    payments.forEach((payment) => {
-      // Extracting price and payment status
-      const price = payment.service.reduce((total, service) => total + service.price * service.quantity, 0);
-      const paymentStatus = payment.bookingDetails.paymentStatus;
-      const paymentMethod = payment.bookingDetails.paymentMethod;
-      const paidAmount = payment.bookingDetails.paidAmount || 0;
+    list.forEach((item) => {
+      const b = item.bookingDetails || {};
+      const paidAmount = Number(b.paidAmount || 0);
+      const amountYetToPay = Number(b.amountYetToPay || 0);
+      const method = (b.paymentMethod || "").toString();
 
+      totalSalesCalc += paidAmount;
+      pendingCalc += amountYetToPay;
 
-      if (paymentStatus === "Paid") {
-        totalSalesCalc += price;
-
-        // Handle Cash payments
-        if (paymentMethod === "Cash") {
-          cashAmountCalc += price;
-        } else if (paymentMethod === "UPI") {
-          upiAmountCalc += paidAmount;
-        }
-      } else if (paymentStatus === "Unpaid") {
-        pendingAmountCalc += price;
-      }
+      if (method === "Cash") cashCalc += paidAmount;
+      if (method === "UPI") onlineCalc += paidAmount;
     });
 
     setTotalSales(totalSalesCalc);
-    setPendingAmount(pendingAmountCalc);
-    setCashAmount(cashAmountCalc);
-    setUpiAmount(upiAmountCalc);
+    setPendingAmount(pendingCalc);
+    setCashAmount(cashCalc);
+    setOnlineAmount(onlineCalc);
   };
 
-  const trendUp = true;
-  const filteredPayments = payments.filter((payment) =>
-    filter === "paid" ? payment.bookingDetails.paymentStatus === "Paid" : payment.bookingDetails.paymentStatus === "Unpaid"
-  );
+  // -------------------------
+  // Search (uses current filters)
+  // -------------------------
+  const handleSearch = () => {
+    fetchPayments();
+  };
 
+  // -------------------------
+  // Paid / Pending filter (by paymentStatus)
+  // -------------------------
+  const filteredPayments = payments.filter((p) => {
+    const status = p?.bookingDetails?.paymentStatus || "";
+    return filter === "paid" ? status === "Paid" : status !== "Paid";
+  });
+
+  // -------------------------
+  // CSV export mapping (columns per requirement)
+  // -------------------------
+  const csvData = filteredPayments.flatMap((payment) => {
+    const svcList = payment.service || [];
+    return svcList.map((svc) => {
+      // amount is sum of installments (first + second + final)
+      const b = payment.bookingDetails || {};
+      const first = Number(b.firstPayment?.amount || 0);
+      const second = Number(b.secondPayment?.amount || 0);
+      const final = Number(b.finalPayment?.amount || 0);
+      const totalInstallments = first + second + final;
+
+      // date/time: prefer selectedSlot, otherwise bookingDate
+      const slotDate = payment.selectedSlot?.slotDate || "";
+      const slotTime = payment.selectedSlot?.slotTime || "";
+      const dateTime = slotDate ? `${slotDate} ${slotTime || ""}` : (b.bookingDate ? new Date(b.bookingDate).toLocaleString("en-GB") : "");
+
+      return {
+        "Date & Time": dateTime,
+        "Customer": `${payment.customer?.name || "-"} (${payment.customer?.phone || "-"})`,
+        "Order Id": payment._id || (payment._id?._id) || "-",
+        "Vendor": payment.assignedProfessional?.name || "Not Assigned",
+        "Payment ID": "N/A",
+        "Amount": totalInstallments,
+        "Service": payment.serviceType || "-",
+        "City": payment.address?.city || "-",
+      };
+    });
+  });
+
+  // -------------------------
+  // Form input handler for modal
+  // -------------------------
   const handleInputChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  // -------------------------
+  // Modal action: generate link (alert only)
+  // -------------------------
   const generatePaymentLink = () => {
-    const newPayment = {
-      date: new Date().toLocaleString(),
-      customer: formData.name,
-      vendor: "Vendor Name",
-      context: formData.comment,
-      paymentId: Math.random().toString(36).substr(2, 9),
-      amount: formData.amount,
-      service: formData.service,
-    };
-    setPayments([...payments, newPayment]);
+    alert(
+      `Payment Link Generated!\n\n` +
+        `Name: ${formData.name}\n` +
+        `Phone: ${formData.phone}\n` +
+        `Amount: ₹${formData.amount}\n` +
+        `Service: ${formData.service}\n` +
+        `City: ${formData.city}\n` +
+        `Context: ${formData.context.toUpperCase()}`
+    );
     setShowModal(false);
   };
 
-  // Prepare CSV Data
-  const csvData = filteredPayments.flatMap((payment) =>
-    payment.service.map((service) => {
-      const serviceAmount = service.price * service.quantity;
-      const bookingDate = new Date(payment.bookingDetails.bookingDate);
-      const formattedDate = bookingDate.toLocaleDateString('en-GB');
-      const formattedTime = bookingDate.toLocaleTimeString('en-GB', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true,
-      });
+  // helper to format date/time cell
+  const formatSlotDateTime = (payment) => {
+    const slotDate = payment.selectedSlot?.slotDate;
+    const slotTime = payment.selectedSlot?.slotTime;
+    if (slotDate) {
+      return `${slotDate} ${slotTime || ""}`;
+    }
+    const bDate = payment.bookingDetails?.bookingDate;
+    if (bDate) return new Date(bDate).toLocaleString("en-GB");
+    return "-";
+  };
 
-      return {
-        "Date & Time": `${formattedDate} ${formattedTime}`,
-        "Customer Name": payment.customer?.name || "",
-        "Order ID": payment.bookingDetails?.paymentId || "",
-        "Vendor Name": payment.assignedProfessional?.name || "Not Assigned",
-        "Context": payment.bookingDetails?.context || "",
-        "Payment ID": payment.bookingDetails?.paymentId || "",
-        "Amount": serviceAmount,
-        "Service": service.category || "",
-        "City": payment.address?.landMark || "",
-      };
-    })
-  );
+  // helper to compute installment sum for a payment
+  const installmentsSum = (payment) => {
+    const b = payment.bookingDetails || {};
+    const first = Number(b.firstPayment?.amount || 0);
+    const second = Number(b.secondPayment?.amount || 0);
+    const final = Number(b.finalPayment?.amount || 0);
+    return first + second + final;
+  };
 
   return (
-    <Container className="mt-4" style={{ fontFamily: 'Poppins, sans-serif' }}>
-      <Row className="mb-3 align-items-center">
-        <Col><h5 className="fw-bold">Money Dashboard</h5></Col>
-        <Col className="d-flex justify-content-end gap-2">
-          <Form.Select className="w-auto" style={{ height: "38px", fontSize: '12px' }} onChange={(e) => setFilters({ ...filters, city: e.target.value })}>
-            <option value="">Select City</option>
-            <option value="Bangalore">Bangalore</option>
-            <option value="Pune">Pune</option>
+    <Container className="mt-4" style={{ fontFamily: "Poppins, sans-serif" }}>
+          <h5 className="fw-bold">Money Dashboard</h5>
+      {/* top filters (City, Service, Start date, End date, Search, Create Payment Link) */}
+      {/* <Row className="mb-3 align-items-center"> */}
+        <div className="mb-3 d-flex justify-content-end gap-2">
+          <Form.Select
+            className="w-auto"
+            style={{ height: "38px", fontSize: 12 }}
+            onChange={(e) => setFilters({ ...filters, city: e.target.value })}
+            value={filters.city}
+          >
+            <option>All Cities</option>
+            <option>Bengaluru</option>
+            <option>Pune</option>
           </Form.Select>
-          <Form.Select className="w-auto" style={{ height: "38px", fontSize: '12px' }} onChange={(e) => setFilters({ ...filters, service: e.target.value })}>
-            <option value="">Select Service</option>
-            <option value="House Painting">House Painting</option>
-            <option value="Deep Cleaning">Deep Cleaning</option>
-            <option value="Interior">Interior</option>
-            <option value="Packers & Movers">Packers & Movers</option>
+
+          <Form.Select
+            className="w-auto"
+            style={{ height: "38px", fontSize: 12 }}
+            onChange={(e) => setFilters({ ...filters, service: e.target.value })}
+            value={filters.service}
+          >
+            <option>All Services</option>
+            <option>House Painting</option>
+            <option>Deep Cleaning</option>
+            {/* <option>Interior</option>
+            <option>Packers & Movers</option> */}
           </Form.Select>
-          <Form.Select className="w-auto" style={{ height: "38px", fontSize: '12px' }} onChange={(e) => setFilters({ ...filters, period: e.target.value })}>
-            <option value="">Select Period</option>
-            <option value="Last 7 Days">Last 7 Days</option>
-            <option value="Last 30 Days">Last 30 Days</option>
-            <option value="This Month">This Month</option>
-            <option value="Last Month">Last Month</option>
-            <option value="All Time">All Time</option>
-          </Form.Select>
+
+          <input
+            type="date"
+            style={{ fontSize: 12 }}
+            value={customDate.start}
+            onChange={(e) => setCustomDate({ ...customDate, start: e.target.value })}
+          />
+          <input
+            type="date"
+            style={{ fontSize: 12 }}
+            value={customDate.end}
+            onChange={(e) => setCustomDate({ ...customDate, end: e.target.value })}
+          />
+
           <Button
+            onClick={handleSearch}
             style={{
-              whiteSpace: 'nowrap',
-              color: 'black',
-              fontSize: '12px',
-              fontWeight: '700',
-              border: '1px solid #000',
-              borderRadius: '4px',
-              backgroundColor: 'transparent',
-              outline: 'none',
-              boxShadow: 'none'
+              border: "1px solid black",
+              background: "white",
+              color: "black",
+              fontSize: 12,
             }}
+          >
+            Search
+          </Button>
+
+          <Button
             onClick={() => setShowModal(true)}
+            style={{
+              color: "black",
+              fontSize: 12,
+              border: "1px solid black",
+              background: "white",
+            }}
           >
             Create Payment Link
           </Button>
-        </Col>
-      </Row>
+        </div>
+      {/* </Row> */}
 
+      {/* Cards */}
       <Row className="mb-4">
         <Col md={6}>
           <Card className="p-3 shadow-sm">
-            <h6 className="fw-bold" style={{ fontSize: '14px' }}>
+            <h6 className="fw-bold" style={{ fontSize: 14 }}>
               Total Sales: ₹{totalSales.toLocaleString()}
-              <span className="fw-bold " style={{ color: 'green' }}>
-                {totalSales > 0 ? <FaArrowUp color="green" /> : <FaArrowDown color="red" />} +10%
+              <span style={{ marginLeft: 8 }}>
+                {totalSales > 0 ? <FaArrowUp color="green" /> : <FaArrowDown color="red" />}
+                {"  "}
+                <span style={{ color: "green", fontWeight: 700, marginLeft: 6 }}>+10%</span>
               </span>
             </h6>
-            <p style={{ fontSize: '12px' }}>Cash Payment: ₹{cashAmount.toLocaleString()}</p>
-            <p style={{ fontSize: '12px' }}>UPI Payment: ₹{upiAmount.toLocaleString()}</p>
+
+            <p style={{ fontSize: 12 }}>Online Payment: ₹{onlineAmount.toLocaleString()}</p>
+            <p style={{ fontSize: 12 }}>Cash Payment: ₹{cashAmount.toLocaleString()}</p>
+
+       
           </Card>
         </Col>
+
         <Col md={6}>
           <Card className="p-3 shadow-sm">
-            <h6 className="fw-bold" style={{ fontSize: '14px' }}>Amount Yet to Be Collected: ₹{pendingAmount.toLocaleString()}</h6>
-            <p style={{ fontSize: '12px', marginBottom: '1%' }}>Coins sold :
-              {/* <span className="fw-bold " style={{color:'green'}}>{trendUp ? <FaArrowUp color="green" /> : <FaArrowDown color="red" />} +15%</span> */}
-            </p>
-            <p style={{ fontSize: '12px' }}>Income from Coins Sale :
-              {/* <span className="fw-bold " style={{color:'green'}}>{trendUp ? <FaArrowUp color="green" /> : <FaArrowDown color="red" />} +20%</span> */}
-            </p>
+            <h6 className="fw-bold" style={{ fontSize: 14 }}>
+              Amount Yet to Be Collected: ₹{pendingAmount.toLocaleString()}
+            </h6>
+
+            <p style={{ fontSize: 12, marginTop: 8 }}>Coins sold : ₹0</p>
+            <p style={{ fontSize: 12 }}>Income from Coins Sale : ₹0</p>
           </Card>
         </Col>
       </Row>
 
-      <div>
-        <h4 className="fw-bold" style={{ fontSize: "14px" }}>Payments List</h4>
-        <div className="mb-3">
-          <button
-            className={`btn ${filter === "paid" ? "btn-dark text-white" : "btn-outline-dark"} me-2`}
-            onClick={() => setFilter("paid")}
-            style={{ fontSize: '12px' }}
-          >
-            Paid List
-          </button>
-          <button
-            className={`btn ${filter === "pending" ? "btn-dark text-white" : "btn-outline-dark"}`}
-            onClick={() => setFilter("pending")}
-            style={{ fontSize: '12px' }}
-          >
-            Pending List
-          </button>
-        </div>
-
-        <Table striped bordered hover>
-          <thead>
-            <tr style={{ fontSize: '12px' }}>
-              <th>Date & Time</th>
-              <th>Customer</th>
-              <th>Order Id</th>
-              <th>Vendor</th>
-              <th>Context</th>
-              <th>Payment ID</th>
-              <th>Amount</th>
-              <th>Service</th>
-              <th>City</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredPayments.map((payment, index) => {
-              const uniqueCategories = [];
-              return payment.service.map((service, serviceIndex) => {
-                if (!uniqueCategories.includes(service.category)) {
-                  uniqueCategories.push(service.category);
-                  const serviceAmount = service.price * service.quantity;
-                  const bookingDate = new Date(payment.bookingDetails.bookingDate);
-                  const formattedDate = bookingDate.toLocaleDateString('en-GB');
-                  const formattedTime = bookingDate.toLocaleTimeString('en-GB', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    hour12: true
-                  });
-                  return (
-                    <tr key={`${index}-${serviceIndex}`} style={{ fontSize: '12px' }}>
-                      <td>{formattedDate} {formattedTime}</td>
-                      <td>{payment.customer.name}</td>
-                      <td>{payment.bookingDetails.paymentId}</td>
-                      {/* <td>{payment.service.map((service) => service.serviceName).join(", ")}</td> */}
-                      <td>{payment.assignedProfessional ? payment.assignedProfessional.name : 'Not Assigned'}</td>
-                      <td>{payment.bookingDetails.context}</td>
-                      <td>{payment.bookingDetails.paymentId}</td>
-                      <td>₹{serviceAmount.toLocaleString()}</td>
-                      <td>{service.category}</td>
-                      <td>{payment.address.landMark}</td>
-                    </tr>
-                  );
-                }
-                return null;
-              });
-            })}
-          </tbody>
-        </Table>
-
-        <CSVLink
-          data={csvData}
-          filename={`${filter}-payments.csv`}
-          className="btn btn-success mt-3"
-          style={{ fontSize: "12px" }}
+      {/* Paid / Pending buttons */}
+      <div className="mb-3">
+        <button
+          className={`btn ${filter === "paid" ? "btn-dark text-white" : "btn-outline-dark me-2"}`}
+          onClick={() => setFilter("paid")}
+          style={{ fontSize: 12, marginRight: 8 }}
         >
-          Export to CSV
-        </CSVLink>
+          Paid List
+        </button>
 
+        <button
+          className={`btn ${filter === "pending" ? "btn-dark text-white" : "btn-outline-dark"}`}
+          onClick={() => setFilter("pending")}
+          style={{ fontSize: 12 }}
+        >
+          Pending List
+        </button>
       </div>
 
+      {/* Table */}
+      <Table striped bordered hover>
+        <thead>
+          <tr style={{ fontSize: 12 }}>
+            <th>Date & Time</th>
+            <th>Customer</th>
+            <th>Order Id</th>
+            <th>Vendor</th>
+            <th>Payment ID</th>
+            <th>Amount</th>
+            <th>Service</th>
+            <th>City</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {filteredPayments.length === 0 && (
+            <tr>
+              <td colSpan={8} style={{ textAlign: "center", padding: 24 }}>
+                No records found
+              </td>
+            </tr>
+          )}
+
+          {filteredPayments.map((payment, idx) =>
+            (payment.service || []).map((svc, sidx) => {
+              const dateTime = formatSlotDateTime(payment);
+              const customerText = `${payment.customer?.name || "-"} (${payment.customer?.phone || "-"})`;
+              const orderId = payment._id || (payment._id?._id) || "-";
+              const vendor = payment.assignedProfessional?.name || "Not Assigned";
+              const amountVal = installmentsSum(payment);
+              const serviceText = payment.serviceType || "-";
+              const city = payment.address?.city || "-";
+
+              return (
+                <tr key={`${idx}-${sidx}`} style={{ fontSize: 12 }}>
+                  <td>{dateTime}</td>
+                  <td>{customerText}</td>
+                  <td>{orderId}</td>
+                  <td>{vendor}</td>
+                  <td>N/A</td>
+                  <td>₹{amountVal.toLocaleString()}</td>
+                  <td>{serviceText}</td>
+                  <td>{city}</td>
+                </tr>
+              );
+            })
+          )}
+        </tbody>
+      </Table>
+
+      <CSVLink
+        data={csvData}
+        filename={`${filter}-payments.csv`}
+        className="btn btn-success mt-3"
+        style={{ fontSize: 12 }}
+      >
+        Export to CSV
+      </CSVLink>
+
+      {/* Modal */}
       <Modal show={showModal} onHide={() => setShowModal(false)}>
         <Modal.Header closeButton>
-          <Modal.Title style={{ fontSize: '16px' }}>Create Payment Link</Modal.Title>
+          <Modal.Title style={{ fontSize: 16 }}>Create Payment Link</Modal.Title>
         </Modal.Header>
+
         <Modal.Body>
           <Form>
-            {/* Customer / Vendor Toggle */}
-            <Form.Group className="mb-3">
+            <Form.Group>
               <Form.Check
                 inline
                 label="Customer"
@@ -601,58 +406,55 @@ const MoneyDashboard = () => {
               />
             </Form.Group>
 
-            {/* Common Fields */}
-            <Form.Group className="mb-3">
-              <Form.Label>Name:</Form.Label>
-              <Form.Control type="text" name="name" onChange={handleInputChange} />
+            <Form.Group className="mt-3">
+              <Form.Label>Name</Form.Label>
+              <Form.Control name="name" onChange={handleInputChange} />
             </Form.Group>
 
-            <Form.Group className="mb-3">
-              <Form.Label>Phone No.:</Form.Label>
-              <Form.Control type="text" name="phone" onChange={handleInputChange} />
+            <Form.Group className="mt-3">
+              <Form.Label>Phone</Form.Label>
+              <Form.Control name="phone" onChange={handleInputChange} />
             </Form.Group>
 
-            <Form.Group className="mb-3">
-              <Form.Label>Amount:</Form.Label>
+            <Form.Group className="mt-3">
+              <Form.Label>Amount</Form.Label>
               <Form.Control type="number" name="amount" onChange={handleInputChange} />
             </Form.Group>
 
-            {/* Service & City Dropdowns */}
-            <Form.Group className="mb-3">
-              <Form.Label>Service:</Form.Label>
+            <Form.Group className="mt-3">
+              <Form.Label>Service</Form.Label>
               <Form.Select name="service" onChange={handleInputChange}>
                 <option value="">Select Service</option>
                 <option value="House Painting">House Painting</option>
                 <option value="Deep Cleaning">Deep Cleaning</option>
-                <option value="Interior">Home Interior</option>
+                <option value="Interior">Interior</option>
                 <option value="Packers & Movers">Packers & Movers</option>
               </Form.Select>
             </Form.Group>
 
-            <Form.Group className="mb-3">
-              <Form.Label>City:</Form.Label>
+            <Form.Group className="mt-3">
+              <Form.Label>City</Form.Label>
               <Form.Select name="city" onChange={handleInputChange}>
                 <option value="">Select City</option>
-                <option value="Bangalore">Bangalore</option>
+                <option value="Bengaluru">Bengaluru</option>
                 <option value="Pune">Pune</option>
               </Form.Select>
             </Form.Group>
 
-            {/* Context Selection for Vendor */}
             {formData.type === "vendor" && (
-              <Form.Group className="mb-3">
-                <Form.Label>Context:</Form.Label>
+              <Form.Group className="mt-3">
+                <Form.Label>Context</Form.Label>
                 <Form.Check
-                  type="radio"
                   label="Others"
+                  type="radio"
                   name="context"
                   value="others"
                   checked={formData.context === "others"}
                   onChange={handleInputChange}
                 />
                 <Form.Check
-                  type="radio"
                   label="Coins"
+                  type="radio"
                   name="context"
                   value="coins"
                   checked={formData.context === "coins"}
@@ -662,8 +464,17 @@ const MoneyDashboard = () => {
             )}
           </Form>
         </Modal.Body>
+
         <Modal.Footer>
-          <Button style={{ color: 'black', borderColor: 'black', backgroundColor: 'white', fontWeight: '600' }} onClick={generatePaymentLink}>
+          <Button
+            style={{
+              color: "black",
+              borderColor: "black",
+              backgroundColor: "white",
+              fontWeight: "600",
+            }}
+            onClick={generatePaymentLink}
+          >
             Generate Payment Link
           </Button>
         </Modal.Footer>

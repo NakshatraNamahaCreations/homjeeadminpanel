@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { Button, Modal } from "react-bootstrap";
+import { BASE_URL } from "../utils/config";
 
 const FinalizeQuoteModal = ({ quoteId, onFinalize, show, handleClose }) => {
   const handleFinalize = async () => {
     try {
       const response = await fetch(
-        `https://homjee-backend.onrender.com/api/quotations/quote/${quoteId}/finalize`,
+        `${BASE_URL}/quotations/quote/${quoteId}/finalize`,
         {
           method: "PATCH",
           headers: {

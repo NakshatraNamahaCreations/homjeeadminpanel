@@ -217,7 +217,7 @@
 //             style={{ height: "36px", fontSize: "12px" }}
 //           >
 //             <option>City</option>
-//             <option>Bangalore</option>
+//             <option>Bengaluru</option>
 //             <option>Mumbai</option>
 //           </Form.Select>
 //           <Form.Select
@@ -917,7 +917,7 @@ const ProductsDashboard = () => {
             style={{ height: "36px", fontSize: "12px" }}
           >
             <option>City</option>
-            <option>Bangalore</option>
+            <option>Bengaluru</option>
             <option>Mumbai</option>
           </Form.Select>
           <Form.Select

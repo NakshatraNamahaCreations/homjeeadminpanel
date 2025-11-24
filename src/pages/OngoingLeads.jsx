@@ -13,6 +13,7 @@ import {
 } from "react-icons/fa";
 import { Button } from "react-bootstrap";
 import FinalizeQuoteModal from "./FinalizeQuoteModal";
+import { BASE_URL } from "../utils/config";
 
 
 
@@ -92,7 +93,7 @@ const [vendorsError, setVendorsError] = useState(null);
         setQuotesError(null);
 
         const res = await fetch(
-          `https://homjee-backend.onrender.com/api/quotations/quotes-list-by-id?leadId=${encodeURIComponent(
+          `${BASE_URL}/quotations/quotes-list-by-id?leadId=${encodeURIComponent(
             selectedLead.id
           )}`
         );
@@ -123,7 +124,7 @@ const [vendorsError, setVendorsError] = useState(null);
   useEffect(() => {
     const fetchLeads = async () => {
       try {
-        const response = await fetch("https://homjee-backend.onrender.com/api/bookings/get-all-leads");
+        const response = await fetch(`${BASE_URL}/bookings/get-all-leads`);
         if (!response.ok) throw new Error(`API error: ${response.status} ${response.statusText}`);
 
         const data = await response.json();
@@ -542,7 +543,7 @@ const filteredVendors = selectedLead?.services?.[0]?.category
       <div style={styles.filterRow}>
         <select style={styles.dropdown} value={cityFilter} onChange={(e) => setCityFilter(e.target.value)}>
           <option>All Cities</option>
-          <option>Bangalore</option>
+          <option>Bengaluru</option>
           <option>Mumbai</option>
         </select>
 

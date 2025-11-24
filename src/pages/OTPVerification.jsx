@@ -2,8 +2,9 @@ import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import logo from "../assets/logo.svg";
 import { setAuth } from "../utils/auth";
+import { BASE_URL } from "../utils/config";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "https://homjee-backend.onrender.com";
+
 
 const OTPVerification = () => {
   const [otp, setOtp] = useState("");
@@ -32,7 +33,7 @@ const OTPVerification = () => {
       setError("");
       setInfo("");
 
-      const res = await fetch(`${API_BASE}/api/admin/auth/verify-otp`, {
+      const res = await fetch(`${BASE_URL}/admin/auth/verify-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mobileNumber: input, otp }),
@@ -61,7 +62,7 @@ const OTPVerification = () => {
       setError("");
       setInfo("");
 
-      const res = await fetch(`${API_BASE}/api/admin/auth/resend-otp`, {
+      const res = await fetch(`${BASE_URL}/admin/auth/resend-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mobileNumber: input }),

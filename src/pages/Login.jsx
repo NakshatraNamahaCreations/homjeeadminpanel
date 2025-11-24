@@ -2,8 +2,8 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import logo from "../assets/logo.svg";
 import { isAuthed } from "../utils/auth";
+import { BASE_URL } from "../utils/config";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "https://homjee-backend.onrender.com";
 
 const Login = () => {
   const [input, setInput] = useState("");
@@ -17,7 +17,9 @@ const Login = () => {
 
   // keep only digits and clamp to 10
   const sanitizeTo10Digits = (val) =>
-    String(val || "").replace(/\D/g, "").slice(0, 10);
+    String(val || "")
+      .replace(/\D/g, "")
+      .slice(0, 10);
 
   const handleLogin = async () => {
     const mobileNumber = sanitizeTo10Digits(input);
@@ -31,7 +33,7 @@ const Login = () => {
       setLoading(true);
       setError("");
 
-      const res = await fetch(`${API_BASE}/api/admin/auth/login`, {
+      const res = await fetch(`${BASE_URL}/admin/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mobileNumber }),
