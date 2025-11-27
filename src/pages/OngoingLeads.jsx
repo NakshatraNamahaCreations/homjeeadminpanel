@@ -544,7 +544,7 @@ const filteredVendors = selectedLead?.services?.[0]?.category
         <select style={styles.dropdown} value={cityFilter} onChange={(e) => setCityFilter(e.target.value)}>
           <option>All Cities</option>
           <option>Bengaluru</option>
-          <option>Mumbai</option>
+          <option>Pune</option>
         </select>
 
         <select style={styles.dropdown} value={serviceFilter} onChange={(e) => setServiceFilter(e.target.value)}>

@@ -232,6 +232,20 @@ const EnquiryDetails = () => {
     }
   };
 
+  // Selected deep cleaning packages (if any)
+  const deepPackages = enquiry
+    ? (enquiry.raw?.service || []).filter(
+        (s) =>
+          s?.category && s.category.toString().toLowerCase() === "deep cleaning"
+      )
+    : [];
+
+  // bookingDetails convenience
+  const bookingDetails = enquiry?.raw?.bookingDetails || {};
+  const isHousePainting = enquiry?.raw?.service?.some(
+    (s) => s?.category && s.category.toString().toLowerCase() === "house painting"
+  );
+
   /* ---------------------------
      UI
      --------------------------- */
@@ -290,11 +304,11 @@ const EnquiryDetails = () => {
 
             <div className="text-end">
               <p className="text-black mb-0" style={{ fontSize: 12 }}>
-                {enquiry.date}
+                Slot Date: {enquiry.date}
               </p>
 
               <p className="fw-bold mb-2" style={{ fontSize: 12 }}>
-                {enquiry.time}
+                Slot Time: {enquiry.time}
               </p>
 
               <button
@@ -342,9 +356,14 @@ const EnquiryDetails = () => {
                 </p>
 
                 <p style={{ fontSize: 12 }}>
-                  <span className="text-muted">Form Filling Time & Date:</span>{" "}
+                  <span className="text-muted">Booking Time & Date:</span>{" "}
                   {enquiry.createdDate} at {enquiry.createdTime}
                 </p>
+                {/* <p style={{ fontSize: 12 }}>
+                  {console.log("enq", enquiry)}
+                  <span className="text-muted">Slot Time & Date:</span>{" "}
+                  {enquiry.raw.selectedSlot.slotDate} at {enquiry.raw.selectedSlot.slotTime}
+                </p> */}
 
                 <p style={{ fontSize: 12 }}>
                   <span className="text-muted">Read Status:</span>{" "}
@@ -356,6 +375,37 @@ const EnquiryDetails = () => {
                     {enquiry.raw?.isRead ? "Read" : "Unread"}
                   </strong>
                 </p>
+
+                {deepPackages && deepPackages.length > 0 && (
+                  <div style={{ marginTop: 8 }}>
+                    <h6 className="fw-bold" style={{ fontSize: 13 }}>
+                      Deep Cleaning Packages
+                    </h6>
+                    <ul style={{ paddingLeft: 16, marginBottom: 0 }}>
+                      {deepPackages.map((p, i) => (
+                        <li key={i} style={{ fontSize: 12, marginBottom: 6 }}>
+                          <strong>
+                            {p.serviceName || p.name || "Package"}
+                          </strong>
+                          {p.subCategory ? ` — ${p.subCategory}` : ""}
+                          {" \u00A0"}
+                          <span className="text-muted">
+                            ₹{p.price ?? p.totalAmount ?? "-"}
+                          </span>
+                          {p.bookingAmount !== undefined &&
+                          p.bookingAmount !== null ? (
+                            <span className="text-muted">
+                              {" "}
+                              • Booking ₹{p.bookingAmount}
+                            </span>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Payment summary was intentionally moved into EditEnquiryModal — keep Form Details card focused on package info here */}
               </div>
             </div>
           </div>
@@ -426,7 +476,7 @@ const EnquiryDetails = () => {
               Set Reminder
             </button>
 
-            <button
+            {/* <button
               className="btn btn-success"
               style={{ borderRadius: 8, fontSize: 10, padding: "4px 8px" }}
               onClick={() =>
@@ -440,7 +490,7 @@ const EnquiryDetails = () => {
               }
             >
               Convert as Lead
-            </button>
+            </button> */}
           </div>
         </div>
       </div>
@@ -467,11 +517,11 @@ const EnquiryDetails = () => {
               navigate("/enquiries");
             }
 
-            if (confirmState.action === "markAsLead") {
-              await markAsLeadAPI();
-             
-              navigate("/enquiries");
-            }
+            // if (confirmState.action === "markAsLead") {
+            //   await markAsLeadAPI();
+
+            //   navigate("/enquiries");
+            // }
           } catch (err) {
             console.error(err);
           } finally {

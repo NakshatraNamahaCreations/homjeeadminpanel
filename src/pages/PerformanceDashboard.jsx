@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Table, Button, Form, Modal } from "react-bootstrap";
 import { FaCog } from "react-icons/fa";
 import axios from "axios";
+import { BASE_URL } from "../utils/config";
 
 const PerformanceDashboard = ({ show, onHide }) => {
   const [city, setCity] = useState("All Cities");
@@ -27,6 +28,27 @@ const PerformanceDashboard = ({ show, onHide }) => {
   const [deepCleaningVendors, setDeepCleaningVendors] = useState([]);
   const [startedHP, setStartedHP] = useState(0);
 
+  const [kpiValues, setKpiValues] = useState({});
+  const [isEditMode, setIsEditMode] = useState(false);
+
+  const serviceMap = {
+    "House Painters": "house_painting",
+    "Deep Cleaning": "deep_cleaning",
+  };
+
+  // 🚀 ADD THIS HERE
+  const metricLabels = {
+    surveyPercentage: "Survey %",
+    hiringPercentage: "Hiring %",
+    avgGSV: "Avg. GSV",
+    rating: "Rating",
+    strikes: "Strikes",
+
+    // Deep Cleaning Metrics
+    responsePercentage: "Response %",
+    cancellationPercentage: "Cancellation %",
+  };
+
   const normalize = (v) => (v ?? "").toString().trim().toLowerCase();
 
   const computeTotals = (arr) => {
@@ -46,7 +68,9 @@ const PerformanceDashboard = ({ show, onHide }) => {
 
     return { totalAmount, totalProjects };
   };
+
   console.log("surveyPctHousePainting", surveyPctHousePainting);
+
   useEffect(() => {
     const fetchLeads = async () => {
       try {
@@ -242,23 +266,53 @@ const PerformanceDashboard = ({ show, onHide }) => {
     fetchLeads();
   }, []);
 
-  const housePaintersData = [
-    ["Survey %", 75, 80, 85, 95],
-    ["Hiring %", 40, 50, 60, 80],
-    ["Avg. GSV", "₹10K", "₹15K", "₹20K", "₹25K"],
-    ["Rating", 3.5, 4.0, 4.5, 5.0],
-    ["Strikes", 20, 10, 30, 26],
-  ];
+  const fetchKPI = async (service) => {
+    try {
+      const apiService = serviceMap[service];
 
-  const deepCleaningData = [
-    ["Response %", 80, 85, 90, 100],
-    ["Cancellation %", 10, 8, 5, 2],
-    ["Rating", 3.0, 3.5, 4.0, 5.0],
-    ["Strikes", 3, 2, 1, 0],
-  ];
+      const res = await axios.get(`${BASE_URL}/kpi-parameters/${apiService}`);
 
-  const kpiData =
-    selectedService === "House Painters" ? housePaintersData : deepCleaningData;
+      setKpiValues(res.data.data.metrics);
+      setIsEditMode(false);
+    } catch (err) {
+      console.error("Error fetching KPI:", err);
+    }
+  };
+
+  const saveKPI = async () => {
+    try {
+      const apiService = serviceMap[selectedService];
+
+      const res = await axios.put(`${BASE_URL}/kpi-parameters/${apiService}`, {
+        metrics: kpiValues,
+      });
+
+      setIsEditMode(false);
+      fetchKPI(); // Refresh UI
+    } catch (err) {
+      console.error("KPI Update Error:", err);
+      alert("Failed to update KPI");
+    }
+  };
+
+  const getFilteredMetricKeys = () => {
+    if (selectedService === "House Painters") {
+      return [
+        "surveyPercentage",
+        "hiringPercentage",
+        "avgGSV",
+        "rating",
+        "strikes",
+      ];
+    } else {
+      return [
+        "responsePercentage",
+        "cancellationPercentage",
+        "rating",
+        "strikes",
+      ];
+    }
+  };
 
   return (
     <div
@@ -290,7 +344,10 @@ const PerformanceDashboard = ({ show, onHide }) => {
           </Form.Select>
           <Button
             variant="secondary"
-            onClick={() => setShowSettingsModal(true)}
+            onClick={() => {
+              setShowSettingsModal(true);
+              fetchKPI(selectedService);
+            }}
             style={{ whiteSpace: "nowrap", fontSize: "13px" }}
           >
             <FaCog className="me-2" /> Settings
@@ -528,6 +585,7 @@ const PerformanceDashboard = ({ show, onHide }) => {
       <Modal
         show={showSettingsModal}
         onHide={() => setShowSettingsModal(false)}
+        size="lg"
       >
         <Modal.Header closeButton>
           <Modal.Title style={{ fontSize: "16px" }}>
@@ -561,20 +619,61 @@ const PerformanceDashboard = ({ show, onHide }) => {
                 <th style={{ color: "green" }}>Green</th>
               </tr>
             </thead>
+
             <tbody>
-              {kpiData.map(([metric, ...values], index) => (
-                <tr key={index}>
-                  <td>{metric}</td>
-                  {values.map((value, idx) => (
-                    <td key={idx}>{value}</td>
-                  ))}
-                </tr>
-              ))}
+              {getFilteredMetricKeys().map((metricKey) => {
+                const bands = kpiValues?.[metricKey] || {
+                  red: 0,
+                  orange: 0,
+                  yellow: 0,
+                  green: 0,
+                };
+
+                return (
+                  <tr key={metricKey}>
+                    <td>{metricLabels[metricKey]}</td>
+
+                    {["red", "orange", "yellow", "green"].map((color) => (
+                      <td key={color}>
+                        {isEditMode ? (
+                          <input
+                            type="number"
+                            className="form-control"
+                            style={{ width: "80px", fontSize: "12px" }}
+                            value={bands[color]}
+                            onChange={(e) => {
+                              const updated = { ...kpiValues };
+                              updated[metricKey] = updated[metricKey] || {};
+                              updated[metricKey][color] = Number(
+                                e.target.value
+                              );
+                              setKpiValues(updated);
+                            }}
+                          />
+                        ) : metricKey === "avgGSV" ? (
+                          // SHOW ₹ ONLY IN VIEW MODE
+                          `₹${bands[color]}`
+                        ) : (
+                          bands[color]
+                        )}
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })}
             </tbody>
           </Table>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="success">Save</Button>
+          {!isEditMode ? (
+            <Button variant="primary" onClick={() => setIsEditMode(true)}>
+              Edit
+            </Button>
+          ) : (
+            <Button variant="success" onClick={saveKPI}>
+              Save
+            </Button>
+          )}
         </Modal.Footer>
       </Modal>
     </div>

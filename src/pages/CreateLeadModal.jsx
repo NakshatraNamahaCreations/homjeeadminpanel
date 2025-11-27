@@ -7,6 +7,7 @@ import { BASE_URL } from "../utils/config";
 import AddressPickerModal from "./AddressPickerModal";
 import TimePickerModal from "./TimePickerModal";
 import { useNavigate } from "react-router-dom";
+import { MdCancel } from "react-icons/md";
 
 const CreateLeadModal = ({ onClose }) => {
   const [isEditing, setIsEditing] = useState(false);
@@ -47,6 +48,11 @@ const CreateLeadModal = ({ onClose }) => {
 
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
+  const [selectedSubCategory, setSelectedSubCategory] = useState("");
+  const [originalTotal, setOriginalTotal] = useState(0); // keep pre-discount total
+  const [discountMode, setDiscountMode] = useState("percent"); // 'percent' or 'amount'
+  const [discountValue, setDiscountValue] = useState("");
+  const [discountApplied, setDiscountApplied] = useState(false);
 
   const [errors, setErrors] = useState({
     name: "",
@@ -168,6 +174,12 @@ const CreateLeadModal = ({ onClose }) => {
               []
           );
 
+          // reset Deep Cleaning selections
+          setSelectedSubCategory("");
+          setOriginalTotal(0);
+          setDiscountApplied(false);
+          setDiscountValue("");
+
           setLeadData((prev) => ({
             ...prev,
             serviceType: value,
@@ -278,7 +290,9 @@ const CreateLeadModal = ({ onClose }) => {
     setLeadData((prev) => ({
       ...prev,
       totalAmount: (prev.totalAmount || 0) + category.totalAmount,
-      bookingAmount: (prev.bookingAmount || 0) + category.bookingAmount,
+      bookingAmount: Math.round(
+        ((prev.totalAmount || 0) + category.totalAmount) * 0.2
+      ),
     }));
   };
 
@@ -289,12 +303,18 @@ const CreateLeadModal = ({ onClose }) => {
         (pkg) => pkg._id === selectedPackage
       );
       if (selectedCategory) {
+        const newTotal =
+          (leadData.totalAmount || 0) + selectedCategory.totalAmount;
+        setOriginalTotal(newTotal);
+        // reset any previous discount when packages change
+        setDiscountApplied(false);
+        setDiscountValue("");
         setLeadData((prevState) => ({
           ...prevState,
           packages: [...prevState.packages, selectedCategory],
-          totalAmount: prevState.totalAmount + selectedCategory.totalAmount,
-          bookingAmount:
-            prevState.bookingAmount + selectedCategory.bookingAmount,
+          totalAmount: newTotal,
+          // booking amount is 20% of total (after discount if applied)
+          bookingAmount: Math.round(newTotal * 0.2),
           selectedPackage: "",
         }));
       }
@@ -305,9 +325,57 @@ const CreateLeadModal = ({ onClose }) => {
     setLeadData((prevState) => ({
       ...prevState,
       packages: prevState.packages.filter((pkg) => pkg._id !== pkgToRemove._id),
-      totalAmount: prevState.totalAmount - pkgToRemove.totalAmount,
-      bookingAmount: prevState.bookingAmount - pkgToRemove.bookingAmount,
+      totalAmount: (prevState.totalAmount || 0) - pkgToRemove.totalAmount,
+      bookingAmount: Math.round(
+        ((prevState.totalAmount || 0) - pkgToRemove.totalAmount) * 0.2
+      ),
     }));
+    // update original total and clear discount
+    setOriginalTotal((orig) =>
+      Math.max(0, (orig || leadData.totalAmount || 0) - pkgToRemove.totalAmount)
+    );
+    setDiscountApplied(false);
+    setDiscountValue("");
+  };
+
+  // Unique subcategories (category field) from fetched packages
+  const uniqueDeepCategories = () => {
+    if (!Array.isArray(categories)) return [];
+    return [...new Set(categories.map((c) => c.category).filter(Boolean))];
+  };
+
+  const applyDiscount = () => {
+    const total = Number(originalTotal || leadData.totalAmount || 0);
+    if (!total || total <= 0) return;
+    let discounted = total;
+    const val = Number(discountValue || 0);
+    if (!val || val <= 0) return;
+
+    if (discountMode === "percent") {
+      discounted = total - (total * val) / 100;
+    } else {
+      discounted = total - val;
+    }
+    if (discounted < 0) discounted = 0;
+
+    setLeadData((prev) => ({
+      ...prev,
+      totalAmount: Math.round(discounted),
+      bookingAmount: Math.round(discounted * 0.2),
+    }));
+    setDiscountApplied(true);
+  };
+
+  const clearDiscount = () => {
+    const total = Number(originalTotal || leadData.totalAmount || 0);
+    setLeadData((prev) => ({
+      ...prev,
+      totalAmount: Math.round(total),
+      bookingAmount: Math.round(total * 0.2),
+    }));
+    setDiscountApplied(false);
+    setDiscountValue("");
+    setDiscountMode("percent");
   };
 
   const addCustomPackage = () => {
@@ -383,13 +451,14 @@ const CreateLeadModal = ({ onClose }) => {
       const serviceArray =
         leadData.serviceType === "House Painting"
           ? [
-              {
-                category: "House Painting",
-                serviceName: "House Painters & Waterproofing",
-                price: Number(leadData.bookingAmount || 0),
-                quantity: 1,
-              },
-            ]
+                {
+                  category: "House Painting",
+                  serviceName: "House Painters & Waterproofing",
+                  price: Number(leadData.bookingAmount || 0),
+                  quantity: 1,
+                  teamMembersRequired: 0, // consistent schema (house painting typically no teamMembers by default)
+                },
+              ]
           : leadData.packages.map((pkg) => ({
               category: "Deep Cleaning",
               subCategory: pkg.category,
@@ -400,6 +469,20 @@ const CreateLeadModal = ({ onClose }) => {
             }));
 
       // 🟢 Updated customer object
+      // Ensure we have sensible numeric totals to send in payload
+      const computedPackageTotal =
+        leadData.packages && leadData.packages.length
+          ? leadData.packages.reduce(
+              (s, p) => s + Number(p.totalAmount || 0),
+              0
+            )
+          : 0;
+
+      const finalTotalToSend = Number(
+        leadData.totalAmount || computedPackageTotal || 0
+      );
+      const bookingAmountToSend = Number(leadData.bookingAmount || 0);
+
       const bookingData = {
         customer: existingUser
           ? {
@@ -415,14 +498,16 @@ const CreateLeadModal = ({ onClose }) => {
         service: serviceArray,
 
         bookingDetails: {
-          bookingDate: now,
-          bookingTime: leadData.slotTime,
+          // siteVisitCharges only applies for House Painting
           siteVisitCharges:
-            leadData.serviceType === "House Painting"
-              ? Number(leadData.bookingAmount || 0)
-              : 0,
+            leadData.serviceType === "House Painting" ? bookingAmountToSend : 0,
           paymentMethod: "None",
-          bookingAmount: Number(leadData.bookingAmount),
+          // Send the admin-chosen bookingAmount and final totals explicitly
+          bookingAmount: bookingAmountToSend,
+          // finalTotal is the amount payable for the booking (after any discount)
+          finalTotal: finalTotalToSend,
+          paidAmount: 0,
+     
         },
 
         address: {
@@ -447,21 +532,28 @@ const CreateLeadModal = ({ onClose }) => {
         formName: "admin panel",
         isEnquiry: leadData.bookingAmount > 0 ? true : false, // ✅ FIXED HERE
       };
-
+      console.log("bookingData to send:", bookingData);
       await axios.post(
         `${BASE_URL}/bookings/create-admin-booking`,
         bookingData
       );
 
-      toast.success(`${leadData.bookingAmount == 0 ? "Lead created successfully!": " Enquiry created successfully!"}`, {
-        autoClose: 1500,
-        onClose: () => {
-          onClose();
-          navigate("/");
-          setIsSaving(false);
-          // window.location.reload();
-        },
-      });
+      toast.success(
+        `${
+          leadData.bookingAmount == 0
+            ? "Lead created successfully!"
+            : " Enquiry created successfully!"
+        }`,
+        {
+          autoClose: 1500,
+          onClose: () => {
+            onClose();
+            navigate("/");
+            setIsSaving(false);
+            // window.location.reload();
+          },
+        }
+      );
     } catch (err) {
       console.error(err);
       setError("Failed to create booking. Try again.");
@@ -583,6 +675,55 @@ const CreateLeadModal = ({ onClose }) => {
           </div>
 
           <div>
+            <div
+              onClick={handleTimeSelection}
+              style={{
+                ...styles.input,
+                display: "flex",
+                alignItems: "center",
+                cursor: isTimeSelectionEnabled ? "pointer" : "not-allowed",
+                color: leadData.slotDate && leadData.slotTime ? "#111" : "#777",
+                background: isTimeSelectionEnabled ? "#fff" : "#f5f5f5",
+                opacity: isTimeSelectionEnabled ? 1 : 0.6,
+                border: isTimeSelectionEnabled
+                  ? "1px solid #ccc"
+                  : "1px solid #ddd",
+              }}
+            >
+              {leadData.slotDate && leadData.slotTime
+                ? `${leadData.slotTime}, ${leadData.slotDate}`
+                : isTimeSelectionEnabled
+                ? "Select service start date & time"
+                : "Fill address and city first to select time"}
+            </div>
+            {!isTimeSelectionEnabled && (
+              <div
+                style={{
+                  color: "#666",
+                  fontSize: 11,
+                  marginTop: -8,
+                  marginBottom: 6,
+                  fontStyle: "italic",
+                }}
+              >
+                Please fill address and city to enable time selection
+              </div>
+            )}
+            {(errors.slotDate || errors.slotTime) && (
+              <div
+                style={{
+                  color: "red",
+                  fontSize: 12,
+                  marginTop: -6,
+                  marginBottom: 6,
+                }}
+              >
+                {errors.slotDate || errors.slotTime}
+              </div>
+            )}
+          </div>
+
+          <div>
             <input
               type="text"
               name="city"
@@ -640,29 +781,55 @@ const CreateLeadModal = ({ onClose }) => {
 
           {leadData.serviceType === "Deep Cleaning" && (
             <div style={styles.packageSelectionContainer}>
-              <div style={styles.packageSelectorContainer}>
+              <div>
+                {/* Subcategory selector (category field in API) */}
                 <select
-                  onChange={(e) =>
-                    setLeadData((prev) => ({
-                      ...prev,
-                      selectedPackage: e.target.value,
-                    }))
-                  }
-                  value={leadData.selectedPackage || ""}
-                  style={styles.selectBox}
+                  onChange={(e) => {
+                    setSelectedSubCategory(e.target.value);
+                    // reset selected package when subcategory changes
+                    setLeadData((prev) => ({ ...prev, selectedPackage: "" }));
+                  }}
+                  value={selectedSubCategory || ""}
+                  style={styles.input}
                 >
                   <option value="" disabled>
-                    Select Package
+                    Select Subcategory
                   </option>
-                  {categories.map((category) => (
-                    <option key={category._id} value={category._id}>
-                      {category.name} - ₹{category.totalAmount}
+                  {uniqueDeepCategories().map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
                     </option>
                   ))}
                 </select>
-                <button onClick={addPackage} style={styles.addButton}>
-                  +
-                </button>
+
+                <div style={styles.packageSelectorContainer}>
+                  <select
+                    onChange={(e) =>
+                      setLeadData((prev) => ({
+                        ...prev,
+                        selectedPackage: e.target.value,
+                      }))
+                    }
+                    value={leadData.selectedPackage || ""}
+                    style={styles.selectBox}
+                    disabled={!selectedSubCategory}
+                  >
+                    <option value="" disabled>
+                      Select Package
+                    </option>
+                    {categories
+                      .filter((c) => c.category === selectedSubCategory)
+                      .map((category) => (
+                        <option key={category._id} value={category._id}>
+                          {category.name} - ₹{category.totalAmount}
+                        </option>
+                      ))}
+                  </select>
+
+                  <button onClick={addPackage} style={styles.addButton}>
+                    +
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -684,55 +851,6 @@ const CreateLeadModal = ({ onClose }) => {
               </ul>
             </div>
           )}
-
-          <div>
-            <div
-              onClick={handleTimeSelection}
-              style={{
-                ...styles.input,
-                display: "flex",
-                alignItems: "center",
-                cursor: isTimeSelectionEnabled ? "pointer" : "not-allowed",
-                color: leadData.slotDate && leadData.slotTime ? "#111" : "#777",
-                background: isTimeSelectionEnabled ? "#fff" : "#f5f5f5",
-                opacity: isTimeSelectionEnabled ? 1 : 0.6,
-                border: isTimeSelectionEnabled
-                  ? "1px solid #ccc"
-                  : "1px solid #ddd",
-              }}
-            >
-              {leadData.slotDate && leadData.slotTime
-                ? `${leadData.slotTime}, ${leadData.slotDate}`
-                : isTimeSelectionEnabled
-                ? "Select service start date & time"
-                : "Fill address and city first to select time"}
-            </div>
-            {!isTimeSelectionEnabled && (
-              <div
-                style={{
-                  color: "#666",
-                  fontSize: 11,
-                  marginTop: -8,
-                  marginBottom: 6,
-                  fontStyle: "italic",
-                }}
-              >
-                Please fill address and city to enable time selection
-              </div>
-            )}
-            {(errors.slotDate || errors.slotTime) && (
-              <div
-                style={{
-                  color: "red",
-                  fontSize: 12,
-                  marginTop: -6,
-                  marginBottom: 6,
-                }}
-              >
-                {errors.slotDate || errors.slotTime}
-              </div>
-            )}
-          </div>
 
           {leadData.serviceType === "Deep Cleaning" && (
             <>
@@ -793,6 +911,58 @@ const CreateLeadModal = ({ onClose }) => {
             </>
           )}
 
+          {/* Discount controls for Deep Cleaning */}
+          {leadData.serviceType === "Deep Cleaning" && (
+            <div style={{ marginTop: 12, marginBottom: 12 }}>
+              {/* <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <strong>Total:</strong>
+                <span>₹{leadData.totalAmount || 0}</span>
+                <strong style={{ marginLeft: 12 }}>Booking (20%):</strong>
+                <span>₹{leadData.bookingAmount || 0}</span>
+              </div> */}
+
+              {!discountApplied ? (
+                <div style={styles.discountContainer}>
+                  <select
+                    value={discountMode}
+                    onChange={(e) => setDiscountMode(e.target.value)}
+                    style={styles.discountModeSelect}
+                  >
+                    <option value="percent">% Discount</option>
+                    <option value="amount">Fixed Amount</option>
+                  </select>
+                  <input
+                    type="number"
+                    value={discountValue}
+                    onChange={(e) => setDiscountValue(e.target.value)}
+                    placeholder={
+                      discountMode === "percent" ? "eg. 10" : "eg. 200"
+                    }
+                    style={styles.discountInput}
+                  />
+                  <button onClick={applyDiscount} style={styles.discountButton}>
+                    Apply Discount
+                  </button>
+                </div>
+              ) : (
+                <div style={styles.discountAppliedContainer}>
+                  <span style={styles.discountAppliedText}>
+                    Discount applied:{" "}
+                    {discountMode === "percent"
+                      ? `${discountValue}%`
+                      : `₹${discountValue}`}
+                  </span>
+                  <button
+                    onClick={clearDiscount}
+                    style={styles.removeDiscountButton}
+                  >
+                    <MdCancel />
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
           {(leadData.serviceType === "Deep Cleaning" ||
             leadData.serviceType === "House Painting") && (
             <>
@@ -827,7 +997,9 @@ const CreateLeadModal = ({ onClose }) => {
               <label style={{ fontSize: 12, fontWeight: 600 }}>
                 Amount yet to pay
               </label>
-              <p>{leadData.totalAmount - leadData.bookingAmount}</p>
+              <p style={styles.input}>
+                {leadData.totalAmount - leadData.bookingAmount}
+              </p>
             </>
           )}
           <div style={styles.actions}>
@@ -1034,11 +1206,57 @@ const styles = {
   removeIcon: {
     cursor: "pointer",
     color: "#d9534f",
-    fontSize: "16px",
+    fontSize: "11px",
     transition: "color 0.3s ease",
   },
   removeIconHover: {
     color: "#c9302c",
+  },
+  discountContainer: {
+    display: "flex",
+    gap: 8,
+    alignItems: "center",
+    marginTop: 8,
+  },
+  discountModeSelect: {
+    padding: 8,
+    borderRadius: 4,
+    border: "1px solid #ddd",
+    backgroundColor: "#fff",
+    fontSize: 13,
+  },
+  discountInput: {
+    padding: 8,
+    width: 140,
+    borderRadius: 4,
+    border: "1px solid #ddd",
+    fontSize: 13,
+  },
+  discountButton: {
+    padding: "4px 12px",
+    backgroundColor: "#0d6efd",
+    color: "#fff",
+    border: "none",
+    borderRadius: 4,
+    cursor: "pointer",
+    fontSize: 12,
+  },
+  discountAppliedContainer: {
+    display: "flex",
+    gap: 12,
+    alignItems: "center",
+    // marginTop: 8,
+  },
+  discountAppliedText: {
+    fontSize: 14,
+  },
+  removeDiscountButton: {
+    padding: "6px",
+    backgroundColor: "transparent",
+    color: "#dc3545",
+    border: "none",
+    borderRadius: 4,
+    cursor: "pointer",
   },
 };
 
