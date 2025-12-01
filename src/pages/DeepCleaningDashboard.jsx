@@ -16,7 +16,7 @@ import { BASE_URL } from "../utils/config";
 /** ---- MASTER DATA (category → subcategory → services) ---- */
 const DEEP_CLEANING_DATA = [
   {
-    category: "Furnished apartment",
+    category: "Furnished Apartment",
     subcategories: [
       {
         subcategory: "1 BHK Cleaning",
@@ -41,7 +41,7 @@ const DEEP_CLEANING_DATA = [
     ],
   },
   {
-    category: "Unfurnished apartment",
+    category: "Unfurnished Apartment",
     subcategories: [
       { subcategory: "1 BHK Cleaning", services: ["Classic", "Premium"] },
       { subcategory: "2 BHK Cleaning", services: ["Classic", "Premium"] },
@@ -51,7 +51,7 @@ const DEEP_CLEANING_DATA = [
     ],
   },
   {
-    category: "Book by room",
+    category: "Book By Room",
     subcategories: [
       {
         subcategory: "Bedroom Cleaning",
@@ -78,7 +78,7 @@ const DEEP_CLEANING_DATA = [
     ],
   },
   {
-    category: "Furnished bungalow/duplex",
+    category: "Furnished Bungalow/Duplex",
     subcategories: [
       {
         subcategory: "<1200 sqft Bungalow Cleaning",
