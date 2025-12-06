@@ -281,11 +281,16 @@ const [vendorsError, setVendorsError] = useState(null);
   }, [selectedLead]);
 
   // Unique service list for filter
+  // const uniqueServices = [
+  //   "All Services",
+  //   ...new Set(leads.map((lead) => lead.services?.[0]?.category || "Unknown Service")),
+  // ];
+
   const uniqueServices = [
     "All Services",
-    ...new Set(leads.map((lead) => lead.services?.[0]?.category || "Unknown Service")),
-  ];
-
+    "House Painting",
+    "Deep Cleaning"
+  ]
 const handleVendorSelect = async (event) => {
   const vendorName = event.target.value;
   setSelectedVendor(vendorName);
