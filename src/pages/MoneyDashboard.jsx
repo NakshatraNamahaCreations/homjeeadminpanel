@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Modal,
   Button,
@@ -52,7 +52,7 @@ const MoneyDashboard = () => {
 
   const fetchManualPayments = async () => {
     try {
-      const res = await axios.get(`${BASE_URL}/manual-payment/list`);
+      const res = await axios.get(`${BASE_URL}/manual-payment/`);
       setManualPayments(res.data.data || []);
     } catch (err) {
       console.error("Manual Payment Fetch Error:", err);
@@ -87,6 +87,7 @@ const MoneyDashboard = () => {
       await fetchPayments();
     };
     loadAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /* ======================================================
@@ -148,34 +149,147 @@ const MoneyDashboard = () => {
   };
 
   /* ======================================================
-        CSV EXPORT (bookings only)
+        BUILD BOOKING PAID & PENDING ROWS
+        - Paid: installment-wise rows (first/second/final) where installment.status === 'paid'
+        - Pending: one row per booking where amountYetToPay > 0 (show total pending)
   ====================================================== */
-  const filteredPayments = payments.filter((p) => {
-    const status = p?.bookingDetails?.paymentStatus || "";
-    return filter === "paid" ? status === "Paid" : status !== "Paid";
-  });
 
-  const csvData = filteredPayments.map((payment) => {
-    const b = payment.bookingDetails || {};
-    const first = Number(b.firstPayment?.amount || 0);
-    const second = Number(b.secondPayment?.amount || 0);
-    const final = Number(b.finalPayment?.amount || 0);
+  const bookingPaidRows = useMemo(() => {
+    try {
+      const rows = [];
 
-    const dateTime = payment.selectedSlot?.slotDate
-      ? `${payment.selectedSlot.slotDate} ${payment.selectedSlot.slotTime}`
-      : new Date(b.bookingDate).toLocaleString("en-GB");
+      payments.forEach((p) => {
+        const b = p.bookingDetails || {};
+        const customer = p.customer
+          ? `${p.customer.name} (${p.customer.phone})`
+          : "-";
+        const vendor = p.assignedProfessional?.name || "-";
+        const orderId = b.booking_id || p._id || "-";
+        const service = (p.service || [])
+          .map((s) => s.serviceName || s.category)
+          .join(", ");
+        const city = p.address?.city || "-";
 
-    return {
-      "Date & Time": dateTime,
-      Customer: `${payment.customer?.name} (${payment.customer?.phone})`,
-      "Order Id": payment.bookingDetails?.booking_id,
-      Vendor: payment.assignedProfessional?.name || "-",
-      "Payment ID": "N/A",
-      Amount: first + second + final,
-      Service: payment.service?.map((s) => s.serviceName).join(", "),
-      City: payment.address?.city,
-    };
-  });
+        // Prepare a set of installment payment amounts to avoid duplicates
+        const installmentAmounts = new Set();
+
+        const pushInstallment = (inst) => {
+          if (!inst) return;
+          if (String(inst.status).toLowerCase() === "paid") {
+            const amt = Number(inst.amount || 0);
+            installmentAmounts.add(amt);
+
+            const paidAt =
+              inst.paidAt || inst.at || b.bookingDate || p.createdDate;
+
+            rows.push({
+              date: paidAt ? new Date(paidAt).toLocaleString("en-GB") : "-",
+              customer,
+              orderId,
+              vendor,
+              paymentId: "N/A",
+              amount: amt,
+              service,
+              city,
+            });
+          }
+        };
+
+        pushInstallment(b.firstPayment);
+        pushInstallment(b.secondPayment);
+        pushInstallment(b.finalPayment);
+
+        // Now add payments[] history ONLY if amount not already included
+        if (Array.isArray(p.payments)) {
+          p.payments.forEach((hist) => {
+            const amt = Number(hist.amount || 0);
+            if (amt > 0 && !installmentAmounts.has(amt)) {
+              const date = hist.at || hist.paidAt || p.createdDate;
+              rows.push({
+                date: date ? new Date(date).toLocaleString("en-GB") : "-",
+                customer,
+                orderId,
+                vendor,
+                paymentId: "N/A",
+                amount: amt,
+                service,
+                city,
+              });
+            }
+          });
+        }
+      });
+
+      // Sort rows by date descending
+      rows.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+      return rows;
+    } catch (err) {
+      console.error("bookingPaidRows error:", err);
+      return [];
+    }
+  }, [payments]);
+
+  const bookingPendingRows = useMemo(() => {
+    try {
+      const rows = payments
+        .filter((p) => Number(p.bookingDetails?.amountYetToPay || 0) > 0)
+        .map((p) => {
+          const b = p.bookingDetails || {};
+          const customer = p.customer
+            ? `${p.customer.name} (${p.customer.phone})`
+            : "-";
+          const vendor = p.assignedProfessional?.name || "-";
+          const orderId = b.booking_id || p._id || "-";
+          const service = (p.service || [])
+            .map((s) => s.serviceName || s.category)
+            .join(", ");
+          const city = p.address?.city || "-";
+          const date = p.selectedSlot
+            ? `${p.selectedSlot.slotDate} ${p.selectedSlot.slotTime}`
+            : b.bookingDate
+            ? new Date(b.bookingDate).toLocaleString("en-GB")
+            : "-";
+
+          return {
+            date,
+            customer,
+            orderId,
+            vendor,
+            paymentId: "N/A",
+            amountDue: Number(b.amountYetToPay || 0),
+            service,
+            city,
+          };
+        });
+
+      // sort by date descending
+      rows.sort((a, b) => {
+        const da = new Date(a.date).getTime() || 0;
+        const db = new Date(b.date).getTime() || 0;
+        return db - da;
+      });
+
+      return rows;
+    } catch (err) {
+      console.error("bookingPendingRows error:", err);
+      return [];
+    }
+  }, [payments]);
+
+  /* ======================================================
+        CSV EXPORT (bookings only) - use bookingPaidRows
+  ====================================================== */
+  const csvData = bookingPaidRows.map((r) => ({
+    "Date & Time": r.date,
+    Customer: r.customer,
+    "Order Id": r.orderId,
+    Vendor: r.vendor,
+    "Payment ID": r.paymentId,
+    Amount: r.amount,
+    Service: r.service,
+    City: r.city,
+  }));
 
   /* ======================================================
         FORM VALIDATION
@@ -201,13 +315,12 @@ const MoneyDashboard = () => {
 
   const generatePaymentLink = async () => {
     try {
-      const res = await axios.post(
-        `${BASE_URL}/manual-payment/create`,
-        formData
-      );
+      const res = await axios.post(`${BASE_URL}/manual-payment/`, formData);
 
       alert("Payment Link: " + res.data.data.payment.url);
       setShowModal(false);
+      // refetch manual payments so new link appears
+      await fetchManualPayments();
     } catch (err) {
       console.error(err);
       alert("Error creating link");
@@ -384,40 +497,70 @@ const MoneyDashboard = () => {
       {/* TABLE */}
       <Table striped bordered hover>
         <thead>
-          <tr style={{ fontSize: 12 }}>
-            <th>Date & Time</th>
-            <th>Customer</th>
-            <th>Order Id</th>
-            <th>Vendor</th>
-            <th>Payment ID</th>
-            <th>Amount</th>
-            <th>Service</th>
-            <th>City</th>
-          </tr>
+          {paymentMode === "booking" ? (
+            <tr style={{ fontSize: 12 }}>
+              <th>Date & Time</th>
+              <th>Customer</th>
+              <th>Order Id</th>
+              <th>Vendor</th>
+              <th>Payment ID</th>
+              <th>Amount</th>
+              <th>Service</th>
+              <th>City</th>
+            </tr>
+          ) : (
+            <tr style={{ fontSize: 12 }}>
+              <th>Date & Time</th>
+              <th>Customer</th>
+              <th>Payment ID</th>
+              <th>Amount</th>
+              <th>Service</th>
+              <th>City</th>
+            </tr>
+          )}
         </thead>
 
         <tbody>
           {paymentMode === "booking" ? (
             <>
-              {filteredPayments.length === 0 ? (
+              {filter === "paid" ? (
+                bookingPaidRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="text-center p-4">
+                      No Records Found
+                    </td>
+                  </tr>
+                ) : (
+                  bookingPaidRows.map((r, i) => (
+                    <tr key={i} style={{ fontSize: 12 }}>
+                      <td>{r.date}</td>
+                      <td>{r.customer}</td>
+                      <td>{r.orderId}</td>
+                      <td>{r.vendor}</td>
+                      <td>{r.paymentId}</td>
+                      <td>₹{r.amount}</td>
+                      <td>{r.service}</td>
+                      <td>{r.city}</td>
+                    </tr>
+                  ))
+                )
+              ) : bookingPendingRows.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="text-center p-4">
                     No Records Found
                   </td>
                 </tr>
               ) : (
-                filteredPayments.map((p, i) => (
+                bookingPendingRows.map((r, i) => (
                   <tr key={i} style={{ fontSize: 12 }}>
-                    <td>{formatSlotDateTime(p)}</td>
-                    <td>
-                      {p.customer?.name} ({p.customer?.phone})
-                    </td>
-                    <td>{p.bookingDetails?.booking_id}</td>
-                    <td>{p.assignedProfessional?.name || "-"}</td>
-                    <td>N/A</td>
-                    <td>₹{installmentsSum(p)}</td>
-                    <td>{p.serviceType?.replace(/_/g, " ")}</td>
-                    <td>{p.address?.city}</td>
+                    <td>{r.date}</td>
+                    <td>{r.customer}</td>
+                    <td>{r.orderId}</td>
+                    <td>{r.vendor}</td>
+                    <td>{r.paymentId}</td>
+                    <td>₹{r.amountDue}</td>
+                    <td>{r.service}</td>
+                    <td>{r.city}</td>
                   </tr>
                 ))
               )}
@@ -426,7 +569,7 @@ const MoneyDashboard = () => {
             <>
               {manualPayments.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="text-center p-4">
+                  <td colSpan={6} className="text-center p-4">
                     No Records Found
                   </td>
                 </tr>
@@ -443,8 +586,6 @@ const MoneyDashboard = () => {
                       <td>
                         {m.name} ({m.phone})
                       </td>
-                      <td>{m._id}</td>
-                      <td>-</td>
                       <td>
                         <a
                           href={m.payment?.url}
@@ -506,11 +647,7 @@ const MoneyDashboard = () => {
 
             <Form.Group className="mt-3">
               <Form.Label>Name *</Form.Label>
-              <Form.Control
-                name="name"
-                required
-                onChange={handleInputChange}
-              />
+              <Form.Control name="name" required onChange={handleInputChange} />
             </Form.Group>
 
             <Form.Group className="mt-3">
@@ -541,11 +678,7 @@ const MoneyDashboard = () => {
 
             <Form.Group className="mt-3">
               <Form.Label>Service *</Form.Label>
-              <Form.Select
-                name="service"
-                required
-                onChange={handleInputChange}
-              >
+              <Form.Select name="service" required onChange={handleInputChange}>
                 <option value="">Select Service</option>
                 <option>House Painting</option>
                 <option>Deep Cleaning</option>
@@ -556,11 +689,7 @@ const MoneyDashboard = () => {
 
             <Form.Group className="mt-3">
               <Form.Label>City *</Form.Label>
-              <Form.Select
-                name="city"
-                required
-                onChange={handleInputChange}
-              >
+              <Form.Select name="city" required onChange={handleInputChange}>
                 <option value="">Select City</option>
                 <option>Bengaluru</option>
                 <option>Pune</option>
@@ -642,7 +771,7 @@ export default MoneyDashboard;
 //   Col,
 //   Card,
 // } from "react-bootstrap";
-// import { FaArrowUp, FaArrowDown } from "react-icons/fa";
+// import { FaArrowUp } from "react-icons/fa";
 // import { CSVLink } from "react-csv";
 // import axios from "axios";
 // import { BASE_URL } from "../utils/config";
@@ -650,13 +779,12 @@ export default MoneyDashboard;
 // const MoneyDashboard = () => {
 //   const [showModal, setShowModal] = useState(false);
 //   const [payments, setPayments] = useState([]);
+//   const [manualPayments, setManualPayments] = useState([]);
 //   const [filter, setFilter] = useState("paid");
 //   const [paymentMode, setPaymentMode] = useState("booking");
-//   const [manualPayments, setManualPayments] = useState([]);
 //   const [hoverTab, setHoverTab] = useState("");
-//   const [errors, setErrors] = useState({
-//     phone: "",
-//   });
+
+//   const [errors, setErrors] = useState({ phone: "" });
 
 //   const [filters, setFilters] = useState({
 //     service: "All Services",
@@ -680,12 +808,13 @@ export default MoneyDashboard;
 //   const [cashAmount, setCashAmount] = useState(0);
 //   const [onlineAmount, setOnlineAmount] = useState(0);
 
-//   // Fetch Manual Payments
+//   /* ======================================================
+//         API CALLS
+//   ====================================================== */
+
 //   const fetchManualPayments = async () => {
 //     try {
-//       const res = await axios.get(
-//         `${BASE_URL}/manual-payment/list?status=${filter}`
-//       );
+//       const res = await axios.get(`${BASE_URL}/manual-payment/`);
 //       setManualPayments(res.data.data || []);
 //     } catch (err) {
 //       console.error("Manual Payment Fetch Error:", err);
@@ -693,7 +822,6 @@ export default MoneyDashboard;
 //     }
 //   };
 
-//   // Fetch Booking Payments
 //   const fetchPayments = async () => {
 //     try {
 //       const res = await axios.get(`${BASE_URL}/bookings/get-all-leads`, {
@@ -705,174 +833,158 @@ export default MoneyDashboard;
 //         },
 //       });
 
-//       const leads = res?.data?.allLeads || [];
-//       setPayments(leads);
-//       calculateTotals(leads, manualPayments);
+//       setPayments(res.data.allLeads || []);
 //     } catch (err) {
-//       console.error("Error fetching leads:", err);
+//       console.error("Booking Payment Fetch Error:", err);
 //       setPayments([]);
 //     }
 //   };
 
+//   /* ======================================================
+//         LOAD BOTH (once)
+//   ====================================================== */
 //   useEffect(() => {
-//     fetchPayments();
-//     fetchManualPayments();
+//     const loadAll = async () => {
+//       await fetchManualPayments();
+//       await fetchPayments();
+//     };
+//     loadAll();
 //   }, []);
 
-//   useEffect(() => {
-//     fetchManualPayments();
-//   }, [filter, paymentMode]);
-
+//   /* ======================================================
+//         Recalculate totals whenever lists change
+//   ====================================================== */
 //   useEffect(() => {
 //     calculateTotals(payments, manualPayments);
 //   }, [payments, manualPayments]);
 
+//   /* ======================================================
+//         TOTALS CALCULATION
+//   ====================================================== */
 //   const calculateManualPaid = (list) => {
-//     let sum = 0;
-//     list.forEach((m) => {
-//       if (m.payment?.status === "Paid") {
-//         sum += Number(m.amount || 0);
-//       }
-//     });
-//     return sum;
+//     return list
+//       .filter((m) => m.payment?.status === "Paid")
+//       .reduce((sum, m) => sum + Number(m.amount || 0), 0);
 //   };
 
 //   const calculateManualPending = (list) => {
-//     let sum = 0;
-//     list.forEach((m) => {
-//       if (m.payment?.status === "Pending") {
-//         sum += Number(m.amount || 0);
-//       }
-//     });
-//     return sum;
+//     return list
+//       .filter((m) => m.payment?.status === "Pending")
+//       .reduce((sum, m) => sum + Number(m.amount || 0), 0);
 //   };
 
-//   // Calculate totals
 //   const calculateTotals = (bookingList, manualList) => {
 //     let bookingPaid = 0;
 //     let bookingPending = 0;
 //     let cashCalc = 0;
 //     let onlineCalc = 0;
 
-//     // --- BOOKING PAYMENTS ---
 //     bookingList.forEach((item) => {
 //       const b = item.bookingDetails || {};
-//       const paidAmount = Number(b.paidAmount || 0);
-//       const due = Number(b.amountYetToPay || 0);
-//       const method = (b.paymentMethod || "").toString();
 
-//       bookingPaid += paidAmount;
+//       const paid = Number(b.paidAmount || 0);
+//       const due = Number(b.amountYetToPay || 0);
+//       const method = b.paymentMethod || "";
+
+//       bookingPaid += paid;
 //       bookingPending += due;
 
-//       if (method === "Cash") cashCalc += paidAmount;
-//       if (method === "UPI") onlineCalc += paidAmount;
+//       if (method === "Cash") cashCalc += paid;
+//       if (method === "UPI") onlineCalc += paid;
 //     });
 
-//     // --- MANUAL PAYMENTS ---
-//     const manualPaidTotal = calculateManualPaid(manualList); // PAID
-//     const manualPendingTotal = calculateManualPending(manualList); // PENDING
+//     const manualPaid = calculateManualPaid(manualList);
+//     const manualPending = calculateManualPending(manualList);
 
-//     // --- FINAL TOTALS ---
-//     const finalTotalSales = bookingPaid + manualPaidTotal;
-//     const finalPendingAmount = bookingPending + manualPendingTotal;
-
-//     setTotalSales(finalTotalSales);
-//     setPendingAmount(finalPendingAmount);
+//     setTotalSales(bookingPaid + manualPaid);
+//     setPendingAmount(bookingPending + manualPending);
 //     setCashAmount(cashCalc);
 //     setOnlineAmount(onlineCalc);
 //   };
 
-//   const handleSearch = () => fetchPayments();
+//   /* ======================================================
+//         SEARCH
+//   ====================================================== */
+//   const handleSearch = async () => {
+//     await fetchPayments();
+//   };
 
-//   // Booking Filter
+//   /* ======================================================
+//         CSV EXPORT (bookings only)
+//   ====================================================== */
 //   const filteredPayments = payments.filter((p) => {
 //     const status = p?.bookingDetails?.paymentStatus || "";
 //     return filter === "paid" ? status === "Paid" : status !== "Paid";
 //   });
 
-//   // CSV Export
 //   const csvData = filteredPayments.map((payment) => {
 //     const b = payment.bookingDetails || {};
 //     const first = Number(b.firstPayment?.amount || 0);
 //     const second = Number(b.secondPayment?.amount || 0);
 //     const final = Number(b.finalPayment?.amount || 0);
-//     const totalInstallments = first + second + final;
 
-//     const slotDate = payment.selectedSlot?.slotDate || "";
-//     const slotTime = payment.selectedSlot?.slotTime || "";
-
-//     const dateTime = slotDate
-//       ? `${slotDate} ${slotTime}`
-//       : b.bookingDate
-//       ? new Date(b.bookingDate).toLocaleString("en-GB")
-//       : "";
+//     const dateTime = payment.selectedSlot?.slotDate
+//       ? `${payment.selectedSlot.slotDate} ${payment.selectedSlot.slotTime}`
+//       : new Date(b.bookingDate).toLocaleString("en-GB");
 
 //     return {
 //       "Date & Time": dateTime,
 //       Customer: `${payment.customer?.name} (${payment.customer?.phone})`,
-//       "Order Id": payment._id,
-//       Vendor: payment.assignedProfessional?.name || "Not Assigned",
+//       "Order Id": payment.bookingDetails?.booking_id,
+//       Vendor: payment.assignedProfessional?.name || "-",
 //       "Payment ID": "N/A",
-//       Amount: totalInstallments,
+//       Amount: first + second + final,
 //       Service: payment.service?.map((s) => s.serviceName).join(", "),
 //       City: payment.address?.city,
 //     };
 //   });
 
+//   /* ======================================================
+//         FORM VALIDATION
+//   ====================================================== */
 //   const handleInputChange = (e) => {
 //     const { name, value } = e.target;
 
 //     if (name === "phone") {
-//       // Allow digits only
 //       if (!/^\d*$/.test(value)) return;
-
-//       // Max 10 digits
 //       if (value.length > 10) return;
 
 //       setFormData((prev) => ({ ...prev, phone: value }));
-
-//       // Error message handling
-//       if (value.length !== 10) {
-//         setErrors((prev) => ({
-//           ...prev,
-//           phone: "Phone number must be exactly 10 digits",
-//         }));
-//       } else {
-//         setErrors((prev) => ({ ...prev, phone: "" }));
-//       }
+//       setErrors((prev) => ({
+//         ...prev,
+//         phone: value.length === 10 ? "" : "Phone must be 10 digits",
+//       }));
 
 //       return;
 //     }
 
-//     // For all other fields
 //     setFormData((prev) => ({ ...prev, [name]: value }));
 //   };
 
 //   const generatePaymentLink = async () => {
 //     try {
 //       const res = await axios.post(
-//         `${BASE_URL}/manual-payment/create`,
+//         `${BASE_URL}/manual-payment/`,
 //         formData
 //       );
 
-//       alert("Payment Link Created:\n" + res.data.data.payment.url);
-
+//       alert("Payment Link: " + res.data.data.payment.url);
 //       setShowModal(false);
 //     } catch (err) {
-//       console.error("Error creating manual payment:", err);
-//       alert("Error creating payment link");
+//       console.error(err);
+//       alert("Error creating link");
 //     }
 //   };
 
+//   /* ======================================================
+//         DATE/TIME FORMATTER
+//   ====================================================== */
 //   const formatSlotDateTime = (payment) => {
-//     const slotDate = payment.selectedSlot?.slotDate;
-//     const slotTime = payment.selectedSlot?.slotTime;
-//     if (slotDate) return `${slotDate} ${slotTime || ""}`;
+//     const slot = payment.selectedSlot;
+//     if (slot) return `${slot.slotDate} ${slot.slotTime}`;
 
 //     const bDate = payment.bookingDetails?.bookingDate;
-//     if (bDate) return new Date(bDate).toLocaleString("en-GB");
-
-//     return "-";
+//     return bDate ? new Date(bDate).toLocaleString("en-GB") : "-";
 //   };
 
 //   const installmentsSum = (payment) => {
@@ -884,15 +996,18 @@ export default MoneyDashboard;
 //     );
 //   };
 
+//   /* ======================================================
+//         RENDER UI
+//   ====================================================== */
 //   return (
 //     <Container className="mt-4" style={{ fontFamily: "Poppins, sans-serif" }}>
 //       <h5 className="fw-bold">Money Dashboard</h5>
 
-//       {/* Filters */}
+//       {/* FILTER BAR */}
 //       <div className="mb-3 d-flex justify-content-end gap-2">
 //         <Form.Select
 //           className="w-auto"
-//           style={{ height: "38px", fontSize: 12 }}
+//           style={{ height: 38, fontSize: 12 }}
 //           value={filters.city}
 //           onChange={(e) => setFilters({ ...filters, city: e.target.value })}
 //         >
@@ -903,7 +1018,7 @@ export default MoneyDashboard;
 
 //         <Form.Select
 //           className="w-auto"
-//           style={{ height: "38px", fontSize: 12 }}
+//           style={{ height: 38, fontSize: 12 }}
 //           value={filters.service}
 //           onChange={(e) => setFilters({ ...filters, service: e.target.value })}
 //         >
@@ -914,19 +1029,20 @@ export default MoneyDashboard;
 
 //         <input
 //           type="date"
-//           style={{ fontSize: 12 }}
 //           value={customDate.start}
 //           onChange={(e) =>
 //             setCustomDate({ ...customDate, start: e.target.value })
 //           }
+//           style={{ fontSize: 12 }}
 //         />
+
 //         <input
 //           type="date"
-//           style={{ fontSize: 12 }}
 //           value={customDate.end}
 //           onChange={(e) =>
 //             setCustomDate({ ...customDate, end: e.target.value })
 //           }
+//           style={{ fontSize: 12 }}
 //         />
 
 //         <Button
@@ -944,26 +1060,22 @@ export default MoneyDashboard;
 //         <Button
 //           onClick={() => setShowModal(true)}
 //           style={{
-//             color: "black",
-//             fontSize: 12,
 //             border: "1px solid black",
 //             background: "white",
+//             color: "black",
+//             fontSize: 12,
 //           }}
 //         >
 //           Create Payment Link
 //         </Button>
 //       </div>
 
-//       {/* Cards */}
+//       {/* SUMMARY CARDS */}
 //       <Row className="mb-4">
 //         <Col md={6}>
 //           <Card className="p-3 shadow-sm">
-//             <h6 className="fw-bold" style={{ fontSize: 14 }}>
+//             <h6 className="fw-bold">
 //               Total Sales: ₹{totalSales.toLocaleString()}
-//               <span style={{ marginLeft: 8 }}>
-//                 <FaArrowUp color="green" />{" "}
-//                 <span style={{ color: "green", fontWeight: 700 }}>+10%</span>
-//               </span>
 //             </h6>
 //             <p style={{ fontSize: 12 }}>
 //               Online Payment: ₹{onlineAmount.toLocaleString()}
@@ -976,50 +1088,39 @@ export default MoneyDashboard;
 
 //         <Col md={6}>
 //           <Card className="p-3 shadow-sm">
-//             <h6 className="fw-bold" style={{ fontSize: 14 }}>
+//             <h6 className="fw-bold">
 //               Amount Yet to Be Collected: ₹{pendingAmount.toLocaleString()}
 //             </h6>
-
-//             <p style={{ fontSize: 12, marginTop: 8 }}>Coins sold : ₹0</p>
-//             <p style={{ fontSize: 12 }}>Income from Coins Sale : ₹0</p>
+//             <p style={{ fontSize: 12 }}>Coins Sold: ₹0</p>
+//             <p style={{ fontSize: 12 }}>Income from Coins: ₹0</p>
 //           </Card>
 //         </Col>
 //       </Row>
 
-//       {/* Tabs */}
+//       {/* TABS */}
 //       <div style={styles.paymentTabs}>
 //         <div
-//           onMouseEnter={() => setHoverTab("booking")}
-//           onMouseLeave={() => setHoverTab("")}
+//           onClick={() => setPaymentMode("booking")}
 //           style={{
 //             ...styles.paymentTab,
 //             ...(paymentMode === "booking" ? styles.paymentTabActive : {}),
-//             ...(hoverTab === "booking" && paymentMode !== "booking"
-//               ? styles.paymentTabHover
-//               : {}),
 //           }}
-//           onClick={() => setPaymentMode("booking")}
 //         >
 //           Booking Payments
 //         </div>
 
 //         <div
-//           onMouseEnter={() => setHoverTab("manual")}
-//           onMouseLeave={() => setHoverTab("")}
+//           onClick={() => setPaymentMode("manual")}
 //           style={{
 //             ...styles.paymentTab,
 //             ...(paymentMode === "manual" ? styles.paymentTabActive : {}),
-//             ...(hoverTab === "manual" && paymentMode !== "manual"
-//               ? styles.paymentTabHover
-//               : {}),
 //           }}
-//           onClick={() => setPaymentMode("manual")}
 //         >
 //           Manual Payments
 //         </div>
 //       </div>
 
-//       {/* Paid/Pending */}
+//       {/* PAID/PENDING TOGGLE */}
 //       <div className="mb-3">
 //         <button
 //           className={`btn ${
@@ -1042,7 +1143,7 @@ export default MoneyDashboard;
 //         </button>
 //       </div>
 
-//       {/* Table */}
+//       {/* TABLE */}
 //       <Table striped bordered hover>
 //         <thead>
 //           <tr style={{ fontSize: 12 }}>
@@ -1058,94 +1159,68 @@ export default MoneyDashboard;
 //         </thead>
 
 //         <tbody>
-//           {/* BOOKING PAYMENT SINGLE ROW FIX */}
 //           {paymentMode === "booking" ? (
 //             <>
 //               {filteredPayments.length === 0 ? (
 //                 <tr>
-//                   <td colSpan={8} style={{ textAlign: "center", padding: 24 }}>
+//                   <td colSpan={8} className="text-center p-4">
 //                     No Records Found
 //                   </td>
 //                 </tr>
 //               ) : (
-//                 filteredPayments.map((payment, idx) => {
-//                   const dateTime = formatSlotDateTime(payment);
-
-//                   const customerText = `${payment.customer?.name} (${payment.customer?.phone})`;
-
-//                   // ✅ SHOW booking_id instead of _id
-//                   const bookingId = payment.bookingDetails?.booking_id || "-";
-
-//                   const vendor =
-//                     payment.assignedProfessional?.name || "Not Assigned";
-
-//                   const amount = installmentsSum(payment);
-
-//                   // ✅ SHOW ONLY serviceType (house_painting / deep_cleaning)
-//                   const serviceType =
-//                     payment.serviceType?.replace(/_/g, " ") || "-";
-
-//                   const city = payment.address?.city || "-";
-
-//                   return (
-//                     <tr key={idx} style={{ fontSize: 12 }}>
-//                       <td>{dateTime}</td>
-
-//                       <td>{customerText}</td>
-
-//                       <td>{bookingId}</td>
-
-//                       <td>{vendor}</td>
-
-//                       <td>N/A</td>
-
-//                       <td>₹{amount.toLocaleString()}</td>
-
-//                       <td>{serviceType}</td>
-
-//                       <td>{city}</td>
-//                     </tr>
-//                   );
-//                 })
+//                 filteredPayments.map((p, i) => (
+//                   <tr key={i} style={{ fontSize: 12 }}>
+//                     <td>{formatSlotDateTime(p)}</td>
+//                     <td>
+//                       {p.customer?.name} ({p.customer?.phone})
+//                     </td>
+//                     <td>{p.bookingDetails?.booking_id}</td>
+//                     <td>{p.assignedProfessional?.name || "-"}</td>
+//                     <td>N/A</td>
+//                     <td>₹{installmentsSum(p)}</td>
+//                     <td>{p.serviceType?.replace(/_/g, " ")}</td>
+//                     <td>{p.address?.city}</td>
+//                   </tr>
+//                 ))
 //               )}
 //             </>
 //           ) : (
-//             /* MANUAL PAYMENTS (unchanged) */
 //             <>
 //               {manualPayments.length === 0 ? (
 //                 <tr>
-//                   <td colSpan={8} style={{ textAlign: "center", padding: 24 }}>
+//                   <td colSpan={8} className="text-center p-4">
 //                     No Records Found
 //                   </td>
 //                 </tr>
 //               ) : (
-//                 manualPayments.map((m, idx) => (
-//                   <tr key={idx} style={{ fontSize: 12 }}>
-//                     <td>{new Date(m.createdAt).toLocaleString("en-GB")}</td>
-//                     <td>
-//                       {m.name} ({m.phone})
-//                     </td>
-//                     <td>{m._id}</td>
-//                     <td>-</td>
-//                     <td>
-//                       {m.payment.url ? (
+//                 manualPayments
+//                   .filter((m) =>
+//                     filter === "paid"
+//                       ? m.payment?.status === "Paid"
+//                       : m.payment?.status === "Pending"
+//                   )
+//                   .map((m, i) => (
+//                     <tr key={i} style={{ fontSize: 12 }}>
+//                       <td>{new Date(m.createdAt).toLocaleString("en-GB")}</td>
+//                       <td>
+//                         {m.name} ({m.phone})
+//                       </td>
+//                       <td>{m._id}</td>
+//                       <td>-</td>
+//                       <td>
 //                         <a
-//                           href={m.payment.url}
+//                           href={m.payment?.url}
 //                           target="_blank"
 //                           rel="noopener noreferrer"
 //                         >
 //                           Open Link
 //                         </a>
-//                       ) : (
-//                         "N/A"
-//                       )}
-//                     </td>
-
-//                     <td>₹{m.amount}</td>
-//                     <td>{m.service}</td>
-//                     <td>{m.city}</td>
-//                   </tr>
-//                 ))
+//                       </td>
+//                       <td>₹{m.amount}</td>
+//                       <td>{m.service}</td>
+//                       <td>{m.city}</td>
+//                     </tr>
+//                   ))
 //               )}
 //             </>
 //           )}
@@ -1158,15 +1233,13 @@ export default MoneyDashboard;
 //         className="btn btn-success mt-3"
 //         style={{ fontSize: 12 }}
 //       >
-//         Export to CSV
+//         Export CSV
 //       </CSVLink>
 
-//       {/* Modal */}
+//       {/* CREATE PAYMENT LINK MODAL */}
 //       <Modal show={showModal} onHide={() => setShowModal(false)}>
 //         <Modal.Header closeButton>
-//           <Modal.Title style={{ fontSize: 16 }}>
-//             Create Payment Link
-//           </Modal.Title>
+//           <Modal.Title>Create Payment Link</Modal.Title>
 //         </Modal.Header>
 
 //         <Modal.Body>
@@ -1175,9 +1248,9 @@ export default MoneyDashboard;
 //               <Form.Check
 //                 inline
 //                 label="Customer"
-//                 type="radio"
 //                 name="type"
 //                 value="customer"
+//                 type="radio"
 //                 checked={formData.type === "customer"}
 //                 onChange={handleInputChange}
 //               />
@@ -1185,9 +1258,9 @@ export default MoneyDashboard;
 //               <Form.Check
 //                 inline
 //                 label="Vendor"
-//                 type="radio"
 //                 name="type"
 //                 value="vendor"
+//                 type="radio"
 //                 checked={formData.type === "vendor"}
 //                 onChange={handleInputChange}
 //               />
@@ -1195,55 +1268,64 @@ export default MoneyDashboard;
 
 //             <Form.Group className="mt-3">
 //               <Form.Label>Name *</Form.Label>
-//               <Form.Control name="name" onChange={handleInputChange} required />
+//               <Form.Control
+//                 name="name"
+//                 required
+//                 onChange={handleInputChange}
+//               />
 //             </Form.Group>
 
 //             <Form.Group className="mt-3">
-//               <Form.Label>Phone </Form.Label>
+//               <Form.Label>Phone *</Form.Label>
 //               <Form.Control
 //                 name="phone"
 //                 value={formData.phone}
-//                 onChange={handleInputChange}
 //                 maxLength={10}
 //                 inputMode="numeric"
 //                 required
 //                 style={{ borderColor: errors.phone ? "red" : "" }}
+//                 onChange={handleInputChange}
 //               />
-
 //               {errors.phone && (
-//                 <small style={{ color: "red", fontSize: "11px" }}>
-//                   {errors.phone}
-//                 </small>
+//                 <small style={{ color: "red" }}>{errors.phone}</small>
 //               )}
 //             </Form.Group>
 
 //             <Form.Group className="mt-3">
-//               <Form.Label>Amount</Form.Label>
+//               <Form.Label>Amount *</Form.Label>
 //               <Form.Control
 //                 type="number"
 //                 name="amount"
-//                 onChange={handleInputChange}
 //                 required
+//                 onChange={handleInputChange}
 //               />
 //             </Form.Group>
 
 //             <Form.Group className="mt-3">
 //               <Form.Label>Service *</Form.Label>
-//               <Form.Select name="service" onChange={handleInputChange} required>
+//               <Form.Select
+//                 name="service"
+//                 required
+//                 onChange={handleInputChange}
+//               >
 //                 <option value="">Select Service</option>
-//                 <option value="House Painting">House Painting</option>
-//                 <option value="Deep Cleaning">Deep Cleaning</option>
-//                 <option value="Interior">Interior</option>
-//                 <option value="Packers & Movers">Packers & Movers</option>
+//                 <option>House Painting</option>
+//                 <option>Deep Cleaning</option>
+//                 <option>Interior</option>
+//                 <option>Packers & Movers</option>
 //               </Form.Select>
 //             </Form.Group>
 
 //             <Form.Group className="mt-3">
 //               <Form.Label>City *</Form.Label>
-//               <Form.Select name="city" onChange={handleInputChange} required>
+//               <Form.Select
+//                 name="city"
+//                 required
+//                 onChange={handleInputChange}
+//               >
 //                 <option value="">Select City</option>
-//                 <option value="Bengaluru">Bengaluru</option>
-//                 <option value="Pune">Pune</option>
+//                 <option>Bengaluru</option>
+//                 <option>Pune</option>
 //               </Form.Select>
 //             </Form.Group>
 
@@ -1255,7 +1337,6 @@ export default MoneyDashboard;
 //                   type="radio"
 //                   name="context"
 //                   value="others"
-//                   checked={formData.context === "others"}
 //                   onChange={handleInputChange}
 //                 />
 //                 <Form.Check
@@ -1263,7 +1344,6 @@ export default MoneyDashboard;
 //                   type="radio"
 //                   name="context"
 //                   value="coins"
-//                   checked={formData.context === "coins"}
 //                   onChange={handleInputChange}
 //                 />
 //               </Form.Group>
@@ -1274,10 +1354,9 @@ export default MoneyDashboard;
 //         <Modal.Footer>
 //           <Button
 //             style={{
-//               color: "black",
 //               borderColor: "black",
-//               backgroundColor: "white",
-//               fontWeight: "600",
+//               color: "black",
+//               background: "white",
 //             }}
 //             onClick={generatePaymentLink}
 //           >
@@ -1289,32 +1368,26 @@ export default MoneyDashboard;
 //   );
 // };
 
+// /* ======================================================
+//       TAB STYLES
+// ====================================================== */
 // const styles = {
 //   paymentTabs: {
 //     display: "flex",
-//     gap: "12px",
-//     marginBottom: "10px",
-//     borderBottom: "2px solid #e5e5e5",
+//     gap: 12,
+//     borderBottom: "2px solid #eee",
+//     marginBottom: 10,
 //   },
-
 //   paymentTab: {
 //     padding: "8px 16px",
-//     fontSize: "13px",
-//     fontWeight: 600,
 //     cursor: "pointer",
-//     color: "#555",
-//     borderRadius: "6px 6px 0 0",
-//     transition: "all 0.2s ease",
+//     fontSize: 13,
+//     fontWeight: 600,
 //   },
-
 //   paymentTabActive: {
-//     backgroundColor: "#000",
+//     background: "black",
 //     color: "white",
-//     borderBottom: "2px solid #000",
-//   },
-
-//   paymentTabHover: {
-//     backgroundColor: "#f5f5f5",
+//     borderBottom: "2px solid black",
 //   },
 // };
 
