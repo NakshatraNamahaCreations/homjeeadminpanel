@@ -19,6 +19,7 @@ import AllReminders from "../pages/AllReminders";
 import EnquiriesList from "../pages/EnquiriesList";
 import EnquiryDetails from "../pages/EnquiryDetails";
 
+
 const AppRoutes = () => {
   return (
     <Routes>
@@ -52,7 +53,9 @@ const AppRoutes = () => {
 
         <Route path="/setting" element={<Settings />} />
       </Route>
+      
     </Routes>
+    
   );
 };
 

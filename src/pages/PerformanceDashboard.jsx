@@ -37,10 +37,11 @@ const PerformanceDashboard = () => {
   // KPI Ranges for both services
   const [kpiRanges, setKpiRanges] = useState({
     "House Painters": {},
-    "Deep Cleaning": {}
+    "Deep Cleaning": {},
   });
   const [showRangeModal, setShowRangeModal] = useState(false);
-  const [selectedRangeService, setSelectedRangeService] = useState("House Painters");
+  const [selectedRangeService, setSelectedRangeService] =
+    useState("House Painters");
 
   // Vendor / Lead related states
   const [housePaintingLeads, setHousePaintingLeads] = useState(0);
@@ -51,15 +52,23 @@ const PerformanceDashboard = () => {
   const [surveyPctDeepCleaning, setSurveyPctDeepCleaning] = useState(0);
   const [acceptedDC, setAcceptedDC] = useState(0);
   const [cancelledDC, setCancelledDC] = useState(0);
-  const [cancellationPctDeepCleaning, setCancellationPctDeepCleaning] = useState(0);
+  const [cancellationPctDeepCleaning, setCancellationPctDeepCleaning] =
+    useState(0);
   const [acceptedHP, setAcceptedHP] = useState(0);
   const [cancelledHP, setCancelledHP] = useState(0);
-  const [cancellationPctHousePainting, setCancellationPctHousePainting] = useState(0);
+  const [cancellationPctHousePainting, setCancellationPctHousePainting] =
+    useState(0);
   const [housePaintingVendors, setHousePaintingVendors] = useState([]);
   const [deepCleaningVendors, setDeepCleaningVendors] = useState([]);
   const [startedHP, setStartedHP] = useState(0);
 
   const [isEditMode, setIsEditMode] = useState(false);
+
+  // Add these states near your other state declarations
+  const [ratingHousePainting, setRatingHousePainting] = useState(0);
+  const [strikesHousePainting, setStrikesHousePainting] = useState(0);
+  const [ratingDeepCleaning, setRatingDeepCleaning] = useState(0);
+  const [strikesDeepCleaning, setStrikesDeepCleaning] = useState(0);
 
   // CORRECTED COLOR RANGE CHECKER
   const getRangeColor = (serviceName, metricKey, rawValue) => {
@@ -73,7 +82,7 @@ const PerformanceDashboard = () => {
 
     // CORRECTED RANGE LOGIC:
     // a <= value < b = Red
-    // b <= value < c = Orange  
+    // b <= value < c = Orange
     // c <= value < d = Yellow
     // d <= value = Green
     if (value >= a && value < b) return "#dc3545"; // Red
@@ -122,18 +131,40 @@ const PerformanceDashboard = () => {
         setHousePaintingLeads(data.housePainting.totalLeads);
         setSurveyPctHousePainting(data.housePainting.surveyPercentage);
         setAvgGsvHousePainting(data.housePainting.averageGsv);
-        setCancellationPctHousePainting(data.housePainting.cancellationPercentage || 0);
+        setCancellationPctHousePainting(
+          data.housePainting.cancellationPercentage || 0
+        );
         setAcceptedHP(data.housePainting.hiringPercentage);
 
         setDeepCleaningLeads(data.deepCleaning.totalLeads);
         setSurveyPctDeepCleaning(data.deepCleaning.responsePercentage || 0);
-        setCancellationPctDeepCleaning(data.deepCleaning.cancellationPercentage);
+        setCancellationPctDeepCleaning(
+          data.deepCleaning.cancellationPercentage
+        );
         setAvgGsvDeepCleaning(data.deepCleaning.averageGsv);
         setAcceptedDC(data.deepCleaning.responsePercentage);
 
         // Set counts for display
-        setStartedHP(Math.round((data.housePainting.surveyPercentage / 100) * data.housePainting.totalLeads));
-        setCancelledDC(Math.round((data.deepCleaning.cancellationPercentage / 100) * data.deepCleaning.totalLeads));
+        setStartedHP(
+          Math.round(
+            (data.housePainting.surveyPercentage / 100) *
+              data.housePainting.totalLeads
+          )
+        );
+        setCancelledDC(
+          Math.round(
+            (data.deepCleaning.cancellationPercentage / 100) *
+              data.deepCleaning.totalLeads
+          )
+        );
+
+        // Inside your fetchPerformanceData function, after setting other states:
+
+        // Update rating data
+        setRatingHousePainting(data.housePainting.averageRating || 0);
+        setStrikesHousePainting(data.housePainting.strikes || 0);
+        setRatingDeepCleaning(data.deepCleaning.averageRating || 0);
+        setStrikesDeepCleaning(data.deepCleaning.strikes || 0);
 
         // Vendors
         setHousePaintingVendors(
@@ -186,12 +217,12 @@ const PerformanceDashboard = () => {
       try {
         const [hpRes, dcRes] = await Promise.all([
           getKPI("house_painting"),
-          getKPI("deep_cleaning")
+          getKPI("deep_cleaning"),
         ]);
 
         setKpiRanges({
           "House Painters": hpRes?.data?.data?.ranges || {},
-          "Deep Cleaning": dcRes?.data?.data?.ranges || {}
+          "Deep Cleaning": dcRes?.data?.data?.ranges || {},
         });
       } catch (e) {
         console.error("Error loading KPI ranges", e);
@@ -210,7 +241,7 @@ const PerformanceDashboard = () => {
       const res = await getKPI(serviceType);
       setKpiRanges((prev) => ({
         ...prev,
-        [serviceName]: res?.data?.data?.ranges || {}
+        [serviceName]: res?.data?.data?.ranges || {},
       }));
     } catch (e) {
       console.error("Error loading ranges", e);
@@ -333,7 +364,7 @@ const PerformanceDashboard = () => {
             }}
             style={{ whiteSpace: "nowrap", fontSize: "13px" }}
           >
-           <IoMdSettings/> Setting
+            <IoMdSettings /> Setting
           </Button>
         </div>
       </div>
@@ -349,7 +380,9 @@ const PerformanceDashboard = () => {
               className="border rounded-pill p-2 px-3 mb-2"
               style={{ fontWeight: "bold", fontSize: "14px" }}
             >
-              <span style={{ color: "#2b4eff" }}>Total Leads: {housePaintingLeads}</span>
+              <span style={{ color: "#2b4eff" }}>
+                Total Leads: {housePaintingLeads}
+              </span>
             </div>
             <div
               className="border rounded-pill p-2 px-3 mb-2"
@@ -357,7 +390,11 @@ const PerformanceDashboard = () => {
             >
               <span
                 style={{
-                  color: getRangeColor("House Painters", "avgGSV", avgGsvHousePainting),
+                  color: getRangeColor(
+                    "House Painters",
+                    "avgGSV",
+                    avgGsvHousePainting
+                  ),
                 }}
               >
                 Avg. GSV: ₹{avgGsvHousePainting.toFixed(2)}
@@ -369,10 +406,31 @@ const PerformanceDashboard = () => {
             >
               <span
                 style={{
-                  color: getRangeColor("House Painters", "rating", 0),
+                  color: getRangeColor(
+                    "House Painters",
+                    "rating",
+                    ratingHousePainting
+                  ),
                 }}
               >
-                Rating: 0 ★
+                Rating: {ratingHousePainting.toFixed(1)} ★
+              </span>
+            </div>
+
+            <div
+              className="border rounded-pill p-2 px-3"
+              style={{ fontWeight: "bold", fontSize: "14px" }}
+            >
+              <span
+                style={{
+                  color: getRangeColor(
+                    "House Painters",
+                    "strikes",
+                    strikesHousePainting
+                  ),
+                }}
+              >
+                Strikes: {strikesHousePainting}
               </span>
             </div>
           </div>
@@ -383,13 +441,17 @@ const PerformanceDashboard = () => {
               width: "25%",
               fontWeight: "bold",
               fontSize: "12px",
-              borderColor: "#e6a100 !important"
+              borderColor: "#e6a100 !important",
             }}
           >
             <span
               style={{
                 fontSize: "30px",
-                color: getRangeColor("House Painters", "surveyPercentage", surveyPctHousePainting),
+                color: getRangeColor(
+                  "House Painters",
+                  "surveyPercentage",
+                  surveyPctHousePainting
+                ),
               }}
             >
               {surveyPctHousePainting.toFixed(0)}%
@@ -404,19 +466,25 @@ const PerformanceDashboard = () => {
               width: "25%",
               fontWeight: "bold",
               fontSize: "12px",
-              borderColor: "#dc3545 !important"
+              borderColor: "#dc3545 !important",
             }}
           >
             <span
               style={{
                 fontSize: "30px",
-                color: getRangeColor("House Painters", "hiringPercentage", acceptedHP),
+                color: getRangeColor(
+                  "House Painters",
+                  "hiringPercentage",
+                  acceptedHP
+                ),
               }}
             >
               {acceptedHP.toFixed(0)}%
             </span>
             <br />
-            <span style={{ color: "#6c757d" }}>Hiring({Math.round((acceptedHP / 100) * housePaintingLeads)})</span>
+            <span style={{ color: "#6c757d" }}>
+              Hiring({Math.round((acceptedHP / 100) * housePaintingLeads)})
+            </span>
           </div>
         </div>
       </div>
@@ -432,7 +500,9 @@ const PerformanceDashboard = () => {
               className="border rounded-pill p-2 px-3 mb-2"
               style={{ fontWeight: "bold", fontSize: "14px" }}
             >
-              <span style={{ color: "#d97706" }}>Total Leads: {deepCleaningLeads}</span>
+              <span style={{ color: "#d97706" }}>
+                Total Leads: {deepCleaningLeads}
+              </span>
             </div>
             <div
               className="border rounded-pill p-2 px-3 mb-2"
@@ -440,7 +510,11 @@ const PerformanceDashboard = () => {
             >
               <span
                 style={{
-                  color: getRangeColor("Deep Cleaning", "avgGSV", avgGsvDeepCleaning),
+                  color: getRangeColor(
+                    "Deep Cleaning",
+                    "avgGSV",
+                    avgGsvDeepCleaning
+                  ),
                 }}
               >
                 Avg. GSV: ₹{avgGsvDeepCleaning.toFixed(2)}
@@ -452,10 +526,31 @@ const PerformanceDashboard = () => {
             >
               <span
                 style={{
-                  color: getRangeColor("Deep Cleaning", "rating", 0),
+                  color: getRangeColor(
+                    "Deep Cleaning",
+                    "rating",
+                    ratingDeepCleaning
+                  ),
                 }}
               >
-                Rating: 0 ★
+                Rating: {ratingDeepCleaning.toFixed(1)} ★
+              </span>
+            </div>
+          
+            <div
+              className="border rounded-pill p-2 px-3"
+              style={{ fontWeight: "bold", fontSize: "14px" }}
+            >
+              <span
+                style={{
+                  color: getRangeColor(
+                    "Deep Cleaning",
+                    "strikes",
+                    strikesDeepCleaning
+                  ),
+                }}
+              >
+                Strikes: {strikesDeepCleaning}
               </span>
             </div>
           </div>
@@ -466,19 +561,26 @@ const PerformanceDashboard = () => {
               width: "25%",
               fontWeight: "bold",
               fontSize: "12px",
-              borderColor: "#198754 !important"
+              borderColor: "#198754 !important",
             }}
           >
             <span
               style={{
                 fontSize: "30px",
-                color: getRangeColor("Deep Cleaning", "responsePercentage", surveyPctDeepCleaning),
+                color: getRangeColor(
+                  "Deep Cleaning",
+                  "responsePercentage",
+                  surveyPctDeepCleaning
+                ),
               }}
             >
               {surveyPctDeepCleaning.toFixed(0)}%
             </span>
             <br />
-            <span style={{ color: "#6c757d" }}>Response({Math.round((surveyPctDeepCleaning / 100) * deepCleaningLeads)})</span>
+            <span style={{ color: "#6c757d" }}>
+              Response(
+              {Math.round((surveyPctDeepCleaning / 100) * deepCleaningLeads)})
+            </span>
           </div>
 
           <div
@@ -487,19 +589,29 @@ const PerformanceDashboard = () => {
               width: "25%",
               fontWeight: "bold",
               fontSize: "12px",
-              borderColor: "#e6a100 !important"
+              borderColor: "#e6a100 !important",
             }}
           >
             <span
               style={{
                 fontSize: "30px",
-                color: getRangeColor("Deep Cleaning", "cancellationPercentage", cancellationPctDeepCleaning),
+                color: getRangeColor(
+                  "Deep Cleaning",
+                  "cancellationPercentage",
+                  cancellationPctDeepCleaning
+                ),
               }}
             >
               {cancellationPctDeepCleaning.toFixed(0)}%
             </span>
             <br />
-            <span style={{ color: "#6c757d" }}>Cancellation({Math.round((cancellationPctDeepCleaning / 100) * deepCleaningLeads)})</span>
+            <span style={{ color: "#6c757d" }}>
+              Cancellation(
+              {Math.round(
+                (cancellationPctDeepCleaning / 100) * deepCleaningLeads
+              )}
+              )
+            </span>
           </div>
         </div>
       </div>
@@ -650,11 +762,17 @@ const PerformanceDashboard = () => {
             <div></div>
             <div style={{ ...styles.rangeLabel, ...styles.redText }}>Red</div>
             <div></div>
-            <div style={{ ...styles.rangeLabel, ...styles.orangeText }}>Orange</div>
+            <div style={{ ...styles.rangeLabel, ...styles.orangeText }}>
+              Orange
+            </div>
             <div></div>
-            <div style={{ ...styles.rangeLabel, ...styles.yellowText }}>Yellow</div>
+            <div style={{ ...styles.rangeLabel, ...styles.yellowText }}>
+              Yellow
+            </div>
             <div></div>
-            <div style={{ ...styles.rangeLabel, ...styles.greenText }}>Green</div>
+            <div style={{ ...styles.rangeLabel, ...styles.greenText }}>
+              Green
+            </div>
             <div></div>
           </div>
 
@@ -669,7 +787,9 @@ const PerformanceDashboard = () => {
                   className="form-control"
                   style={{ width: "80px" }}
                   value={range?.a ?? ""}
-                  onChange={(e) => updateRangeValue(metricKey, "a", e.target.value)}
+                  onChange={(e) =>
+                    updateRangeValue(metricKey, "a", e.target.value)
+                  }
                 />
                 <div style={{ ...styles.vLine, ...styles.redLine }} />
                 <input
@@ -678,7 +798,9 @@ const PerformanceDashboard = () => {
                   className="form-control"
                   style={{ width: "80px" }}
                   value={range?.b ?? ""}
-                  onChange={(e) => updateRangeValue(metricKey, "b", e.target.value)}
+                  onChange={(e) =>
+                    updateRangeValue(metricKey, "b", e.target.value)
+                  }
                 />
                 <div style={{ ...styles.vLine, ...styles.orangeLine }} />
                 <input
@@ -687,7 +809,9 @@ const PerformanceDashboard = () => {
                   className="form-control"
                   style={{ width: "80px" }}
                   value={range?.c ?? ""}
-                  onChange={(e) => updateRangeValue(metricKey, "c", e.target.value)}
+                  onChange={(e) =>
+                    updateRangeValue(metricKey, "c", e.target.value)
+                  }
                 />
                 <div style={{ ...styles.vLine, ...styles.yellowLine }} />
                 <input
@@ -696,7 +820,9 @@ const PerformanceDashboard = () => {
                   className="form-control"
                   style={{ width: "80px" }}
                   value={range?.d ?? ""}
-                  onChange={(e) => updateRangeValue(metricKey, "d", e.target.value)}
+                  onChange={(e) =>
+                    updateRangeValue(metricKey, "d", e.target.value)
+                  }
                 />
                 <div style={{ ...styles.vLine, ...styles.greenLine }} />
                 <input
@@ -705,7 +831,9 @@ const PerformanceDashboard = () => {
                   className="form-control"
                   style={{ width: "80px" }}
                   value={range?.e ?? ""}
-                  onChange={(e) => updateRangeValue(metricKey, "e", e.target.value)}
+                  onChange={(e) =>
+                    updateRangeValue(metricKey, "e", e.target.value)
+                  }
                 />
               </div>
             );
@@ -787,10 +915,6 @@ const styles = {
   yellowLine: { backgroundColor: "#d4aa00" },
   greenLine: { backgroundColor: "#198754" },
 };
-
-
-
-
 
 // // src/components/PerformanceDashboard.jsx
 // import React, { useEffect, useState } from "react";
