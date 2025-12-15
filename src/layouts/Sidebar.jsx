@@ -22,7 +22,7 @@ const Sidebar = ({ isOpen }) => {
     { name: "Home", path: "/dashboard", icon: <MdDashboard /> },
     { name: "Enquiries", path: "/enquiries", icon: <MdContactMail /> },
     { name: "New Leads", path: "/newleads", icon: <MdPersonAdd /> },
-    { name: "Ongoing Leads", path: "/ongoingleads", icon: <MdUpdate /> },
+    { name: "Ongoing Leads", path: "/ongoing-leads", icon: <MdUpdate /> },
     { name: "Money Dashboard", path: "/moneydashboard", icon: <MdAttachMoney /> },
     { name: "Performance", path: "/performancedashboard", icon: <MdShowChart /> },
     { name: "Vendors", path: "/vendor", icon: <MdPeopleAlt /> },

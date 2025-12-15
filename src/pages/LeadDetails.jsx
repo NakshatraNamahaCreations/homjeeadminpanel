@@ -10,11 +10,41 @@ import {
 import vendor from "../assets/vendor.svg";
 import { Button, Card, Alert, Container } from "react-bootstrap";
 import { toast } from "react-toastify";
-import EditLeadModal from "./EditLeadModal"; // small wrapper that delegates to EditEnquiryModal
+import EditLeadModal from "./EditLeadModal";
 import { BASE_URL } from "../utils/config";
 
+const getStatusColor = (status) => {
+  if (!status) return "#6c757d";
+
+  const s = status.toLowerCase();
+
+  if (s === "pending") return "#6c757d";
+  if (s === "confirmed") return "#0d6efd";
+  if (s === "job ongoing") return "#0d6efd";
+  if (s === "survey ongoing") return "#0d6efd";
+  if (s === "survey completed") return "#6f42c1";
+  if (s === "job completed") return "#28a745";
+
+  if (s === "customer cancelled") return "#dc3545";
+  if (s === "cancelled") return "#dc3545";
+  if (s === "admin cancelled") return "#b02a37";
+
+  if (s === "customer unreachable") return "#fd7e14";
+  if (s === "pending hiring") return "#fd7e14";
+  if (s === "waiting for final payment") return "#fd7e14";
+
+  if (s === "hired") return "#0056b3";
+  if (s === "project ongoing") return "#0d6efd";
+  if (s === "project completed") return "#28a745";
+
+  if (s === "negotiation") return "#6610f2";
+  if (s === "set remainder") return "#20c997";
+
+  return "#6c757d"; // default fallback
+};
+
 const LeadDetails = () => {
-  const { id } = useParams(); // booking id from URL (Option A)
+  const { id } = useParams();
   const navigate = useNavigate();
 
   // we fetch lead directly from API — don't rely on location.state
@@ -213,9 +243,47 @@ const LeadDetails = () => {
   // loader
   if (loading) {
     return (
-      <Container className="d-flex justify-content-center align-items-center min-vh-100">
-        <p>Loading lead details...</p>
-      </Container>
+      <div
+        style={{
+          height: "80vh",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          flexDirection: "column",
+        }}
+      >
+        <div className="loader-dots">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+        <p className="mt-3 text-muted">Loading booking details...</p>
+
+        <style>{`
+        .loader-dots span {
+          width: 10px;
+          height: 10px;
+          margin: 0 4px;
+          background: #DC3545;
+          border-radius: 50%;
+          display: inline-block;
+          animation: pulse 1s infinite alternate;
+        }
+
+        .loader-dots span:nth-child(2) {
+          animation-delay: 0.2s;
+        }
+
+        .loader-dots span:nth-child(3) {
+          animation-delay: 0.4s;
+        }
+
+        @keyframes pulse {
+          0% { transform: scale(1); opacity: 0.5; }
+          100% { transform: scale(1.6); opacity: 1; }
+        }
+      `}</style>
+      </div>
     );
   }
 
@@ -242,12 +310,12 @@ const LeadDetails = () => {
 
   return (
     <Container
-      className="py-4 bg-white min-vh-100"
+      className="py-0 bg-white min-vh-100"
       style={{ fontFamily: "'Poppins', sans-serif" }}
     >
       <Button
         variant="light"
-        className="mb-3"
+        className="mb-4"
         size="sm"
         onClick={() => navigate(-1)}
       >
@@ -257,39 +325,118 @@ const LeadDetails = () => {
       <div className="container mt-4">
         <div className="card shadow-sm border-0" style={{ marginTop: "-4%" }}>
           <div className="card-body">
+            {(() => {
+              const status =
+                lead?.bookingDetails?.status || lead?.status || "Pending";
+
+              return (
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "flex-end",
+                    width: "100%",
+                    marginBottom: 20,
+                  }}
+                >
+                  <div
+                    style={{
+                      padding: "10px 18px",
+                      borderRadius: "12px",
+                      backgroundColor: `${getStatusColor(status)}20`, // soft tint
+                      border: `1px solid ${getStatusColor(status)}`,
+                      color: getStatusColor(status),
+                      fontWeight: 600,
+                      fontSize: "13px",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: "10px",
+                        height: "10px",
+                        backgroundColor: getStatusColor(status),
+                        borderRadius: "50%",
+                        display: "inline-block",
+                      }}
+                    ></span>
+                    {status}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* =========================
+               HEADER UI — SAME AS ONGOING PAGE
+             ========================= */}
             <div
-              className="d-flex justify-content-between align-items-center p-3"
+              className="d-flex justify-content-between align-items-start p-3"
               style={{ backgroundColor: "#F9F9F9", borderRadius: "8px" }}
             >
+              {/* LEFT SIDE */}
               <div>
-                <p className="text-danger fw-bold mb-1">
+                {/* CATEGORY */}
+                <p
+                  className="text-danger fw-bold mb-1"
+                  style={{ fontSize: "15px" }}
+                >
                   {lead.service?.[0]?.category || lead.serviceType || "N/A"}
                 </p>
-                <p className="fw-bold mb-1">
-                  {lead.customer?.name || lead.name}
+
+                {/* CUSTOMER NAME */}
+                <p className="fw-bold mb-1" style={{ fontSize: "15px" }}>
+                  {lead.customer?.name || lead.name || "N/A"}
                 </p>
+
+                {/* ADDRESS — same as ongoing details UI */}
                 <p className="text-muted mb-1" style={{ fontSize: "12px" }}>
-                  <FaMapMarkerAlt className="me-1" />{" "}
-                  {lead.address?.streetArea ||
-                    lead.address?.city ||
-                    lead.filledData?.location?.name ||
-                    "No Location"}
+                  <FaMapMarkerAlt className="me-1" />
+
+                  {[
+                    lead.address?.houseFlatNumber,
+                    lead.address?.streetArea,
+                    // lead.address?.city,
+                  ]
+                    .filter(Boolean)
+                    .join(", ") || "No Location"}
+                  <br />
+                  {lead.address?.landMark && (
+                    <>
+                      <span
+                        style={{
+                          fontWeight: 600,
+                          color: "#363636ff",
+                          paddingLeft: "15px",
+                        }}
+                      >
+                        Landmark:{" "}
+                      </span>
+                      {lead.address.landMark}
+                    </>
+                  )}
                 </p>
-                <p className="text-muted mb-1" style={{ fontSize: "14px" }}>
-                  <FaPhone className="me-1" />{" "}
-                  {lead.customer?.phone || lead.contact}
+
+                {/* PHONE */}
+                <p className="text-muted mb-1" style={{ fontSize: "13px" }}>
+                  <FaPhone className="me-1" />
+                  {lead.customer?.phone || lead.contact || "N/A"}
                 </p>
               </div>
 
+              {/* RIGHT SIDE */}
               <div className="text-end">
-                {cancelled && <p className="text-black mb-0 fw-bold"> Booking Cancelled </p>}
-                <p className="text-black mb-0" style={{ fontSize: "12px" }}>
-                  {lead.selectedSlot?.slotDate || lead.date}
-                </p>
-                <p className="fw-bold mb-2" style={{ fontSize: "12px" }}>
-                  {lead.selectedSlot?.slotTime || lead.time}
+                {/* DATE */}
+                <p className="text-black  mb-0" style={{ fontSize: "14px" }}>
+                  {lead.selectedSlot?.slotDate || lead.date || "N/A"}
                 </p>
 
+                {/* TIME */}
+                <p className="fw-bold mb-2" style={{ fontSize: "14px" }}>
+                  {lead.selectedSlot?.slotTime || lead.time || "N/A"}
+                </p>
+
+                {/* DIRECTIONS BUTTON */}
                 <button
                   className="btn btn-danger mb-2 w-100"
                   style={{
@@ -304,6 +451,7 @@ const LeadDetails = () => {
                     const lng =
                       lead?.address?.location?.coordinates?.[0] ??
                       lead?.filledData?.location?.lng;
+
                     if (lat && lng) {
                       window.open(
                         `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`,
@@ -317,12 +465,18 @@ const LeadDetails = () => {
                   Directions
                 </button>
 
+                {/* CALL BUTTON */}
                 <button
                   className="btn btn-outline-danger w-100"
                   style={{
                     borderRadius: "8px",
                     fontSize: "12px",
                     padding: "4px 8px",
+                  }}
+                  onClick={() => {
+                    const ph = lead.customer?.phone || lead.contact;
+                    if (ph) window.location.href = `tel:${ph}`;
+                    else alert("No phone number available");
                   }}
                 >
                   Call
@@ -344,36 +498,78 @@ const LeadDetails = () => {
                   <h6 className="fw-bold" style={{ fontSize: "14px" }}>
                     Payment Details
                   </h6>
-                  <p
-                    className="text-dark fw-semibold mb-1"
-                    style={{ fontSize: "14px", marginTop: "2%" }}
-                  >
-                    {lead.bookingDetails?.paymentMethod
-                      ? `Payment: ${lead.bookingDetails?.paymentMethod}`
-                      : lead.filledData?.payment
-                      ? `Payment: ${lead.filledData.payment}`
-                      : "Payment: N/A"}
-                  </p>
-                  <p style={{ fontSize: "12px", marginBottom: "1%" }}>
-                    <span className="text-muted">Amount Paid:</span>{" "}
-                    <strong>
-                      {lead.bookingDetails?.paidAmount ??
-                        lead.filledData?.payment ??
-                        "N/A"}
-                    </strong>
-                  </p>
-                  <p style={{ fontSize: "12px" }}>
-                    <span className="text-muted">Payment ID:</span>{" "}
-                    <strong>
-                      {lead.bookingDetails?.booking_id || "HJC66383"}
-                    </strong>{" "}
-                    <FaCopy
-                      className="ms-1 text-danger"
-                      style={{ cursor: "pointer" }}
-                    />
-                  </p>
-                </div>
 
+                  {(() => {
+                    const d = lead?.bookingDetails || {};
+                    console.log("lead", lead);
+                    const totalAmount =
+                      d.finalTotal ?? d.originalTotalAmount ?? 0;
+                    const amountPaid = d.paidAmount ?? 0;
+                    const amytp = d.amountYetToPay ?? 0;
+                    const siteVisitCharges = d.siteVisitCharges ?? 0;
+                    const paymentMethod =
+                      d.firstPayment?.method || d.paymentMethod || "N/A";
+                    const paymentId = d.paymentLink?.providerRef || "N/A";
+
+                    const isHousePainting =
+                      lead?.serviceType === "house_painting";
+
+                    return (
+                      <>
+                        <p
+                          className="text-dark fw-semibold mb-1"
+                          style={{ fontSize: "14px", marginTop: "2%" }}
+                        >
+                          Payment Method: {paymentMethod}
+                        </p>
+
+                        <p style={{ fontSize: "12px", marginBottom: "1%" }}>
+                          <span className="text-muted">Total Amount:</span>{" "}
+                          <strong>
+                            ₹{totalAmount.toLocaleString("en-IN")}
+                          </strong>
+                        </p>
+
+                        <p style={{ fontSize: "12px", marginBottom: "1%" }}>
+                          <span className="text-muted">Amount Paid:</span>{" "}
+                          <strong>₹{amountPaid.toLocaleString("en-IN")}</strong>
+                        </p>
+
+                        <p style={{ fontSize: "12px", marginBottom: "1%" }}>
+                          <span className="text-muted">
+                            Amount yet to Paid:
+                          </span>{" "}
+                          <strong>₹{amytp.toLocaleString("en-IN")}</strong>
+                        </p>
+                        {isHousePainting && (
+                          <p style={{ fontSize: "12px", marginBottom: "1%" }}>
+                            <span className="text-muted">
+                              Site Visit Charges:
+                            </span>{" "}
+                            <strong>
+                              ₹{siteVisitCharges.toLocaleString("en-IN")}
+                            </strong>
+                          </p>
+                        )}
+
+                        <p style={{ fontSize: "12px" }}>
+                          <span className="text-muted">Payment ID:</span>{" "}
+                          <strong>{paymentId}</strong>
+                          {paymentId !== "N/A" && (
+                            <FaCopy
+                              className="ms-1 text-danger"
+                              style={{ cursor: "pointer" }}
+                              onClick={() =>
+                                navigator.clipboard.writeText(paymentId)
+                              }
+                            />
+                          )}
+                        </p>
+                      </>
+                    );
+                  })()}
+                </div>{" "}
+                {/* END OF CARD */}
                 {/* SERVICE DETAILS SECTION  */}
                 <div
                   className="card p-3 "
@@ -418,7 +614,6 @@ const LeadDetails = () => {
                     </p>
                   )}
                 </div>
-
                 <div
                   className="card p-3 mt-3"
                   style={{
@@ -646,14 +841,14 @@ const LeadDetails = () => {
 
             <div className="d-flex justify-content-end gap-2">
               <button
-                className="btn btn-secondary"
+                className="btn  btn-sm btn-secondary"
                 onClick={() => setShowCancelPopup(false)}
               >
                 Close
               </button>
 
               <button
-                className="btn btn-danger"
+                className="btn btn-danger btn-sm"
                 onClick={() => {
                   setCancelled(true); // mark cancelled temporarily
                   setShowCancelPopup(false); // close popup

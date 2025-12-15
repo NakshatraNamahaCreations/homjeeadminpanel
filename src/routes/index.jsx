@@ -9,6 +9,7 @@ import PerformanceDashboard from "../pages/PerformanceDashboard";
 import VendorsDashboard from "../pages/VendorsDashboard";
 import ProductsDashboard from "../pages/ProductDashboard";
 import OngoingLeads from "../pages/OngoingLeads";
+import OngoingLeadDetails from "../pages/OngoingLeadDetails";
 import Login from "../pages/Login";
 import OTPVerification from "../pages/OTPVerification";
 import Layout from "../layouts/Layout";
@@ -18,7 +19,6 @@ import Logout from "../pages/Logout";
 import AllReminders from "../pages/AllReminders";
 import EnquiriesList from "../pages/EnquiriesList";
 import EnquiryDetails from "../pages/EnquiryDetails";
-
 
 const AppRoutes = () => {
   return (
@@ -35,7 +35,8 @@ const AppRoutes = () => {
         <Route path="/newleads" element={<NewLeads />} />
         <Route path="/lead-details/:id" element={<LeadDetails />} />
         <Route path="/notification" element={<NotificationSettings />} />
-        <Route path="/ongoingleads" element={<OngoingLeads />} />
+         <Route path="/ongoing-leads" element={<OngoingLeads />} />
+        <Route path="/ongoing-leads/:bookingId" element={<OngoingLeadDetails />} />
         <Route path="/moneydashboard" element={<MoneyDashboard />} />
         <Route
           path="/performancedashboard"
@@ -53,9 +54,7 @@ const AppRoutes = () => {
 
         <Route path="/setting" element={<Settings />} />
       </Route>
-      
     </Routes>
-    
   );
 };
 

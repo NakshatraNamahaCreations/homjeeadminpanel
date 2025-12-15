@@ -48,6 +48,8 @@ const EditLeadModal = ({ show, onClose, booking, enquiry, onUpdated, title }) =>
     // Put original complete object under `raw` so the modal can read bookingDetails/service/address as before
     raw: { ...originalRaw, service: normalizedServices },
   };
+
+  
   // Debug helper: log transformed enquiry when modal opens — useful when modal appears blank
   // (helps verify that the wrapper received a valid booking and the shape matches EditEnquiryModal expectations)
   if (process.env.NODE_ENV !== "production") {

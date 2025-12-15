@@ -16,8 +16,8 @@ const hoursList = [
   "06:00 PM",
   "07:00 PM",
   "08:00 PM",
-  "09:00 PM",
-  "10:00 PM",
+  // "09:00 PM",
+  // "10:00 PM",
 ];
 
 const toDisplay = (d) =>
@@ -67,30 +67,37 @@ const TimePickerModal = ({ onClose, onSelect, approxHours = 5, bookingId }) => {
   const [availableTimes, setAvailableTimes] = useState([]);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    const currentTime = new Date();
-    const currentHour = currentTime.getHours();
-    const currentMinute = currentTime.getMinutes();
+  // useEffect(() => {
+  //   const currentTime = new Date();
+  //   const currentHour = currentTime.getHours();
+  //   const currentMinute = currentTime.getMinutes();
 
-    const threeHoursLater = new Date(currentTime);
-    threeHoursLater.setHours(currentHour + 3, currentMinute, 0, 0);
-    const threeHoursLaterString = `${String(
-      threeHoursLater.getHours()
-    ).padStart(2, "0")}:${String(threeHoursLater.getMinutes()).padStart(
-      2,
-      "0"
-    )}`;
+  //   const threeHoursLater = new Date(currentTime);
+  //   threeHoursLater.setHours(currentHour + 3, currentMinute, 0, 0);
+  //   const threeHoursLaterString = `${String(
+  //     threeHoursLater.getHours()
+  //   ).padStart(2, "0")}:${String(threeHoursLater.getMinutes()).padStart(
+  //     2,
+  //     "0"
+  //   )}`;
 
-    const filteredTimes = hoursList
-      .filter((time) => {
-        return formatTime(time) > threeHoursLaterString;
-      })
-      .slice(0, 10);
+  //   const filteredTimes = hoursList
+  //     .filter((time) => {
+  //       return formatTime(time) > threeHoursLaterString;
+  //     })
+  //     .slice(0, 10);
 
-    setAvailableTimes(filteredTimes);
-  }, [selectedDate]);
+  //   setAvailableTimes(filteredTimes);
+  // }, [selectedDate]);
 
   // Updated proceed function to call API directly
+ 
+  useEffect(() => {
+  // Show all hours always, no filtering
+  setAvailableTimes(hoursList);
+}, [selectedDate]);
+
+
   const proceed = async () => {
     if (!selectedDate || !selectedTime) return;
 

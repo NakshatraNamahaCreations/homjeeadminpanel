@@ -243,18 +243,64 @@ const EnquiryDetails = () => {
   // bookingDetails convenience
   const bookingDetails = enquiry?.raw?.bookingDetails || {};
   const isHousePainting = enquiry?.raw?.service?.some(
-    (s) => s?.category && s.category.toString().toLowerCase() === "house painting"
+    (s) =>
+      s?.category && s.category.toString().toLowerCase() === "house painting"
   );
 
   /* ---------------------------
      UI
      --------------------------- */
-  if (loading) return <p style={{ padding: 20 }}>Loading...</p>;
+  if (loading) {
+    return (
+      <div
+        style={{
+          height: "80vh",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          flexDirection: "column",
+        }}
+      >
+        <div className="loader-dots">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+        <p className="mt-3 text-muted">Loading booking details...</p>
+
+        <style>{`
+        .loader-dots span {
+          width: 10px;
+          height: 10px;
+          margin: 0 4px;
+          background: #DC3545;
+          border-radius: 50%;
+          display: inline-block;
+          animation: pulse 1s infinite alternate;
+        }
+
+        .loader-dots span:nth-child(2) {
+          animation-delay: 0.2s;
+        }
+
+        .loader-dots span:nth-child(3) {
+          animation-delay: 0.4s;
+        }
+
+        @keyframes pulse {
+          0% { transform: scale(1); opacity: 0.5; }
+          100% { transform: scale(1.6); opacity: 1; }
+        }
+      `}</style>
+      </div>
+    );
+  }
+
   if (!enquiry) return <p style={{ padding: 20 }}>Enquiry not found</p>;
 
   return (
     <div className="container mt-4" style={{ fontFamily: "Poppins" }}>
-      <div
+      {/* <div
         className="d-flex align-items-center mb-3"
         style={{ cursor: "pointer" }}
       >
@@ -266,7 +312,7 @@ const EnquiryDetails = () => {
         >
           <FaArrowLeft /> Back to List
         </Button>
-      </div>
+      </div> */}
 
       <div
         className="card shadow-sm border-0"
@@ -291,10 +337,33 @@ const EnquiryDetails = () => {
               </div>
 
               <p className="fw-bold mb-1">{enquiry.name}</p>
-
-              <p className="text-muted mb-1" style={{ fontSize: 12 }}>
+              <p
+                className="text-muted mb-1"
+                style={{ fontSize: "12px", maxWidth: "800px" }}
+              >
                 <FaMapMarkerAlt className="me-1" />
-                {enquiry.filledData?.location}
+               
+                {[
+                  enquiry?.filledData?.houseNumber,
+                  enquiry?.filledData?.location,
+                ]
+                  .filter(Boolean)
+                  .join(", ") || "No Location"}
+                <br />
+                {enquiry?.filledData?.landmark && (
+                  <>
+                    <span
+                      style={{
+                        fontWeight: 600,
+                        color: "#363636ff",
+                        paddingLeft: "15px",
+                      }}
+                    >
+                      Landmark:{" "}
+                    </span>
+                    {enquiry?.filledData?.landmark}
+                  </>
+                )}
               </p>
 
               <p className="text-muted mb-1" style={{ fontSize: 14 }}>
@@ -303,12 +372,12 @@ const EnquiryDetails = () => {
             </div>
 
             <div className="text-end">
-              <p className="text-black mb-0" style={{ fontSize: 12 }}>
-                Slot Date: {enquiry.date}
+              <p className="text-black mb-0" style={{ fontSize: 14 }}>
+       {enquiry.date}
               </p>
 
-              <p className="fw-bold mb-2" style={{ fontSize: 12 }}>
-                Slot Time: {enquiry.time}
+              <p className="fw-bold mb-2" style={{ fontSize: 14 }}>
+             {enquiry.time}
               </p>
 
               <button

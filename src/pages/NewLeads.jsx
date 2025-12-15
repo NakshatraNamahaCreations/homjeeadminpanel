@@ -47,7 +47,7 @@ const NewLeads = () => {
   useEffect(() => {
     const fetchAllLeads = async () => {
       try {
-        const res = await fetch(`${BASE_URL}/bookings/get-all-leads`);
+        const res = await fetch(`${BASE_URL}/bookings/get-pending-leads`);
         if (!res.ok) throw new Error(`API error ${res.status}`);
         const data = await res.json();
 
@@ -250,7 +250,7 @@ const NewLeads = () => {
 };
 
 const styles = {
-  container: {
+   container: {
     padding: "20px",
     fontFamily: "'Poppins', sans-serif",
     minHeight: "100vh",
