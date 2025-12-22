@@ -11,8 +11,6 @@ import {
 import { useNavigate } from "react-router-dom";
 import { BASE_URL } from "../utils/config";
 
-
-
 /** ---- MASTER DATA (category → subcategory → services) ---- */
 const DEEP_CLEANING_DATA = [
   {
@@ -203,6 +201,7 @@ const DeepCleaningDashboard = () => {
     bookingAmount: "",
     coinsForVendor: "",
     teamMembers: "",
+    durationMinutes: "", // ✅ NEW
   });
 
   const [errorMessage, setErrorMessage] = useState("");
@@ -286,7 +285,9 @@ const DeepCleaningDashboard = () => {
         bookingAmount: p.bookingAmount,
         coinsForVendor: p.coinsForVendor,
         teamMembers: p.teamMembers,
+        durationMinutes: p.durationMinutes || 0, // ✅ NEW
       }));
+
       setPackages(list);
     } catch (err) {
       console.error("GET packages error:", err.message);
@@ -309,23 +310,31 @@ const DeepCleaningDashboard = () => {
 
   // Update a package (PUT /deep-cleaning-packages/:id)
   const updatePackage = async (id, payload) => {
-    const res = await fetch(`${BASE_URL}/deeppackage/deep-cleaning-packages/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    const res = await fetch(
+      `${BASE_URL}/deeppackage/deep-cleaning-packages/${id}`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      }
+    );
     const json = await res.json();
-    if (!json.success) throw new Error(json.message || "Failed to update package");
+    if (!json.success)
+      throw new Error(json.message || "Failed to update package");
     return json.data;
   };
 
   // Delete a package (DELETE /deep-cleaning-packages/:id)
   const deletePackageApi = async (id) => {
-    const res = await fetch(`${BASE_URL}/deeppackage/deep-cleaning-packages/${id}`, {
-      method: "DELETE",
-    });
+    const res = await fetch(
+      `${BASE_URL}/deeppackage/deep-cleaning-packages/${id}`,
+      {
+        method: "DELETE",
+      }
+    );
     const json = await res.json();
-    if (!json.success) throw new Error(json.message || "Failed to delete package");
+    if (!json.success)
+      throw new Error(json.message || "Failed to delete package");
     return json;
   };
 
@@ -402,6 +411,8 @@ const DeepCleaningDashboard = () => {
     //   return "Booking amount cannot be negative.";
     if (!form.coinsForVendor) return "Coins for vendor is required.";
     if (!form.teamMembers) return "Team members needed is required.";
+    if (Number(form.durationMinutes) < 30)
+      return "Duration must be at least 30 minutes.";
     return "";
   };
 
@@ -418,9 +429,9 @@ const DeepCleaningDashboard = () => {
       subcategory: form.subcategory,
       service: form.service || "",
       totalAmount: Number(form.totalAmount),
-      // bookingAmount: Number(form.bookingAmount),
       coinsForVendor: Number(form.coinsForVendor),
       teamMembers: Number(form.teamMembers),
+      durationMinutes: Number(form.durationMinutes), // ✅ NEW
     };
 
     try {
@@ -429,16 +440,19 @@ const DeepCleaningDashboard = () => {
         const updated = await updatePackage(editingId, payload);
         const normalized = {
           id: updated._id || updated.id,
-          name: updated.name || (updated.service ? `${updated.subcategory} - ${updated.service}` : updated.subcategory),
+          name: updated.name,
           category: updated.category,
           subcategory: updated.subcategory,
           service: updated.service || "",
           totalAmount: updated.totalAmount,
-          // bookingAmount: updated.bookingAmount,
           coinsForVendor: updated.coinsForVendor,
           teamMembers: updated.teamMembers,
+          durationMinutes: updated.durationMinutes, // ✅ NEW
         };
-        setPackages((prev) => prev.map((p) => (p.id === editingId ? normalized : p)));
+
+        setPackages((prev) =>
+          prev.map((p) => (p.id === editingId ? normalized : p))
+        );
       } else {
         // CREATE on server
         const created = await createPackage(payload);
@@ -551,6 +565,7 @@ const DeepCleaningDashboard = () => {
             )}
           </div>
         </Col>
+
         <Col md={2}>
           <Button
             onClick={saveMinimumOrder}
@@ -603,6 +618,7 @@ const DeepCleaningDashboard = () => {
             {/* <th>Booking Amount</th> */}
             <th>Coins for Vendor</th>
             <th>Team Members Needed</th>
+            <th>Duration (mins)</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -629,6 +645,8 @@ const DeepCleaningDashboard = () => {
                 {/* <td>{pkg.bookingAmount}</td> */}
                 <td>{pkg.coinsForVendor}</td>
                 <td>{pkg.teamMembers}</td>
+                <td>{pkg.durationMinutes}</td>
+
                 <td>
                   <div className="d-flex gap-2 justify-content-center">
                     <Button
@@ -766,7 +784,7 @@ const DeepCleaningDashboard = () => {
                 />
               </Form.Group>
             </Col>
-              <Col md={6}>
+            <Col md={6}>
               <Form.Group className="mb-3">
                 <Form.Label>Team Members Needed</Form.Label>
                 <Form.Control
@@ -776,9 +794,22 @@ const DeepCleaningDashboard = () => {
                 />
               </Form.Group>
             </Col>
+            <Col md={6}>
+              <Form.Group className="mb-3">
+                <Form.Label>Duration (Minutes)</Form.Label>
+                <Form.Control
+                  type="number"
+                  placeholder="Eg: 300"
+                  value={form.durationMinutes}
+                  onChange={(e) =>
+                    onFormChange("durationMinutes", e.target.value)
+                  }
+                />
+               
+              </Form.Group>
+            </Col>
           </Row>
 
-         
           {errorMessage && (
             <div className="text-danger" style={{ fontSize: "12px" }}>
               {errorMessage}
@@ -796,7 +827,13 @@ const DeepCleaningDashboard = () => {
             style={{ borderColor: "black" }}
             disabled={pkgSaving}
           >
-            {pkgSaving ? (editingId ? "Saving..." : "Adding...") : editingId ? "Save Changes" : "Add Package"}
+            {pkgSaving
+              ? editingId
+                ? "Saving..."
+                : "Adding..."
+              : editingId
+              ? "Save Changes"
+              : "Add Package"}
           </Button>
         </Modal.Footer>
       </Modal>

@@ -78,20 +78,22 @@ const OngoingLeads = () => {
         const mappedLeads = (data.allLeads || [])
           .filter((lead) =>
             [
-              "Confirmed",
-              "Job Ongoing",
-              "Survey Ongoing",
-              "Survey Completed",
-              "Job Completed",
-              "Customer Cancelled",
-              "Cancelled",
+              "Confirmed", //accepted or responded
+              "Job Ongoing", // started - deep cleaning
+              "Survey Ongoing", //started - house painting
+              "Survey Completed", //ended - house painting
+              "Job Completed", //ended - deep cleaning
+              "Customer Cancelled", // from the vendor app
+              "Admin Cancelled", // from the vendor app
+              "Cancelled", // from the website by customer themself
               "Customer Unreachable",
+              "Rescheduled", // rescheduled by vendor from vendor app
               "Admin Cancelled",
-              "Pending Hiring",
-              "Hired",
-              "Project Ongoing",
+              "Pending Hiring", // mark hiring
+              "Hired", // first payment done
+              "Project Ongoing", // project started house painting
               "Waiting for final payment",
-              "Project Completed",
+              "Project Completed", // project completed
               "Negotiation",
               "Set Remainder",
             ].includes(lead?.bookingDetails?.status)
@@ -306,7 +308,7 @@ const OngoingLeads = () => {
             <div
               key={lead.id}
               style={styles.card}
-              onClick={() => navigate(`/ongoing-leads/${lead.id}`)}
+              onClick={() => navigate(`/lead-details/${lead.id}`)}
             >
               <div style={styles.cardHeader}>
                 <span

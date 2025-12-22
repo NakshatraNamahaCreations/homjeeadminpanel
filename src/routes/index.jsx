@@ -33,10 +33,10 @@ const AppRoutes = () => {
         <Route path="/enquiry-details/:id" element={<EnquiryDetails />} />
 
         <Route path="/newleads" element={<NewLeads />} />
-        <Route path="/lead-details/:id" element={<LeadDetails />} />
+        {/* <Route path="/lead-details/:id" element={<LeadDetails />} /> */}
         <Route path="/notification" element={<NotificationSettings />} />
          <Route path="/ongoing-leads" element={<OngoingLeads />} />
-        <Route path="/ongoing-leads/:bookingId" element={<OngoingLeadDetails />} />
+        <Route path="/lead-details/:bookingId" element={<OngoingLeadDetails />} />
         <Route path="/moneydashboard" element={<MoneyDashboard />} />
         <Route
           path="/performancedashboard"

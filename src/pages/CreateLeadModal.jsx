@@ -10,17 +10,15 @@ import { useNavigate } from "react-router-dom";
 import { MdCancel } from "react-icons/md";
 
 const CreateLeadModal = ({ onClose }) => {
+  const navigate = useNavigate();
   const [existingUser, setExistingUser] = useState(null);
   const [typingTimeout, setTypingTimeout] = useState(null);
   const [showAddress, setShowAddress] = useState(false);
   const [showTime, setShowTime] = useState(false);
 
-  const navigate = useNavigate();
   const [categories, setCategories] = useState([]);
-
   const [selectedSubCategory, setSelectedSubCategory] = useState("");
   const [originalTotal, setOriginalTotal] = useState(0);
-
   const [discountMode, setDiscountMode] = useState("percent");
   const [discountValue, setDiscountValue] = useState("");
   const [discountApplied, setDiscountApplied] = useState(false);
@@ -43,7 +41,23 @@ const CreateLeadModal = ({ onClose }) => {
     coordinates: { lat: 0, lng: 0 },
   });
 
-  const isTimeSelectionEnabled = leadData.googleAddress && leadData.city;
+  const invalidateSlot = () => {
+    setLeadData((p) => ({
+      ...p,
+      slotDate: "",
+      slotTime: "",
+    }));
+  };
+
+  /* --------------------------------------------------
+     SLOT ENABLE RULES (CRITICAL)
+  -------------------------------------------------- */
+  const isTimeSelectionEnabled =
+    !!leadData.googleAddress &&
+    !!leadData.city &&
+    (leadData.serviceType === "House Painting" ||
+      (leadData.serviceType === "Deep Cleaning" &&
+        leadData.packages.length > 0));
 
   /* -----------------------------------------------------------
      Detect City From Address
@@ -63,9 +77,9 @@ const CreateLeadModal = ({ onClose }) => {
     }
   }, [leadData.googleAddress]);
 
-  /* -----------------------------------------------------------
-     Fetch Existing User
-  ------------------------------------------------------------ */
+  /* --------------------------------------------------
+     FETCH EXISTING USER
+  -------------------------------------------------- */
   const fetchExistingUser = async (mobile) => {
     try {
       const res = await axios.post(
@@ -78,9 +92,8 @@ const CreateLeadModal = ({ onClose }) => {
         setExistingUser(user);
 
         const addr = user.savedAddress || {};
-
-        setLeadData((prev) => ({
-          ...prev,
+        setLeadData((p) => ({
+          ...p,
           name: user.userName,
           googleAddress: addr.address || "",
           houseNo: addr.houseNumber || "",
@@ -91,60 +104,42 @@ const CreateLeadModal = ({ onClose }) => {
             lng: addr.longitude || 0,
           },
         }));
-
         toast.success("Existing user loaded");
-      } else {
-        setExistingUser(null);
-        setLeadData((prev) => ({
-          ...prev,
-          name: "",
-          googleAddress: "",
-          houseNo: "",
-          landmark: "",
-          city: "",
-        }));
       }
     } catch (err) {
       console.error(err);
     }
   };
 
-  /* -----------------------------------------------------------
-     Handle Input
-  ------------------------------------------------------------ */
+  /* --------------------------------------------------
+     INPUT HANDLER
+  -------------------------------------------------- */
   const handleChange = (e) => {
     const { name, value } = e.target;
 
-    // Phone number only numeric
     if (name === "contact") {
       const v = value.replace(/\D/g, "").slice(0, 10);
       setLeadData((p) => ({ ...p, contact: v }));
 
       if (typingTimeout) clearTimeout(typingTimeout);
-
       if (v.length === 10) {
-        const timeout = setTimeout(() => fetchExistingUser(v), 700);
-        setTypingTimeout(timeout);
+        setTypingTimeout(setTimeout(() => fetchExistingUser(v), 700));
       }
       return;
     }
 
-    // Booking amount (both services use this)
     if (name === "bookingAmount") {
       const booking = Number(value || 0);
-      const total = Number(leadData.totalAmount || 0);
       setLeadData((p) => ({
         ...p,
         bookingAmount: booking,
-        amountYetToPay: total - booking,
+        amountYetToPay: p.totalAmount - booking,
       }));
       return;
     }
 
-    // Name should not be editable if existing user
     if (name === "name" && existingUser) return;
-
-    setLeadData((prev) => ({ ...prev, [name]: value }));
+    setLeadData((p) => ({ ...p, [name]: value }));
   };
 
   /* -----------------------------------------------------------
@@ -154,61 +149,49 @@ const CreateLeadModal = ({ onClose }) => {
     return [...new Set(categories.map((c) => c.category))];
   };
 
-  /* -----------------------------------------------------------
-     Add Package (Deep Cleaning)
-  ------------------------------------------------------------ */
+  /* --------------------------------------------------
+     ADD / REMOVE PACKAGES
+  -------------------------------------------------- */
   const addPackage = () => {
-    const { selectedPackage, packages } = leadData;
-    if (!selectedPackage) return;
-
-    const pkg = categories.find((p) => p._id === selectedPackage);
+    const pkg = categories.find((p) => p._id === leadData.selectedPackage);
     if (!pkg) return;
 
-    const updated = [...packages, pkg];
-    const newTotal = updated.reduce(
-      (sum, pp) => sum + Number(pp.totalAmount),
-      0
-    );
+    const updated = [...leadData.packages, pkg];
+    const total = updated.reduce((s, p) => s + p.totalAmount, 0);
+    const booking = Math.round(total * 0.2);
 
-    setOriginalTotal(newTotal);
+    setOriginalTotal(total);
     setDiscountApplied(false);
-    setDiscountValue("");
 
-    const booking = Math.round(newTotal * 0.2);
-
-    setLeadData((prev) => ({
-      ...prev,
+    setLeadData((p) => ({
+      ...p,
       packages: updated,
       selectedPackage: "",
-      totalAmount: newTotal,
+      totalAmount: total,
       bookingAmount: booking,
-      amountYetToPay: newTotal - booking,
+      amountYetToPay: total - booking,
+      // ✅ RESET SLOT
+      slotDate: "",
+      slotTime: "",
     }));
   };
+  const removePackage = (pkg) => {
+    const updated = leadData.packages.filter((p) => p._id !== pkg._id);
+    const total = updated.reduce((s, p) => s + p.totalAmount, 0);
+    const booking = Math.round(total * 0.2);
 
-  /* -----------------------------------------------------------
-     Remove Package
-  ------------------------------------------------------------ */
-  const removePackage = (pkgToRemove) => {
-    const updated = leadData.packages.filter((p) => p._id !== pkgToRemove._id);
-
-    const newTotal = updated.reduce(
-      (sum, pp) => sum + Number(pp.totalAmount),
-      0
-    );
-
-    const booking = Math.round(newTotal * 0.2);
-
-    setOriginalTotal(newTotal);
+    setOriginalTotal(total);
     setDiscountApplied(false);
-    setDiscountValue("");
 
-    setLeadData((prev) => ({
-      ...prev,
+    setLeadData((p) => ({
+      ...p,
       packages: updated,
-      totalAmount: newTotal,
+      totalAmount: total,
       bookingAmount: booking,
-      amountYetToPay: newTotal - booking,
+      amountYetToPay: total - booking,
+      // ✅ RESET SLOT
+      slotDate: "",
+      slotTime: "",
     }));
   };
 
@@ -264,30 +247,24 @@ const CreateLeadModal = ({ onClose }) => {
      SAVE
   ------------------------------------------------------------ */
   const handleSave = async () => {
-    try {
-      // Validation
-      if (!leadData.googleAddress) {
-        toast.error("Please select an address");
-        return;
-      }
+    if (!isTimeSelectionEnabled) {
+      toast.error("Please complete service & slot selection");
+      return;
+    }
+    console.log("p", leadData.packages);
+    const payload = {
+      customer: existingUser
+        ? {
+            customerId: existingUser._id,
+            phone: existingUser.mobileNumber,
+            name: existingUser.userName,
+          }
+        : {
+            phone: leadData.contact,
+            name: leadData.name,
+          },
 
-      if (!leadData.slotDate || !leadData.slotTime) {
-        toast.error("Please select a date and time slot");
-        return;
-      }
-
-      if (!leadData.serviceType) {
-        toast.error("Please select a service type");
-        return;
-      }
-
-      if (leadData.serviceType === "Deep Cleaning" && leadData.packages.length === 0) {
-        toast.error("Please select at least one package for Deep Cleaning");
-        return;
-      }
-
-      /* SERVICE ARRAY */
-      const serviceArray =
+      service:
         leadData.serviceType === "House Painting"
           ? [
               {
@@ -297,78 +274,59 @@ const CreateLeadModal = ({ onClose }) => {
                 quantity: 1,
               },
             ]
-          : leadData.packages.map((pkg) => ({
+          : leadData.packages.map((p) => ({
               category: "Deep Cleaning",
-              subCategory: pkg.category,
-              serviceName: pkg.name,
-              price: pkg.totalAmount,
+              subCategory: p.category,
+              serviceName: p.name,
+              price: p.totalAmount,
               quantity: 1,
-              teamMembersRequired: pkg.teamMembers,
-            }));
 
-      /* FINAL PAYLOAD */
-      const payload = {
-        customer: existingUser
-          ? {
-              customerId: existingUser._id,
-              phone: existingUser.mobileNumber,
-              name: existingUser.userName,
-            }
-          : {
-              phone: leadData.contact,
-              name: leadData.name,
-            },
+              // ✅ already present
+              teamMembersRequired: p.teamMembers,
 
-        service: serviceArray,
+              // ✅ ADD THESE TWO
+              packageId: p._id,
+              duration: p.durationMinutes || p.duration || 0,
+            })),
 
-        bookingDetails: {
-          bookingAmount: leadData.bookingAmount,
-          finalTotal:
-            leadData.serviceType === "House Painting"
-              ? 0
-              : leadData.totalAmount,
-          paidAmount: 0,
-          paymentMethod: "None",
+      bookingDetails: {
+        bookingAmount: leadData.bookingAmount,
+        finalTotal: leadData.totalAmount,
+        paidAmount: 0,
+        paymentMethod: "None",
+      },
+
+      address: {
+        houseFlatNumber: leadData.houseNo,
+        streetArea: leadData.googleAddress,
+        landMark: leadData.landmark,
+        city: leadData.city,
+        location: {
+          type: "Point",
+          coordinates: [leadData.coordinates.lng, leadData.coordinates.lat],
         },
+      },
 
-        address: {
-          houseFlatNumber: leadData.houseNo,
-          streetArea: leadData.googleAddress,
-          landMark: leadData.landmark,
-          city: leadData.city,
-          location: {
-            type: "Point",
-            coordinates: [leadData.coordinates.lng, leadData.coordinates.lat],
-          },
-        },
+      selectedSlot: {
+        slotDate: leadData.slotDate,
+        slotTime: leadData.slotTime,
+      },
 
-        selectedSlot: {
-          slotDate: leadData.slotDate,
-          slotTime: leadData.slotTime,
-        },
-
-        formName: "admin panel",
-        isEnquiry: leadData.bookingAmount > 0,
-      };
-
-      await axios.post(`${BASE_URL}/bookings/create-admin-booking`, payload);
-
-      toast.success(
-        leadData.bookingAmount > 0 ? "Enquiry Created" : "Lead Created!",
-        {
-          autoClose: 1200,
-          onClose: () => {
-            onClose();
-            navigate(`${ leadData.bookingAmount > 0 ? "/enquiries" : "/newleads"}`);
-          },
-        }
-      );
-    } catch (err) {
-      console.log(err);
-      toast.error("Save failed");
-    }
+      formName: "admin panel",
+      isEnquiry: leadData.bookingAmount > 0,
+    };
+    console.log("booking payload", payload);
+    await axios.post(`${BASE_URL}/bookings/create-admin-booking`, payload);
+    toast.success(
+      `${
+        leadData.bookingAmount == 0
+          ? "Lead created successfully!"
+          : " Enquiry created successfully!"
+      }`
+    );
+    onClose();
+    navigate(`${leadData.bookingAmount == 0 ? "/newleads" : "/enquiries"}`);
   };
-
   /* -----------------------------------------------------------
      UI
   ------------------------------------------------------------ */
@@ -445,18 +403,37 @@ const CreateLeadModal = ({ onClose }) => {
           {isTimeSelectionEnabled ? (
             <>
               <label style={styles.label}>Select Date & Time</label>
-              <div style={{ display: "flex",alignItems:"center", gap: 10, marginBottom: 15 }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  marginBottom: 15,
+                }}
+              >
                 <input
-                  type="text"
-                  placeholder="Click to select slot"
-                  style={{ ...styles.input, cursor: "pointer", flex: 1 }}
-                  onClick={() => setShowTime(true)}
                   readOnly
                   value={
-                    leadData.slotDate && leadData.slotTime
-                      ? `${leadData.slotDate} at ${leadData.slotTime}`
-                      : "Select Date & Time"
+                    leadData.slotDate
+                      ? `${leadData.slotDate} ${leadData.slotTime}`
+                      : "Select Date & Slot"
                   }
+                  onClick={() => {
+                    if (!isTimeSelectionEnabled) {
+                      toast.error(
+                        leadData.serviceType === "Deep Cleaning"
+                          ? "Add at least one package"
+                          : "Select service first"
+                      );
+                      return;
+                    }
+                    setShowTime(true);
+                  }}
+                  style={{
+                    ...styles.input,
+                    cursor: isTimeSelectionEnabled ? "pointer" : "not-allowed",
+                    background: isTimeSelectionEnabled ? "#fff" : "#eee",
+                  }}
                 />
                 {(leadData.slotDate || leadData.slotTime) && (
                   <button
@@ -469,7 +446,7 @@ const CreateLeadModal = ({ onClose }) => {
                       cursor: "pointer",
                       fontSize: "12px",
                       whiteSpace: "nowrap",
-                    height:"30px"
+                      height: "30px",
                     }}
                     onClick={() => {
                       setLeadData((p) => ({
@@ -485,16 +462,18 @@ const CreateLeadModal = ({ onClose }) => {
               </div>
             </>
           ) : (
-            <div style={{
-              fontSize: 12,
-              color: "#666",
-              marginBottom: 15,
-              padding: 8,
-              background: "#f5f5f5",
-              borderRadius: 4,
-              textAlign: "center"
-            }}>
-              Please select an address first to enable slot selection
+            <div
+              style={{
+                fontSize: 12,
+                color: "#666",
+                marginBottom: 15,
+                padding: 8,
+                background: "#f5f5f5",
+                borderRadius: 4,
+                textAlign: "center",
+              }}
+            >
+              Please select an service first to enable slot selection
             </div>
           )}
 
@@ -504,6 +483,9 @@ const CreateLeadModal = ({ onClose }) => {
             style={styles.input}
             onChange={async (e) => {
               const val = e.target.value;
+
+              // 🔥 ALWAYS invalidate slot on service change
+              invalidateSlot();
 
               if (val === "House Painting") {
                 const resp = await axios.get(`${BASE_URL}/service/latest`);
@@ -515,8 +497,8 @@ const CreateLeadModal = ({ onClose }) => {
                   packages: [],
                   selectedPackage: "",
                   totalAmount: 0,
-                  amountYetToPay: 0,
                   bookingAmount: siteVisit,
+                  amountYetToPay: 0,
                 }));
                 return;
               }
@@ -572,7 +554,12 @@ const CreateLeadModal = ({ onClose }) => {
                 style={styles.input}
                 onChange={(e) => {
                   setSelectedSubCategory(e.target.value);
-                  setLeadData((p) => ({ ...p, selectedPackage: "" }));
+                  setLeadData((p) => ({
+                    ...p,
+                    selectedPackage: "", // ✅ RESET SLOT
+                    slotDate: "",
+                    slotTime: "",
+                  }));
                 }}
               >
                 <option value="">Select Subcategory</option>
@@ -707,11 +694,18 @@ const CreateLeadModal = ({ onClose }) => {
           onSelect={(sel) =>
             setLeadData((p) => ({
               ...p,
-              googleAddress: sel.formattedAddress,
+              googleAddress: sel.streetArea, // ✅ CORRECT KEY
               houseNo: sel.houseFlatNumber || p.houseNo,
-              landmark: sel.landmark || p.landmark,
-              coordinates: { lat: sel.lat, lng: sel.lng },
+              landmark: sel.landMark || p.landmark,
+              coordinates: {
+                lat: sel.latLng.lat,
+                lng: sel.latLng.lng,
+              },
               city: sel.city || p.city,
+
+              // ✅ IMPORTANT: invalidate old slot
+              slotDate: "",
+              slotTime: "",
             }))
           }
         />
@@ -728,9 +722,19 @@ const CreateLeadModal = ({ onClose }) => {
               slotTime: sel.slotTime,
             }))
           }
+          serviceType={
+            leadData.serviceType === "Deep Cleaning"
+              ? "deep_cleaning"
+              : "house_painting"
+          }
+          packageId={
+            leadData.serviceType === "Deep Cleaning"
+              ? leadData.packages.map((p) => p._id) // ✅ ARRAY
+              : []
+          }
+          coordinates={leadData.coordinates}
         />
       )}
-
       <ToastContainer />
     </div>
   );
@@ -751,7 +755,7 @@ const styles = {
     justifyContent: "center",
     alignItems: "center",
     fontFamily: "'Poppins', sans-serif",
-    zIndex: 999999
+    zIndex: 999999,
   },
   modal: {
     width: "560px",
@@ -770,8 +774,8 @@ const styles = {
     marginBottom: 15,
     borderBottom: "1px solid #eaeaea",
   },
-  close: { 
-    cursor: "pointer", 
+  close: {
+    cursor: "pointer",
     fontSize: 18,
     color: "#666",
     transition: "color 0.2s",
@@ -779,14 +783,14 @@ const styles = {
   closeHover: {
     color: "#333",
   },
-  content: { 
-    maxHeight: "70vh", 
+  content: {
+    maxHeight: "70vh",
     overflowY: "auto",
     overflowX: "hidden",
     paddingRight: 5,
     // Hide scrollbar but keep functionality
-    scrollbarWidth: "none", /* Firefox */
-    msOverflowStyle: "none", /* IE and Edge */
+    scrollbarWidth: "none" /* Firefox */,
+    msOverflowStyle: "none" /* IE and Edge */,
   },
   contentScroll: {
     /* Webkit browsers (Chrome, Safari) */
@@ -833,8 +837,8 @@ const styles = {
   addBtnHover: {
     background: "#027a3b",
   },
-  pkgList: { 
-    listStyle: "none", 
+  pkgList: {
+    listStyle: "none",
     padding: 0,
     margin: "10px 0",
   },
@@ -849,8 +853,8 @@ const styles = {
     fontSize: 13,
     border: "1px solid #eaeaea",
   },
-  remove: { 
-    cursor: "pointer", 
+  remove: {
+    cursor: "pointer",
     color: "#dc3545",
     fontSize: "14px",
     transition: "color 0.2s",
@@ -858,16 +862,16 @@ const styles = {
   removeHover: {
     color: "#bd2130",
   },
-  label: { 
-    fontSize: 13, 
-    fontWeight: 600, 
+  label: {
+    fontSize: 13,
+    fontWeight: 600,
     marginBottom: 6,
     display: "block",
     color: "#333",
   },
-  discountRow: { 
-    display: "flex", 
-    gap: 10, 
+  discountRow: {
+    display: "flex",
+    gap: 10,
     marginBottom: 15,
     alignItems: "center",
   },
@@ -916,8 +920,8 @@ const styles = {
     marginBottom: 12,
     border: "1px solid #c3e6cb",
   },
-  cancelDiscount: { 
-    cursor: "pointer", 
+  cancelDiscount: {
+    cursor: "pointer",
     color: "#dc3545",
     fontSize: "18px",
     transition: "color 0.2s",

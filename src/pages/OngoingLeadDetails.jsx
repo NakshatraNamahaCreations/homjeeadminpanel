@@ -81,8 +81,10 @@ const OngoingLeadDetails = () => {
     "Survey Completed", //ended - house painting
     "Job Completed", //ended - deep cleaning
     "Customer Cancelled", // from the vendor app
+    "Admin Cancelled", // from the vendor app
     "Cancelled", // from the website by customer themself
     "Customer Unreachable",
+    "Rescheduled", // rescheduled by vendor from vendor app
     "Admin Cancelled",
     "Pending Hiring", // mark hiring
     "Hired", // first payment done
@@ -92,6 +94,11 @@ const OngoingLeadDetails = () => {
     "Negotiation",
     "Set Remainder",
   ];
+
+  const isCancelled = booking?.bookingDetails?.status?.includes("Cancelled");
+
+  const paidAmount = booking?.bookingDetails?.paidAmount ?? 0;
+  const isrefundAmount = booking?.bookingDetails?.refundAmount > 0;
 
   // format date/time to IST and desired display
   const formatIST = (isoLike) => {
@@ -114,55 +121,54 @@ const OngoingLeadDetails = () => {
     };
   };
 
+  const fetchBooking = async () => {
+    if (!bookingId) {
+      setError("Missing booking id");
+      setLoading(false);
+      return;
+    }
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Use provided API
+      const res = await fetch(
+        `${BASE_URL}/bookings/get-bookings-by-bookingid/${bookingId}`
+      );
+      if (!res.ok)
+        throw new Error(`Booking API error: ${res.status} ${res.statusText}`);
+      const payload = await res.json();
+
+      // If API returns booking object in payload.booking or booking
+      const bookingData =
+        payload.booking || payload.bookingData || payload || null;
+
+      // If your API returns top-level booking object as payload.booking (per your sample), use that
+      const normalized = payload.booking ? payload.booking : payload;
+
+      setBooking(normalized);
+      // set payment details so UI shows values
+      const paid = normalized?.bookingDetails?.paidAmount ?? 0;
+      const total =
+        normalized?.bookingDetails?.bookingAmount ??
+        normalized?.bookingDetails?.originalTotalAmount ??
+        0;
+      setPaymentDetails({
+        totalAmount: total,
+        amountPaid: paid,
+        paymentId: normalized?.bookingDetails?.otp
+          ? String(normalized.bookingDetails.otp)
+          : normalized?.bookingDetails?.paymentLink?.providerRef || "N/A",
+      });
+    } catch (err) {
+      console.error("Booking fetch error:", err);
+      setError(err.message || "Failed to fetch booking");
+    } finally {
+      setLoading(false);
+    }
+  };
   // fetch booking by bookingId
   useEffect(() => {
-    const fetchBooking = async () => {
-      if (!bookingId) {
-        setError("Missing booking id");
-        setLoading(false);
-        return;
-      }
-      try {
-        setLoading(true);
-        setError(null);
-
-        // Use provided API
-        const res = await fetch(
-          `${BASE_URL}/bookings/get-bookings-by-bookingid/${bookingId}`
-        );
-        if (!res.ok)
-          throw new Error(`Booking API error: ${res.status} ${res.statusText}`);
-        const payload = await res.json();
-
-        // If API returns booking object in payload.booking or booking
-        const bookingData =
-          payload.booking || payload.bookingData || payload || null;
-
-        // If your API returns top-level booking object as payload.booking (per your sample), use that
-        const normalized = payload.booking ? payload.booking : payload;
-
-        setBooking(normalized);
-        // set payment details so UI shows values
-        const paid = normalized?.bookingDetails?.paidAmount ?? 0;
-        const total =
-          normalized?.bookingDetails?.bookingAmount ??
-          normalized?.bookingDetails?.originalTotalAmount ??
-          0;
-        setPaymentDetails({
-          totalAmount: total,
-          amountPaid: paid,
-          paymentId: normalized?.bookingDetails?.otp
-            ? String(normalized.bookingDetails.otp)
-            : normalized?.bookingDetails?.paymentLink?.providerRef || "N/A",
-        });
-      } catch (err) {
-        console.error("Booking fetch error:", err);
-        setError(err.message || "Failed to fetch booking");
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchBooking();
   }, [bookingId]);
 
@@ -278,6 +284,52 @@ const OngoingLeadDetails = () => {
       alert("Failed to assign vendor");
     }
   };
+
+  const handleCancelBooking = () => {
+    alert("cancle the lead");
+  };
+  // const handleCancelBooking = async () => {
+  //   try {
+  //     if (!refundAmount || refundAmount < 0) {
+  //       alert("Please enter valid refund amount");
+  //       return;
+  //     }
+
+  //     const status = booking?.bookingDetails?.status;
+
+  //     const payload = {
+  //       bookingId: booking._id,
+  //       refundAmount: Number(refundAmount),
+  //     };
+
+  //     let apiUrl = "";
+
+  //     // ✅ CASE 1: Already cancelled → approve refund
+  //     if (status === "Customer Cancelled" || status === "Cancelled") {
+  //       apiUrl = `${BASE_URL}/bookings/approve-cancel-booking/refund/admin`;
+  //     }
+  //     // ✅ CASE 2: Admin cancelling now
+  //     else {
+  //       apiUrl = `${BASE_URL}/bookings/cancel-booking-by-admin`;
+  //     }
+
+  //     const res = await fetch(apiUrl, {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/json" },
+  //       body: JSON.stringify(payload),
+  //     });
+
+  //     if (!res.ok) {
+  //       throw new Error(`Cancel API failed: ${res.status}`);
+  //     }
+
+  //     setShowCancelPopup(false);
+  //     fetchBooking();
+  //   } catch (err) {
+  //     console.error("Cancel booking error:", err);
+  //     alert("Failed to cancel booking / refund");
+  //   }
+  // };
 
   const formatINR = (n) =>
     typeof n === "number"
@@ -487,6 +539,7 @@ const OngoingLeadDetails = () => {
                   <button
                     onClick={handleOpenMaps}
                     className="btn btn-sm btn-danger"
+                    disabled={isCancelled}
                     style={{ borderRadius: 8, padding: "6px 12px" }}
                   >
                     Directions
@@ -495,6 +548,7 @@ const OngoingLeadDetails = () => {
                     onClick={handleCall}
                     className="btn btn-sm btn-outline-danger"
                     style={{ borderRadius: 8, padding: "6px 12px" }}
+                    disabled={isCancelled}
                   >
                     Call
                   </button>
@@ -532,6 +586,7 @@ const OngoingLeadDetails = () => {
                       d.paymentMethod || d.firstPayment?.method || "N/A";
                     const paymentId =
                       d.paymentLink?.providerRef || d.otp || "N/A";
+                    const refundAmount = d.refundAmount ?? 0;
 
                     const isHousePainting =
                       booking?.serviceType === "house_painting";
@@ -557,12 +612,16 @@ const OngoingLeadDetails = () => {
                           <strong>₹{amountPaid.toLocaleString("en-IN")}</strong>
                         </p>
 
-                        <p style={{ fontSize: 12, marginBottom: 1 }}>
-                          <span className="text-muted">Amount Yet to Pay:</span>{" "}
-                          <strong>
-                            ₹{amountYetToPay.toLocaleString("en-IN")}
-                          </strong>
-                        </p>
+                        {isCancelled && !isrefundAmount && (
+                          <p style={{ fontSize: 12, marginBottom: 1 }}>
+                            <span className="text-muted">
+                              Amount Yet to Pay:
+                            </span>{" "}
+                            <strong>
+                              ₹{amountYetToPay.toLocaleString("en-IN")}
+                            </strong>
+                          </p>
+                        )}
 
                         {isHousePainting && (
                           <p style={{ fontSize: "12px", marginBottom: "1%" }}>
@@ -588,6 +647,40 @@ const OngoingLeadDetails = () => {
                             />
                           )}
                         </p>
+
+                        {isCancelled && isrefundAmount && (
+                          <div
+                            style={{
+                              marginTop: 6,
+                              padding: "6px 10px",
+                              borderLeft: "4px solid #dc3545",
+                              backgroundColor: "#fdecea",
+                              borderRadius: 4,
+                            }}
+                          >
+                            <p style={{ fontSize: 12, marginBottom: 2 }}>
+                              <span className="fw-bold text-danger">
+                                Refund Amount
+                              </span>
+                            </p>
+                            <p
+                              className="fw-bold text-dark mb-0"
+                              style={{ fontSize: 14 }}
+                            >
+                              ₹{refundAmount.toLocaleString("en-IN")}
+                              <span
+                                style={{
+                                  fontSize: 11,
+                                  marginLeft: 6,
+                                  color: "#6c757d",
+                                  fontWeight: 500,
+                                }}
+                              >
+                                (initiated)
+                              </span>
+                            </p>
+                          </div>
+                        )}
                       </>
                     );
                   })()}
@@ -661,46 +754,52 @@ const OngoingLeadDetails = () => {
                 className="d-flex align-items-center gap-2  "
                 style={{ marginTop: 8 }}
               >
-                <select
-                  className="form-select"
-                  style={{ width: 200, borderRadius: 8, fontSize: "12px" }}
-                  value={selectedVendor}
-                  onChange={handleVendorChange}
-                >
-                  <option value="">Change Vendor</option>
-                  {vendorsLoading && (
-                    <option disabled>Loading vendors...</option>
-                  )}
-                  {vendorsError && <option disabled>{vendorsError}</option>}
-                  {vendors.filter(Boolean).map((v) => (
-                    <option key={v._id} value={v.vendor.vendorName}>
-                      {v.vendor.vendorName}
-                    </option>
-                  ))}
-                </select>
-
-                <button
-                  className="btn btn-sm btn-secondary"
-                  style={{ borderRadius: 8, fontSize: "12px" }}
-                  onClick={() => alert("Reschedule clicked (implement)")}
-                >
-                  Reschedule
-                </button>
-                <button
-                  className="btn btn-sm btn-secondary"
-                  style={{ borderRadius: 8, fontSize: "12px" }}
-                  onClick={() => setShowEditModal(true)}
-                >
-                  Edit
-                </button>
-
-                <button
-                  className="btn btn-sm btn-danger"
-                  style={{ borderRadius: 8, fontSize: "12px" }}
-                  onClick={() => setShowCancelPopup(true)}
-                >
-                  Cancel Lead
-                </button>
+                {!isCancelled && (
+                  <select
+                    className="form-select"
+                    style={{ width: 200, borderRadius: 8, fontSize: "12px" }}
+                    value={selectedVendor}
+                    onChange={handleVendorChange}
+                  >
+                    <option value="">Change Vendor</option>
+                    {vendorsLoading && (
+                      <option disabled>Loading vendors...</option>
+                    )}
+                    {vendorsError && <option disabled>{vendorsError}</option>}
+                    {vendors.filter(Boolean).map((v) => (
+                      <option key={v._id} value={v.vendor.vendorName}>
+                        {v.vendor.vendorName}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                {!isCancelled && (
+                  <button
+                    className="btn btn-sm btn-secondary"
+                    style={{ borderRadius: 8, fontSize: "12px" }}
+                    onClick={() => alert("Reschedule clicked (implement)")}
+                  >
+                    Reschedule
+                  </button>
+                )}
+                {!isCancelled && (
+                  <button
+                    className="btn btn-sm btn-secondary"
+                    style={{ borderRadius: 8, fontSize: "12px" }}
+                    onClick={() => setShowEditModal(true)}
+                  >
+                    Edit
+                  </button>
+                )}
+                {!isrefundAmount && (
+                  <button
+                    className="btn btn-sm btn-danger"
+                    style={{ borderRadius: 8, fontSize: "12px" }}
+                    onClick={() => setShowCancelPopup(true)}
+                  >
+                    Cancel Lead
+                  </button>
+                )}
               </div>
             </div>
 
@@ -796,13 +895,21 @@ const OngoingLeadDetails = () => {
               >
                 <h6 className="fw-bold mb-3">Cancel Lead</h6>
 
+                <p>Amount to refund : {paidAmount}</p>
                 <label className="form-label">Refund Amount</label>
                 <input
                   type="number"
                   className="form-control mb-3"
                   placeholder="Enter Refund Amount"
                   value={refundAmount}
-                  onChange={(e) => setRefundAmount(e.target.value)}
+                  max={paidAmount}
+                  min={0}
+                  onChange={(e) => {
+                    const value = Number(e.target.value);
+                    if (value <= paidAmount) {
+                      setRefundAmount(value);
+                    }
+                  }}
                 />
 
                 <div className="d-flex justify-content-end gap-2">
@@ -815,10 +922,7 @@ const OngoingLeadDetails = () => {
 
                   <button
                     className="btn btn-danger btn-sm"
-                    onClick={() => {
-                      setShowCancelPopup(false);
-                      alert("Submit refund + cancel API here");
-                    }}
+                    onClick={handleCancelBooking}
                   >
                     Save & Cancel Booking
                   </button>

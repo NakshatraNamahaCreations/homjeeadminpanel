@@ -110,7 +110,7 @@ const EnquiriesList = () => {
   });
 
   const openDetails = (bookingId, enquiryObj) => {
-    navigate(`/enquiry-details/${bookingId}`);
+    navigate(`/lead-details/${bookingId}`);
   };
 
   return (

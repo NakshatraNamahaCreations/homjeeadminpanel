@@ -80,6 +80,7 @@ const LeadDetails = () => {
     };
   };
 
+  const isCancelled = lead?.bookingDetails?.status?.includes("Cancelled");
   // Fetch lead by ID from API
   useEffect(() => {
     const fetchLeadById = async () => {
@@ -444,6 +445,7 @@ const LeadDetails = () => {
                     fontSize: "12px",
                     padding: "4px 8px",
                   }}
+                  disabled={isCancelled}
                   onClick={() => {
                     const lat =
                       lead?.address?.location?.coordinates?.[1] ??
@@ -473,6 +475,7 @@ const LeadDetails = () => {
                     fontSize: "12px",
                     padding: "4px 8px",
                   }}
+                  disabled={isCancelled}
                   onClick={() => {
                     const ph = lead.customer?.phone || lead.contact;
                     if (ph) window.location.href = `tel:${ph}`;
@@ -725,19 +728,8 @@ const LeadDetails = () => {
               </div>
             </div>
             <div className="mt-4 d-flex">
-              {cancelled ? (
-                <span
-                  className="btn btn-outline-danger"
-                  style={{
-                    borderRadius: "8px",
-                    fontSize: "12px",
-                    cursor: "default",
-                  }}
-                >
-                  Booking Cancelled (Refund: ₹{refundAmount || 0})
-                </span>
-              ) : (
-                <div className="mt-4 d-flex">
+              <div className="mt-4 d-flex">
+                {!isCancelled && (
                   <button
                     className="btn btn-secondary me-2"
                     style={{
@@ -749,70 +741,21 @@ const LeadDetails = () => {
                   >
                     Edit Lead
                   </button>
+                )}
 
-                  {lead.bookingDetails?.status === "Admin Cancelled" ||
-                  lead.status === "Admin Cancelled" ? (
-                    <span
-                      className="btn btn-outline-secondary"
-                      style={{
-                        borderRadius: "8px",
-                        fontSize: "10px",
-                        cursor: "not-allowed",
-                      }}
-                    >
-                      Admin Already Cancelled
-                    </span>
-                  ) : (
-                    <button
-                      className="btn btn-danger"
-                      style={{
-                        borderRadius: "8px",
-                        fontSize: "10px",
-                      }}
-                      onClick={() => setShowCancelPopup(true)}
-                      // onClick={async () => {
-                      //   try {
-                      //     const response = await fetch(
-                      //       `${BASE_URL}/bookings/update-status`,
-                      //       {
-                      //         method: "POST",
-                      //         headers: { "Content-Type": "application/json" },
-                      //         body: JSON.stringify({
-                      //           bookingId: lead._id || lead.booking_id || lead.id,
-                      //           status: "Admin Cancelled",
-                      //         }),
-                      //       }
-                      //     );
-                      //     const result = await response.json();
-                      //     if (response.ok) {
-                      //       setLead({
-                      //         ...lead,
-                      //         status: "Admin Cancelled",
-                      //         bookingDetails: {
-                      //           ...(lead.bookingDetails || {}),
-                      //           status: "Admin Cancelled",
-                      //         },
-                      //       });
-                      //       setNotificationStatus("Lead cancelled successfully.");
-                      //       navigate("/newleads", {
-                      //         state: { cancelled: true },
-                      //       });
-                      //     } else {
-                      //       setNotificationStatus(
-                      //         result?.message || "Failed to cancel lead."
-                      //       );
-                      //     }
-                      //   } catch (error) {
-                      //     console.error("Error cancelling lead:", error);
-                      //     setNotificationStatus("Error cancelling lead.");
-                      //   }
-                      // }}
-                    >
-                      Cancel Lead
-                    </button>
-                  )}
-                </div>
-              )}
+                {!isCancelled && (
+                  <button
+                    className="btn btn-danger"
+                    style={{
+                      borderRadius: "8px",
+                      fontSize: "10px",
+                    }}
+                    onClick={() => setShowCancelPopup(true)}
+                  >
+                    Cancel Lead
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>

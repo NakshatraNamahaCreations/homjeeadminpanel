@@ -26,6 +26,7 @@ import Calendar from "react-calendar";
 import axios from "axios";
 import vendor from "../assets/vendor.svg";
 import "react-calendar/dist/Calendar.css";
+import { BASE_URL } from "../utils/config";
 
 const GOOGLE_MAPS_API_KEY = "AIzaSyBF48uqsKVyp9P2NlDX-heBJksvvT_8Cqk";
 
@@ -62,7 +63,9 @@ const AddressPickerModal = ({
   const autocompleteRef = useRef(null);
 
   const [addr, setAddr] = useState(initialAddress || "");
-  const [latLng, setLatLng] = useState(initialLatLng || { lat: null, lng: null });
+  const [latLng, setLatLng] = useState(
+    initialLatLng || { lat: null, lng: null }
+  );
 
   useEffect(() => {
     if (!show) return;
@@ -73,7 +76,8 @@ const AddressPickerModal = ({
       new Promise((resolve) => {
         if (!navigator.geolocation) return resolve(null);
         navigator.geolocation.getCurrentPosition(
-          (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+          (pos) =>
+            resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
           () => resolve(null),
           { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
         );
@@ -84,7 +88,12 @@ const AddressPickerModal = ({
         await loadGoogleMaps();
 
         let start = await getCurrentPosition();
-        if (!start && initialLatLng && !isNaN(initialLatLng.lat) && !isNaN(initialLatLng.lng)) {
+        if (
+          !start &&
+          initialLatLng &&
+          !isNaN(initialLatLng.lat) &&
+          !isNaN(initialLatLng.lng)
+        ) {
           start = initialLatLng;
         }
         if (!start) {
@@ -109,9 +118,12 @@ const AddressPickerModal = ({
         markerRef.current = marker;
 
         const input = inputRef.current;
-        autocompleteRef.current = new window.google.maps.places.Autocomplete(input, {
-          fields: ["formatted_address", "geometry"],
-        });
+        autocompleteRef.current = new window.google.maps.places.Autocomplete(
+          input,
+          {
+            fields: ["formatted_address", "geometry"],
+          }
+        );
 
         autocompleteRef.current.addListener("place_changed", () => {
           const place = autocompleteRef.current.getPlace();
@@ -191,7 +203,9 @@ const AddressPickerModal = ({
 
     return () => {
       if (autocompleteRef.current) {
-        window.google.maps.event.clearInstanceListeners(autocompleteRef.current);
+        window.google.maps.event.clearInstanceListeners(
+          autocompleteRef.current
+        );
       }
       if (marker) {
         window.google.maps.event.clearInstanceListeners(marker);
@@ -245,7 +259,6 @@ const AddressPickerModal = ({
               border: "1px solid #ddd",
               fontSize: 14,
             }}
-            defaultValue={initialAddress}
           />
         </div>
         <div style={{ position: "relative", flex: 1, minHeight: 0 }}>
@@ -265,7 +278,8 @@ const AddressPickerModal = ({
         >
           <strong>Selected:</strong> {addr || "Move the pin or search…"}
           <div className="text-muted" style={{ fontSize: 12 }}>
-            Lat: {latLng.lat ? latLng.lat.toFixed(6) : "N/A"} | Lng: {latLng.lng ? latLng.lng.toFixed(6) : "N/A"}
+            Lat: {latLng.lat ? latLng.lat.toFixed(6) : "N/A"} | Lng:{" "}
+            {latLng.lng ? latLng.lng.toFixed(6) : "N/A"}
           </div>
         </div>
       </Modal.Body>
@@ -307,19 +321,22 @@ const VendorsDashboard = () => {
   const [geocodingError, setGeocodingError] = useState(null);
   const [showAddressPicker, setShowAddressPicker] = useState(false);
   const [showMemberAddressPicker, setShowMemberAddressPicker] = useState(false);
-const [selectedTeamMember, setSelectedTeamMember] = useState(null);
-const [showMemberDetailsModal, setShowMemberDetailsModal] = useState(false);
+  const [selectedTeamMember, setSelectedTeamMember] = useState(null);
+  const [showMemberDetailsModal, setShowMemberDetailsModal] = useState(false);
+
+  const [bulkFile, setBulkFile] = useState(null);
+  const [bulkUploading, setBulkUploading] = useState(false);
 
   const PAGE_SIZE = 10;
-const [currentPage, setCurrentPage] = useState(1);
-
-useEffect(() => {
-  setCurrentPage(1);
-}, [city, status, service, vendors]);
+  const [currentPage, setCurrentPage] = useState(1);
+  console.log("Team member:", selectedVendor);
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [city, status, service, vendors]);
 
   const [formData, setFormData] = useState({
     vendorName: "",
-    profileImage:"",
+    profileImage: "",
     mobileNumber: "",
     dateOfBirth: "",
     yearOfWorking: "",
@@ -344,113 +361,189 @@ useEffect(() => {
 
   const [files, setFiles] = useState({
     profileImage: null,
-    
+
     aadhaarfrontImage: null,
     aadhaarbackImage: null,
     panImage: null,
     otherPolicy: null,
   });
 
-const validate = () => {
-  const newErrors = {};
+  const downloadExcelTemplate = () => {
+    const headers = [
+      [
+        "vendorName",
+        "vendorMobile",
+        "vendorDOB",
+        "vendorExperience",
+        "city",
+        "serviceType",
+        "capacity",
+        "serviceArea",
+        "vendorAadhaar",
+        "vendorPAN",
+        "vendorLat",
+        "vendorLng",
+        "memberName",
+        "memberMobile",
+        "memberDOB",
+        "memberAadhaar",
+        "memberPAN",
+        "memberLat",
+        "memberLng",
+      ],
+    ];
 
-  // Vendor Name: Required and should only contain alphabets and spaces
-  const nameRegex = /^[A-Za-z\s]+$/;
-  if (!formData.vendorName) {
-    newErrors.vendorName = "Vendor name is required.";
-  } else if (!nameRegex.test(formData.vendorName)) {
-    newErrors.vendorName = "Vendor name must contain only alphabets and spaces.";
-  }
+    const csvContent =
+      "data:text/csv;charset=utf-8," +
+      headers.map((e) => e.join(",")).join("\n");
 
-  // Mobile Number: Required and should be exactly 10 digits
-  const mobileNumberRegex = /^[0-9]{10}$/;
-  if (!formData.mobileNumber) {
-    newErrors.mobileNumber = "Phone number is required.";
-  } else if (!mobileNumberRegex.test(formData.mobileNumber)) {
-    newErrors.mobileNumber = "Phone number must be 10 digits.";
-  }
+    const link = document.createElement("a");
+    link.href = encodeURI(csvContent);
+    link.download = "vendor_bulk_template.csv";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
-  // Date of Birth: Required
-  if (!formData.dateOfBirth) newErrors.dateOfBirth = "Date of birth is required.";
+  const handleBulkUpload = async () => {
+    if (!bulkFile) {
+      alert("Please select an Excel file");
+      return;
+    }
 
-  // Year of Working: Required and must be a valid number
-  if (!formData.yearOfWorking) newErrors.yearOfWorking = "Year of working is required.";
-  else if (isNaN(formData.yearOfWorking)) newErrors.yearOfWorking = "Year of working must be a valid number.";
+    const fd = new FormData();
+    fd.append("file", bulkFile);
 
-  // City: Required
-  if (!formData.city) newErrors.city = "City is required.";
+    try {
+      setBulkUploading(true);
 
-  // Service Type: Required
-  if (!formData.serviceType) newErrors.serviceType = "Service type is required.";
+      await axios.post(`${BASE_URL}/vendor/bulk-upload`, fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
 
-  // Capacity: Required and must be a valid number
-  if (!formData.capacity) newErrors.capacity = "Capacity is required.";
-  else if (isNaN(formData.capacity)) newErrors.capacity = "Capacity must be a valid number.";
+      alert("Bulk vendors uploaded successfully!");
+      setBulkFile(null);
+      await fetchVendors();
+    } catch (error) {
+      alert(
+        error.response?.data?.message ||
+          "Bulk upload failed. Please check the file."
+      );
+    } finally {
+      setBulkUploading(false);
+    }
+  };
 
-  // Service Area: Required
-  if (!formData.serviceArea) newErrors.serviceArea = "Service area is required.";
+  const validate = () => {
+    const newErrors = {};
 
-  // Aadhar Number: Required and must be exactly 12 digits
-  const aadhaarRegex = /^[0-9]{12}$/;
-  if (!formData.aadhaarNumber) {
-    newErrors.aadhaarNumber = "Aadhar number is required.";
-  } else if (!aadhaarRegex.test(formData.aadhaarNumber)) {
-    newErrors.aadhaarNumber = "Aadhar number must be 12 digits.";
-  }
+    // Vendor Name: Required and should only contain alphabets and spaces
+    const nameRegex = /^[A-Za-z\s]+$/;
+    if (!formData.vendorName) {
+      newErrors.vendorName = "Vendor name is required.";
+    } else if (!nameRegex.test(formData.vendorName)) {
+      newErrors.vendorName =
+        "Vendor name must contain only alphabets and spaces.";
+    }
 
-  // PAN Number: Required and must follow the PAN format (XXXXX9999X)
-  const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
-  if (!formData.panNumber) {
-    newErrors.panNumber = "PAN number is required.";
-  } else if (!panRegex.test(formData.panNumber)) {
-    newErrors.panNumber = "PAN number is invalid.";
-  }
+    // Mobile Number: Required and should be exactly 10 digits
+    const mobileNumberRegex = /^[0-9]{10}$/;
+    if (!formData.mobileNumber) {
+      newErrors.mobileNumber = "Phone number is required.";
+    } else if (!mobileNumberRegex.test(formData.mobileNumber)) {
+      newErrors.mobileNumber = "Phone number must be 10 digits.";
+    }
 
-  // Account Number: Required and must be numeric
-  if (!formData.accountNumber) {
-    newErrors.accountNumber = "Account number is required.";
-  } else if (!/^[0-9]+$/.test(formData.accountNumber)) {
-    newErrors.accountNumber = "Account number must be numeric.";
-  }
+    // Date of Birth: Required
+    if (!formData.dateOfBirth)
+      newErrors.dateOfBirth = "Date of birth is required.";
 
-  // IFSC Code: Required and must follow the format (4 alphabets + 7 digits)
-  const ifscRegex = /^[A-Za-z]{4}[0-9]{7}$/;
-  if (!formData.ifscCode) {
-    newErrors.ifscCode = "IFSC code is required.";
-  } else if (!ifscRegex.test(formData.ifscCode)) {
-    newErrors.ifscCode = "Invalid IFSC code.";
-  }
+    // Year of Working: Required and must be a valid number
+    if (!formData.yearOfWorking)
+      newErrors.yearOfWorking = "Year of working is required.";
+    else if (isNaN(formData.yearOfWorking))
+      newErrors.yearOfWorking = "Year of working must be a valid number.";
 
-  // Bank Name: Required
-  if (!formData.bankName) newErrors.bankName = "Bank name is required.";
+    // City: Required
+    if (!formData.city) newErrors.city = "City is required.";
 
-  // Holder Name: Required
-  if (!formData.holderName) newErrors.holderName = "Holder name is required.";
+    // Service Type: Required
+    if (!formData.serviceType)
+      newErrors.serviceType = "Service type is required.";
 
-  // Account Type: Required
-  if (!formData.accountType) newErrors.accountType = "Account type is required.";
+    // Capacity: Required and must be a valid number
+    if (!formData.capacity) newErrors.capacity = "Capacity is required.";
+    else if (isNaN(formData.capacity))
+      newErrors.capacity = "Capacity must be a valid number.";
 
-  // GST Number: If provided, must be valid (minimum length 15 characters)
-  if (formData.gstNumber && formData.gstNumber.length < 15) {
-    newErrors.gstNumber = "GST number must be valid (at least 15 characters).";
-  }
+    // Service Area: Required
+    if (!formData.serviceArea)
+      newErrors.serviceArea = "Service area is required.";
 
-  // Location: Required
-  if (!formData.location) newErrors.location = "Location is required.";
+    // Aadhar Number: Required and must be exactly 12 digits
+    const aadhaarRegex = /^[0-9]{12}$/;
+    if (!formData.aadhaarNumber) {
+      newErrors.aadhaarNumber = "Aadhar number is required.";
+    } else if (!aadhaarRegex.test(formData.aadhaarNumber)) {
+      newErrors.aadhaarNumber = "Aadhar number must be 12 digits.";
+    }
 
-  // Latitude: Required and must be a valid number
-  if (!formData.latitude || isNaN(formData.latitude)) newErrors.latitude = "Latitude is required.";
+    // PAN Number: Required and must follow the PAN format (XXXXX9999X)
+    const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+    if (!formData.panNumber) {
+      newErrors.panNumber = "PAN number is required.";
+    } else if (!panRegex.test(formData.panNumber)) {
+      newErrors.panNumber = "PAN number is invalid.";
+    }
 
-  // Longitude: Required and must be a valid number
-  if (!formData.longitude || isNaN(formData.longitude)) newErrors.longitude = "Longitude is required.";
+    // Account Number: Required and must be numeric
+    if (!formData.accountNumber) {
+      newErrors.accountNumber = "Account number is required.";
+    } else if (!/^[0-9]+$/.test(formData.accountNumber)) {
+      newErrors.accountNumber = "Account number must be numeric.";
+    }
 
-  // Set the errors state
-  setErrors(newErrors);
+    // IFSC Code: Required and must follow the format (4 alphabets + 7 digits)
+    const ifscRegex = /^[A-Za-z]{4}[0-9]{7}$/;
+    if (!formData.ifscCode) {
+      newErrors.ifscCode = "IFSC code is required.";
+    } else if (!ifscRegex.test(formData.ifscCode)) {
+      newErrors.ifscCode = "Invalid IFSC code.";
+    }
 
-  // Return true if no errors, false if there are errors
-  return Object.keys(newErrors).length === 0;
-};
+    // Bank Name: Required
+    if (!formData.bankName) newErrors.bankName = "Bank name is required.";
 
+    // Holder Name: Required
+    if (!formData.holderName) newErrors.holderName = "Holder name is required.";
+
+    // Account Type: Required
+    if (!formData.accountType)
+      newErrors.accountType = "Account type is required.";
+
+    // GST Number: If provided, must be valid (minimum length 15 characters)
+    if (formData.gstNumber && formData.gstNumber.length < 15) {
+      newErrors.gstNumber =
+        "GST number must be valid (at least 15 characters).";
+    }
+
+    // Location: Required
+    if (!formData.location) newErrors.location = "Location is required.";
+
+    // Latitude: Required and must be a valid number
+    if (!formData.latitude || isNaN(formData.latitude))
+      newErrors.latitude = "Latitude is required.";
+
+    // Longitude: Required and must be a valid number
+    if (!formData.longitude || isNaN(formData.longitude))
+      newErrors.longitude = "Longitude is required.";
+
+    // Set the errors state
+    setErrors(newErrors);
+
+    // Return true if no errors, false if there are errors
+    return Object.keys(newErrors).length === 0;
+  };
 
   const [memberFormData, setMemberFormData] = useState({
     name: "",
@@ -471,7 +564,7 @@ const validate = () => {
     latitude: "",
     longitude: "",
   });
-const [memberErrors, setMemberErrors] = useState({});
+  const [memberErrors, setMemberErrors] = useState({});
   const [memberFiles, setMemberFiles] = useState({
     profileImage: null,
     aadhaarImage: null,
@@ -480,117 +573,116 @@ const [memberErrors, setMemberErrors] = useState({});
   });
 
   const validateMember = () => {
-  const newErrors = {};
+    const newErrors = {};
 
-  // Name: Only alphabets and spaces
-  const nameRegex = /^[A-Za-z\s]+$/;
-  if (!memberFormData.name) {
-    newErrors.name = "Name is required.";
-  } else if (!nameRegex.test(memberFormData.name)) {
-    newErrors.name = "Name must contain only alphabets and spaces.";
-  }
+    // Name: Only alphabets and spaces
+    const nameRegex = /^[A-Za-z\s]+$/;
+    if (!memberFormData.name) {
+      newErrors.name = "Name is required.";
+    } else if (!nameRegex.test(memberFormData.name)) {
+      newErrors.name = "Name must contain only alphabets and spaces.";
+    }
 
-  // Mobile Number: 10 digits
-  const mobileNumberRegex = /^[0-9]{10}$/;
-  if (!memberFormData.mobileNumber) {
-    newErrors.mobileNumber = "Phone number is required.";
-  } else if (!mobileNumberRegex.test(memberFormData.mobileNumber)) {
-    newErrors.mobileNumber = "Phone number must be 10 digits.";
-  }
+    // Mobile Number: 10 digits
+    const mobileNumberRegex = /^[0-9]{10}$/;
+    if (!memberFormData.mobileNumber) {
+      newErrors.mobileNumber = "Phone number is required.";
+    } else if (!mobileNumberRegex.test(memberFormData.mobileNumber)) {
+      newErrors.mobileNumber = "Phone number must be 10 digits.";
+    }
 
-  // Date of Birth: Required and valid date format
-  if (!memberFormData.dateOfBirth) {
-    newErrors.dateOfBirth = "Date of birth is required.";
-  }
+    // Date of Birth: Required and valid date format
+    if (!memberFormData.dateOfBirth) {
+      newErrors.dateOfBirth = "Date of birth is required.";
+    }
 
-  // City: Required
-  if (!memberFormData.city) {
-    newErrors.city = "City is required.";
-  }
+    // City: Required
+    if (!memberFormData.city) {
+      newErrors.city = "City is required.";
+    }
 
-  // Service Type: Required
-  if (!memberFormData.serviceType) {
-    newErrors.serviceType = "Service type is required.";
-  }
+    // Service Type: Required
+    if (!memberFormData.serviceType) {
+      newErrors.serviceType = "Service type is required.";
+    }
 
-  // Service Area: Required
-  if (!memberFormData.serviceArea) {
-    newErrors.serviceArea = "Service area is required.";
-  }
+    // Service Area: Required
+    if (!memberFormData.serviceArea) {
+      newErrors.serviceArea = "Service area is required.";
+    }
 
-  // Aadhar Number: 12 digits
-  const aadhaarRegex = /^[0-9]{12}$/;
-  if (!memberFormData.aadhaarNumber) {
-    newErrors.aadhaarNumber = "Aadhar number is required.";
-  } else if (!aadhaarRegex.test(memberFormData.aadhaarNumber)) {
-    newErrors.aadhaarNumber = "Aadhar number must be 12 digits.";
-  }
+    // Aadhar Number: 12 digits
+    const aadhaarRegex = /^[0-9]{12}$/;
+    if (!memberFormData.aadhaarNumber) {
+      newErrors.aadhaarNumber = "Aadhar number is required.";
+    } else if (!aadhaarRegex.test(memberFormData.aadhaarNumber)) {
+      newErrors.aadhaarNumber = "Aadhar number must be 12 digits.";
+    }
 
-  // PAN Number: PAN format validation
-  const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
-  if (!memberFormData.panNumber) {
-    newErrors.panNumber = "PAN number is required.";
-  } else if (!panRegex.test(memberFormData.panNumber)) {
-    newErrors.panNumber = "PAN number is invalid.";
-  }
+    // PAN Number: PAN format validation
+    const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+    if (!memberFormData.panNumber) {
+      newErrors.panNumber = "PAN number is required.";
+    } else if (!panRegex.test(memberFormData.panNumber)) {
+      newErrors.panNumber = "PAN number is invalid.";
+    }
 
-  // Bank Account Number: Numeric validation
-  if (!memberFormData.accountNumber) {
-    newErrors.accountNumber = "Bank account number is required.";
-  } else if (!/^[0-9]+$/.test(memberFormData.accountNumber)) {
-    newErrors.accountNumber = "Bank account number should be numeric.";
-  }
+    // Bank Account Number: Numeric validation
+    if (!memberFormData.accountNumber) {
+      newErrors.accountNumber = "Bank account number is required.";
+    } else if (!/^[0-9]+$/.test(memberFormData.accountNumber)) {
+      newErrors.accountNumber = "Bank account number should be numeric.";
+    }
 
-  // IFSC Code: Format validation (4 alphabets + 7 digits)
-  const ifscRegex = /^[A-Za-z]{4}[0-9]{7}$/;
-  if (!memberFormData.ifscCode) {
-    newErrors.ifscCode = "IFSC code is required.";
-  } else if (!ifscRegex.test(memberFormData.ifscCode)) {
-    newErrors.ifscCode = "Invalid IFSC code.";
-  }
+    // IFSC Code: Format validation (4 alphabets + 7 digits)
+    const ifscRegex = /^[A-Za-z]{4}[0-9]{7}$/;
+    if (!memberFormData.ifscCode) {
+      newErrors.ifscCode = "IFSC code is required.";
+    } else if (!ifscRegex.test(memberFormData.ifscCode)) {
+      newErrors.ifscCode = "Invalid IFSC code.";
+    }
 
-  // Bank Name: Required
-  if (!memberFormData.bankName) {
-    newErrors.bankName = "Bank name is required.";
-  }
+    // Bank Name: Required
+    if (!memberFormData.bankName) {
+      newErrors.bankName = "Bank name is required.";
+    }
 
-  // Account Holder Name: Required
-  if (!memberFormData.holderName) {
-    newErrors.holderName = "Account holder name is required.";
-  }
+    // Account Holder Name: Required
+    if (!memberFormData.holderName) {
+      newErrors.holderName = "Account holder name is required.";
+    }
 
-  // Account Type: Required
-  if (!memberFormData.accountType) {
-    newErrors.accountType = "Account type is required.";
-  }
+    // Account Type: Required
+    if (!memberFormData.accountType) {
+      newErrors.accountType = "Account type is required.";
+    }
 
-  // GST Number: If provided, it must be at least 15 characters long
-  if (memberFormData.gstNumber && memberFormData.gstNumber.length < 15) {
-    newErrors.gstNumber = "GST number must be at least 15 characters.";
-  }
+    // GST Number: If provided, it must be at least 15 characters long
+    if (memberFormData.gstNumber && memberFormData.gstNumber.length < 15) {
+      newErrors.gstNumber = "GST number must be at least 15 characters.";
+    }
 
-  // Location: Required
-  if (!memberFormData.location) {
-    newErrors.location = "Location is required.";
-  }
+    // Location: Required
+    if (!memberFormData.location) {
+      newErrors.location = "Location is required.";
+    }
 
-  // Latitude: Numeric and required
-  if (!memberFormData.latitude || isNaN(memberFormData.latitude)) {
-    newErrors.latitude = "Latitude is required.";
-  }
+    // Latitude: Numeric and required
+    if (!memberFormData.latitude || isNaN(memberFormData.latitude)) {
+      newErrors.latitude = "Latitude is required.";
+    }
 
-  // Longitude: Numeric and required
-  if (!memberFormData.longitude || isNaN(memberFormData.longitude)) {
-    newErrors.longitude = "Longitude is required.";
-  }
+    // Longitude: Numeric and required
+    if (!memberFormData.longitude || isNaN(memberFormData.longitude)) {
+      newErrors.longitude = "Longitude is required.";
+    }
 
-  // If any errors exist, update the error state
-  setMemberErrors(newErrors);
+    // If any errors exist, update the error state
+    setMemberErrors(newErrors);
 
-  // Return true if there are no errors, else false
-  return Object.keys(newErrors).length === 0;
-};
-
+    // Return true if there are no errors, else false
+    return Object.keys(newErrors).length === 0;
+  };
 
   const fetchCoordinates = useCallback(
     debounce(async (location) => {
@@ -648,13 +740,13 @@ const [memberErrors, setMemberErrors] = useState({});
     setLoading(true);
     setError(null);
     try {
-      const response = await axios.get(
-        "https://homjee-backend.onrender.com/api/vendor/get-all-vendor"
-      );
+      const response = await axios.get(`${BASE_URL}/vendor/get-all-vendor`);
+
+      console.log("fetchVendors", response.data.vendor);
       const fetchedVendors = response.data.vendor.map((vendor) => ({
         id: vendor._id,
         name: vendor.vendor.vendorName,
-        profileImage:vendor.vendor.profileImage,
+        profileImage: vendor.vendor.profileImage,
         category: vendor.vendor.serviceType,
         city: vendor.vendor.city,
         status: vendor.activeStatus ? "Live" : "Inactive",
@@ -672,32 +764,40 @@ const [memberErrors, setMemberErrors] = useState({});
         serviceArea: vendor.vendor.serviceArea,
         workingSince: parseInt(vendor.vendor.yearOfWorking ?? "0", 10),
         coins: Number(vendor.wallet?.coins ?? 0),
-        team: vendor.team.map((member) => ({
-          _id: member._id,
-          name: member.name,
-          mobileNumber: member.mobileNumber,
-          dateOfBirth: member.dateOfBirth,
-          city: member.city,
-          serviceType: member.serviceType,
-          serviceArea: member.serviceArea,
-          aadhaarNumber: member.documents?.aadhaarNumber,
-          panNumber: member.documents?.panNumber,
-          accountNumber: member.bankDetails?.accountNumber,
-          ifscCode: member.bankDetails?.ifscCode,
-          bankName: member.bankDetails?.bankName,
-          holderName: member.bankDetails?.holderName,
-          accountType: member.bankDetails?.accountType,
-          gstNumber: member.bankDetails?.gstNumber,
-          location: member.address?.location,
-          latitude: member.address?.latitude,
-          longitude: member.address?.longitude,
-        })) || [],
-        
+        lat: vendor.address.latitude,
+        long: vendor.address.longitude,
+        team:
+          vendor.team.map((member) => ({
+            _id: member._id,
+            name: member.name,
+            mobileNumber: member.mobileNumber,
+            dateOfBirth: member.dateOfBirth,
+            city: member.city,
+            serviceType: member.serviceType,
+            serviceArea: member.serviceArea,
+            aadhaarNumber: member.documents?.aadhaarNumber,
+            panNumber: member.documents?.panNumber,
+            accountNumber: member.bankDetails?.accountNumber,
+            ifscCode: member.bankDetails?.ifscCode,
+            bankName: member.bankDetails?.bankName,
+            holderName: member.bankDetails?.holderName,
+            accountType: member.bankDetails?.accountType,
+            gstNumber: member.bankDetails?.gstNumber,
+            location: member.address?.location,
+            latitude: member.address?.latitude,
+            longitude: member.address?.longitude,
+          })) || [],
       }));
-  fetchedVendors.reverse();
+      fetchedVendors.reverse();
       setVendors(fetchedVendors);
-      const uniqueCities = ["All Cities", ...new Set(fetchedVendors.map((v) => v.city))];
-      const uniqueServices = ["All Services", ...new Set(fetchedVendors.map((v) => v.category))];
+      const uniqueCities = [
+        "All Cities",
+        ...new Set(fetchedVendors.map((v) => v.city)),
+      ];
+      const uniqueServices = [
+        "All Services",
+        ...new Set(fetchedVendors.map((v) => v.category)),
+      ];
       setCities(uniqueCities);
       setServices(uniqueServices);
     } catch (error) {
@@ -734,9 +834,14 @@ const [memberErrors, setMemberErrors] = useState({});
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-      if (!validate()) return;
+    if (!validate()) return;
 
-    if (!formData.latitude || !formData.longitude || isNaN(formData.latitude) || isNaN(formData.longitude)) {
+    if (
+      !formData.latitude ||
+      !formData.longitude ||
+      isNaN(formData.latitude) ||
+      isNaN(formData.longitude)
+    ) {
       alert("Please select a valid location using the map picker.");
       return;
     }
@@ -779,14 +884,18 @@ const [memberErrors, setMemberErrors] = useState({});
       formDataToSend.append("bankDetails", JSON.stringify(bankDetails));
       formDataToSend.append("address", JSON.stringify(address));
 
-      if (files.profileImage) formDataToSend.append("profileImage", files.profileImage);
-      if (files.aadhaarbackImage) formDataToSend.append("aadhaarbackImage", files.aadhaarbackImage);
-      if (files.aadhaarfrontImage) formDataToSend.append("aadhaarfrontImage", files.aadhaarfrontImage);
+      if (files.profileImage)
+        formDataToSend.append("profileImage", files.profileImage);
+      if (files.aadhaarbackImage)
+        formDataToSend.append("aadhaarbackImage", files.aadhaarbackImage);
+      if (files.aadhaarfrontImage)
+        formDataToSend.append("aadhaarfrontImage", files.aadhaarfrontImage);
 
       if (files.panImage) formDataToSend.append("panImage", files.panImage);
-      if (files.otherPolicy) formDataToSend.append("otherPolicy", files.otherPolicy);
+      if (files.otherPolicy)
+        formDataToSend.append("otherPolicy", files.otherPolicy);
 
-      await axios.post("https://homjee-backend.onrender.com/api/vendor/create-vendor", formDataToSend, {
+      await axios.post(`${BASE_URL}/vendor/create-vendor`, formDataToSend, {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
@@ -824,7 +933,10 @@ const [memberErrors, setMemberErrors] = useState({});
       await fetchVendors();
     } catch (error) {
       console.error("Error creating vendor:", error);
-      alert("Failed to create vendor: " + (error.response?.data?.message || error.message));
+      alert(
+        "Failed to create vendor: " +
+          (error.response?.data?.message || error.message)
+      );
     }
   };
 
@@ -832,7 +944,12 @@ const [memberErrors, setMemberErrors] = useState({});
     e.preventDefault();
     if (!validateMember()) return;
     if (!selectedVendor) return;
-    if (!memberFormData.latitude || !memberFormData.longitude || isNaN(memberFormData.latitude) || isNaN(memberFormData.longitude)) {
+    if (
+      !memberFormData.latitude ||
+      !memberFormData.longitude ||
+      isNaN(memberFormData.latitude) ||
+      isNaN(memberFormData.longitude)
+    ) {
       alert("Please select a valid location using the map picker.");
       return;
     }
@@ -874,21 +991,35 @@ const [memberErrors, setMemberErrors] = useState({});
       formDataToSend.append("bankDetails", JSON.stringify(bankDetails));
       formDataToSend.append("address", JSON.stringify(address));
 
-      if (memberFiles.profileImage) formDataToSend.append("profileImage", memberFiles.profileImage);
-     if (memberFiles.aadhaarfrontImage) formDataToSend.append("aadhaarfrontImage", memberFiles.aadhaarfrontImage);
-if (memberFiles.aadhaarbackImage) formDataToSend.append("aadhaarbackImage", memberFiles.aadhaarbackImage);
+      if (memberFiles.profileImage)
+        formDataToSend.append("profileImage", memberFiles.profileImage);
+      if (memberFiles.aadhaarfrontImage)
+        formDataToSend.append(
+          "aadhaarfrontImage",
+          memberFiles.aadhaarfrontImage
+        );
+      if (memberFiles.aadhaarbackImage)
+        formDataToSend.append("aadhaarbackImage", memberFiles.aadhaarbackImage);
 
-      if (memberFiles.panImage) formDataToSend.append("panImage", memberFiles.panImage);
-      if (memberFiles.otherPolicy) formDataToSend.append("otherPolicy", memberFiles.otherPolicy);
+      if (memberFiles.panImage)
+        formDataToSend.append("panImage", memberFiles.panImage);
+      if (memberFiles.otherPolicy)
+        formDataToSend.append("otherPolicy", memberFiles.otherPolicy);
 
-      const { data } = await axios.post("https://homjee-backend.onrender.com/api/vendor/team/add", formDataToSend, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      const { data } = await axios.post(
+        `${BASE_URL}/vendor/team/add`,
+        formDataToSend,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+        }
+      );
 
       alert("Team member added successfully!");
       setSelectedVendor((v) => (v ? { ...v, team: data.team || [] } : v));
       setVendors((list) =>
-        list.map((v) => (v.id === selectedVendor.id ? { ...v, team: data.team || [] } : v))
+        list.map((v) =>
+          v.id === selectedVendor.id ? { ...v, team: data.team || [] } : v
+        )
       );
       setShowAddMemberModal(false);
       setMemberFormData({
@@ -912,30 +1043,37 @@ if (memberFiles.aadhaarbackImage) formDataToSend.append("aadhaarbackImage", memb
       });
       setMemberFiles({
         profileImage: null,
-       aadhaarfrontImage: null,
-  aadhaarbackImage: null,
+        aadhaarfrontImage: null,
+        aadhaarbackImage: null,
         panImage: null,
         otherPolicy: null,
       });
     } catch (error) {
       console.error("Error adding team member:", error);
-      alert("Failed to add team member: " + (error.response?.data?.message || error.message));
+      alert(
+        "Failed to add team member: " +
+          (error.response?.data?.message || error.message)
+      );
     }
   };
 
-
-  const API_BASE = "https://homjee-backend.onrender.com/api/vendor";
+  const API_BASE = `${BASE_URL}/vendor`;
 
   const mutateCoins = async ({ vendorId, coins, type }) => {
-    const url = type === "add" ? `${API_BASE}/add-coin` : `${API_BASE}/reduce-coin`;
+    const url =
+      type === "add" ? `${API_BASE}/add-coin` : `${API_BASE}/reduce-coin`;
     setCoinsBalance((b) => Math.max(0, b + (type === "add" ? coins : -coins)));
     try {
       const { data } = await axios.post(url, { vendorId, coins });
       const serverCoins = Number(data?.wallet?.coins ?? coinsBalance);
       setCoinsBalance(serverCoins);
-      setVendors((list) => list.map((v) => (v.id === vendorId ? { ...v, coins: serverCoins } : v)));
+      setVendors((list) =>
+        list.map((v) => (v.id === vendorId ? { ...v, coins: serverCoins } : v))
+      );
     } catch (err) {
-      setCoinsBalance((b) => Math.max(0, b - (type === "add" ? coins : -coins)));
+      setCoinsBalance((b) =>
+        Math.max(0, b - (type === "add" ? coins : -coins))
+      );
       alert(
         err?.response?.data?.message ||
           `Failed to ${type === "add" ? "add" : "reduce"} coins`
@@ -967,7 +1105,9 @@ if (memberFiles.aadhaarbackImage) formDataToSend.append("aadhaarbackImage", memb
       });
       setSelectedVendor((v) => (v ? { ...v, team: data.team || [] } : v));
       setVendors((list) =>
-        list.map((v) => (v.id === selectedVendor.id ? { ...v, team: data.team || [] } : v))
+        list.map((v) =>
+          v.id === selectedVendor.id ? { ...v, team: data.team || [] } : v
+        )
       );
     } catch (err) {
       alert(err?.response?.data?.message || "Failed to remove member");
@@ -977,33 +1117,28 @@ if (memberFiles.aadhaarbackImage) formDataToSend.append("aadhaarbackImage", memb
   const filteredVendors = vendors.filter((vendor) => {
     const matchesCity = city === "All Cities" || vendor.city === city;
     const matchesStatus = status === "All Statuses" || vendor.status === status;
-    const matchesService = service === "All Services" || vendor.category === service;
+    const matchesService =
+      service === "All Services" || vendor.category === service;
     return matchesCity && matchesStatus && matchesService;
   });
 
-
   // Total pages
-// Adjust the pagination logic
-const totalPages = Math.max(1, Math.ceil(filteredVendors.length / PAGE_SIZE));
-const safePage = Math.min(currentPage, totalPages);
+  // Adjust the pagination logic
+  const totalPages = Math.max(1, Math.ceil(filteredVendors.length / PAGE_SIZE));
+  const safePage = Math.min(currentPage, totalPages);
 
-// Calculate the slice for the current page
-const startIdx = (safePage - 1) * PAGE_SIZE;
-const endIdx = Math.min(startIdx + PAGE_SIZE, filteredVendors.length);
+  // Calculate the slice for the current page
+  const startIdx = (safePage - 1) * PAGE_SIZE;
+  const endIdx = Math.min(startIdx + PAGE_SIZE, filteredVendors.length);
 
-// Only display the paginated items
-const paginatedVendors = filteredVendors.slice(startIdx, endIdx);
+  // Only display the paginated items
+  const paginatedVendors = filteredVendors.slice(startIdx, endIdx);
 
-
-// Page change helper
-const goToPage = (p) => {
-  if (p < 1 || p > totalPages) return;
-  setCurrentPage(p);
-};
-
-
-
-  
+  // Page change helper
+  const goToPage = (p) => {
+    if (p < 1 || p > totalPages) return;
+    setCurrentPage(p);
+  };
 
   return (
     <>
@@ -1029,21 +1164,33 @@ const goToPage = (p) => {
         <div className="d-flex justify-content-between align-items-center mb-4">
           <h5 className="fw-bold">Vendors Dashboard</h5>
           <div className="d-flex gap-2">
-            <Form.Select value={city} onChange={(e) => setCity(e.target.value)} style={{ height: "34px", fontSize: "12px" }}>
+            <Form.Select
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              style={{ height: "34px", fontSize: "12px" }}
+            >
               {cities.map((c) => (
                 <option key={c} value={c}>
                   {c}
                 </option>
               ))}
             </Form.Select>
-            <Form.Select value={status} onChange={(e) => setStatus(e.target.value)} style={{ height: "34px", fontSize: "12px" }}>
+            <Form.Select
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+              style={{ height: "34px", fontSize: "12px" }}
+            >
               <option>All Statuses</option>
               <option>Live</option>
               <option>Inactive</option>
               <option>Low Coins</option>
               <option>Capacity Full</option>
             </Form.Select>
-            <Form.Select value={service} onChange={(e) => setService(e.target.value)} style={{ height: "34px", fontSize: "12px" }}>
+            <Form.Select
+              value={service}
+              onChange={(e) => setService(e.target.value)}
+              style={{ height: "34px", fontSize: "12px" }}
+            >
               {services.map((s) => (
                 <option key={s} value={s}>
                   {s}
@@ -1052,11 +1199,45 @@ const goToPage = (p) => {
             </Form.Select>
             <Button
               onClick={() => setShowAddVendorModal(true)}
-              style={{ whiteSpace: "nowrap", fontSize: "12px", backgroundColor: "transparent", borderColor: "black", color: "black" }}
+              style={{
+                whiteSpace: "nowrap",
+                fontSize: "12px",
+                backgroundColor: "transparent",
+                borderColor: "black",
+                color: "black",
+              }}
             >
               <FaPlus className="me-2" /> Add Vendor
             </Button>
           </div>
+        </div>
+        <div className="d-flex justify-content-end align-items-center gap-2 mb-4">
+          <Button
+            size="sm"
+            variant="outline-success"
+            onClick={downloadExcelTemplate}
+            style={{ fontSize: "12px" }}
+          >
+            Download Excel
+          </Button>
+
+          <Form.Control
+            type="file"
+            accept=".xlsx,.xls,.csv"
+            size="sm"
+            onChange={(e) => setBulkFile(e.target.files[0])}
+            style={{ width: 180, fontSize: "12px" }}
+          />
+
+          <Button
+            size="sm"
+            variant="outline-primary"
+            onClick={handleBulkUpload}
+            disabled={bulkUploading}
+            style={{ fontSize: "12px" }}
+          >
+            {bulkUploading ? "Uploading..." : "Upload Excel"}
+          </Button>
         </div>
 
         {loading ? (
@@ -1064,83 +1245,120 @@ const goToPage = (p) => {
         ) : error ? (
           <div className="text-danger">Error: {error}</div>
         ) : !selectedVendor ? (
-
           <>
-        
-          <Table striped bordered hover responsive className="shadow-lg bg-white text-center">
-            <thead className="table-dark">
-              <tr style={{ fontSize: "14px" }}>
-                <th>Vendor Name</th>
-                <th>Category</th>
-                <th>City</th>
-                <th>Status</th>
-                <th>Rating</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {paginatedVendors.map((vendor) => (
-                <tr
-                  key={vendor.id}
-                  style={{ cursor: "pointer", fontSize: "12px" }}
-                  onClick={() => {
-                    setSelectedVendor(vendor);
-                    setCoinsBalance(Number(vendor.coins || 0));
-                  }}
-                >
-                  <td>{vendor.name}</td>
-                  <td>{vendor.category}</td>
-                  <td>{vendor.city}</td>
-                  <td>
-                    <Badge bg={vendor.status === "Live" ? "success" : "warning"}>{vendor.status}</Badge>
-                  </td>
-                  <td>
-                    <FaStar className="text-warning" /> {vendor.rating}
-                  </td>
-                  <td>
-                    <Button variant="outline-primary" size="sm" href={`tel:${vendor.phone}`}>
-                      <FaPhone />
-                    </Button>
-                    <Button variant="outline-secondary" size="sm" className="ms-2">
-                      <FaCog />
-                    </Button>
-                  </td>
+            <Table
+              striped
+              bordered
+              hover
+              responsive
+              className="shadow-lg bg-white text-center"
+            >
+              <thead className="table-dark">
+                <tr style={{ fontSize: "14px" }}>
+                  <th>Vendor Name</th>
+                  <th>Category</th>
+                  <th>City</th>
+                  <th>Lat</th>
+                  <th>Long</th>
+                  <th>Status</th>
+                  <th>Rating</th>
+                  <th>Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </Table>
-          {/* Pagination header */}
-<div className="d-flex justify-content-between align-items-center mb-2">
-  <small className="text-muted">
-    Showing <strong>{filteredVendors.length === 0 ? 0 : startIdx + 1}-{endIdx}</strong> of{" "}
-    <strong>{filteredVendors.length}</strong>
-  </small>
-  <Pagination className="mb-0">
-    <Pagination.First onClick={() => goToPage(1)} disabled={safePage === 1} />
-    <Pagination.Prev onClick={() => goToPage(safePage - 1)} disabled={safePage === 1} />
-    {
-      // Build a compact window of page numbers
-      Array.from({ length: totalPages }).slice(
-        Math.max(0, safePage - 3),
-        Math.min(totalPages, safePage + 2)
-      ).map((_, i, arr) => {
-        const pageNum = Math.max(1, safePage - 2) + i;
-        return (
-          <Pagination.Item
-            key={pageNum}
-            active={pageNum === safePage}
-            onClick={() => goToPage(pageNum)}
-          >
-            {pageNum}
-          </Pagination.Item>
-        );
-      })
-    }
-    <Pagination.Next onClick={() => goToPage(safePage + 1)} disabled={safePage === totalPages} />
-    <Pagination.Last onClick={() => goToPage(totalPages)} disabled={safePage === totalPages} />
-  </Pagination>
-</div>
+              </thead>
+              <tbody>
+                {paginatedVendors.map((vendor) => (
+                  <tr
+                    key={vendor.id}
+                    style={{ cursor: "pointer", fontSize: "12px" }}
+                    onClick={() => {
+                      setSelectedVendor(vendor);
+                      setCoinsBalance(Number(vendor.coins || 0));
+                    }}
+                  >
+                    <td>{vendor.name}</td>
+                    <td>{vendor.category}</td>
+                    <td>{vendor.city}</td>
 
+                    <td>{vendor.lat}</td>
+                    <td>{vendor.long}</td>
+                    <td>
+                      <Badge
+                        bg={vendor.status === "Live" ? "success" : "warning"}
+                      >
+                        {vendor.status}
+                      </Badge>
+                    </td>
+                    <td>
+                      <FaStar className="text-warning" /> {vendor.rating}
+                    </td>
+                    <td>
+                      <Button
+                        variant="outline-primary"
+                        size="sm"
+                        href={`tel:${vendor.phone}`}
+                      >
+                        <FaPhone />
+                      </Button>
+                      <Button
+                        variant="outline-secondary"
+                        size="sm"
+                        className="ms-2"
+                      >
+                        <FaCog />
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+            {/* Pagination header */}
+            <div className="d-flex justify-content-between align-items-center mb-2">
+              <small className="text-muted">
+                Showing{" "}
+                <strong>
+                  {filteredVendors.length === 0 ? 0 : startIdx + 1}-{endIdx}
+                </strong>{" "}
+                of <strong>{filteredVendors.length}</strong>
+              </small>
+              <Pagination className="mb-0">
+                <Pagination.First
+                  onClick={() => goToPage(1)}
+                  disabled={safePage === 1}
+                />
+                <Pagination.Prev
+                  onClick={() => goToPage(safePage - 1)}
+                  disabled={safePage === 1}
+                />
+                {
+                  // Build a compact window of page numbers
+                  Array.from({ length: totalPages })
+                    .slice(
+                      Math.max(0, safePage - 3),
+                      Math.min(totalPages, safePage + 2)
+                    )
+                    .map((_, i, arr) => {
+                      const pageNum = Math.max(1, safePage - 2) + i;
+                      return (
+                        <Pagination.Item
+                          key={pageNum}
+                          active={pageNum === safePage}
+                          onClick={() => goToPage(pageNum)}
+                        >
+                          {pageNum}
+                        </Pagination.Item>
+                      );
+                    })
+                }
+                <Pagination.Next
+                  onClick={() => goToPage(safePage + 1)}
+                  disabled={safePage === totalPages}
+                />
+                <Pagination.Last
+                  onClick={() => goToPage(totalPages)}
+                  disabled={safePage === totalPages}
+                />
+              </Pagination>
+            </div>
           </>
         ) : (
           <div className="vendor-details">
@@ -1152,18 +1370,31 @@ const goToPage = (p) => {
             >
               <FaArrowLeft /> Back to List
             </Button>
+            {console.log("selectedVendor", selectedVendor)}
+            <p>Lat: {selectedVendor.lat}</p>
+            <p>Long: {selectedVendor.long}</p>
             <Card className="shadow-sm p-4 rounded">
               <div className="d-flex justify-content-between align-items-center mb-3">
                 <h4 className="fw-bold" style={{ fontSize: "16px" }}>
                   {selectedVendor.name}
                 </h4>
-                <Badge bg={selectedVendor.status === "Live" ? "success" : "warning"} className="px-3 py-2">
+                <Badge
+                  bg={selectedVendor.status === "Live" ? "success" : "warning"}
+                  className="px-3 py-2"
+                >
                   {selectedVendor.status}
                 </Badge>
               </div>
               <Row className="mb-3">
                 <Col md={4} className="text-center">
-                  <Image   src={selectedVendor.profileImage} roundedCircle width={120} height={120} className="border p-1" alt="Vendor Profile" />
+                  <Image
+                    src={selectedVendor.profileImage}
+                    roundedCircle
+                    width={120}
+                    height={120}
+                    className="border p-1"
+                    alt="Vendor Profile"
+                  />
                   <p className="mt-2 text-muted" style={{ fontSize: "12px" }}>
                     {selectedVendor.category}
                   </p>
@@ -1172,25 +1403,38 @@ const goToPage = (p) => {
                   <Table borderless>
                     <tbody style={{ fontSize: "12px" }}>
                       <tr>
-                        <td><strong>City:</strong></td>
+                        <td>
+                          <strong>City:</strong>
+                        </td>
                         <td>{selectedVendor.city}</td>
                       </tr>
                       <tr>
-                        <td><strong>Service Area:</strong></td>
+                        <td>
+                          <strong>Service Area:</strong>
+                        </td>
                         <td>{selectedVendor.serviceArea}</td>
                       </tr>
                       <tr>
-                        <td><strong>Working Since:</strong></td>
                         <td>
-                          {selectedVendor.workingSince} ({new Date().getFullYear() - selectedVendor.workingSince} years)
+                          <strong>Working Since:</strong>
+                        </td>
+                        <td>
+                          {selectedVendor.workingSince} (
+                          {new Date().getFullYear() -
+                            selectedVendor.workingSince}{" "}
+                          years)
                         </td>
                       </tr>
                       <tr>
-                        <td><strong>Capacity:</strong></td>
+                        <td>
+                          <strong>Capacity:</strong>
+                        </td>
                         <td>{selectedVendor.capacity} jobs at a time</td>
                       </tr>
                       <tr>
-                        <td><strong>Date of Birth:</strong></td>
+                        <td>
+                          <strong>Date of Birth:</strong>
+                        </td>
                         <td>{selectedVendor.dob}</td>
                       </tr>
                     </tbody>
@@ -1214,7 +1458,8 @@ const goToPage = (p) => {
                 </div>
                 <div>
                   <p className="mb-0">
-                    <strong>Rating:</strong> <FaStar className="text-warning" /> {selectedVendor.rating}
+                    <strong>Rating:</strong> <FaStar className="text-warning" />{" "}
+                    {selectedVendor.rating}
                   </p>
                 </div>
               </div>
@@ -1224,27 +1469,39 @@ const goToPage = (p) => {
               <Table bordered className="bg-light" style={{ fontSize: "12px" }}>
                 <tbody>
                   <tr>
-                    <td><strong>Aadhar No.</strong></td>
+                    <td>
+                      <strong>Aadhar No.</strong>
+                    </td>
                     <td>{selectedVendor.aadhar}</td>
                   </tr>
                   <tr>
-                    <td><strong>PAN No.</strong></td>
+                    <td>
+                      <strong>PAN No.</strong>
+                    </td>
                     <td>{selectedVendor.pan}</td>
                   </tr>
                   <tr>
-                    <td><strong>Bank Name:</strong></td>
+                    <td>
+                      <strong>Bank Name:</strong>
+                    </td>
                     <td>{selectedVendor.bank}</td>
                   </tr>
                   <tr>
-                    <td><strong>IFSC Code:</strong></td>
+                    <td>
+                      <strong>IFSC Code:</strong>
+                    </td>
                     <td>{selectedVendor.ifsc}</td>
                   </tr>
                   <tr>
-                    <td><strong>Account No.:</strong></td>
+                    <td>
+                      <strong>Account No.:</strong>
+                    </td>
                     <td>{selectedVendor.account}</td>
                   </tr>
                   <tr>
-                    <td><strong>GST:</strong></td>
+                    <td>
+                      <strong>GST:</strong>
+                    </td>
                     <td>{selectedVendor.gst}</td>
                   </tr>
                 </tbody>
@@ -1275,7 +1532,11 @@ const goToPage = (p) => {
                   >
                     Add Coins
                   </Button>
-                  <Button variant="outline-danger" size="sm" onClick={handleReduceCoinsAPI}>
+                  <Button
+                    variant="outline-danger"
+                    size="sm"
+                    onClick={handleReduceCoinsAPI}
+                  >
                     Reduce Coins
                   </Button>
                 </div>
@@ -1284,7 +1545,12 @@ const goToPage = (p) => {
                 Manage Team
               </h5>
               <div className="d-flex align-items-center justify-content-between mb-2">
-                <Button variant="dark" size="sm" className="px-2 py-1" onClick={() => setShowAddMemberModal(true)}>
+                <Button
+                  variant="dark"
+                  size="sm"
+                  className="px-2 py-1"
+                  onClick={() => setShowAddMemberModal(true)}
+                >
                   <FaUserPlus className="me-1" /> Add Member
                 </Button>
               </div>
@@ -1293,7 +1559,12 @@ const goToPage = (p) => {
                   No team members yet.
                 </p>
               ) : (
-                <Table size="sm" bordered className="bg-white" style={{ fontSize: "12px" }}>
+                <Table
+                  size="sm"
+                  bordered
+                  className="bg-white"
+                  style={{ fontSize: "12px" }}
+                >
                   <thead>
                     <tr>
                       <th style={{ width: "60%" }}>Name</th>
@@ -1301,32 +1572,35 @@ const goToPage = (p) => {
                     </tr>
                   </thead>
                   <tbody>
-  {selectedVendor.team.map((m) => (
-    <tr key={m._id}>
-      <td>
-        <span
-          style={{ cursor: "pointer", color: "black", textDecoration: "none" }}
-          onClick={() => {
-            setSelectedTeamMember(m);
-            setShowMemberDetailsModal(true);
-          }}
-        >
-          {m.name}
-        </span>
-      </td>
-      <td>
-        <Button
-          variant="outline-danger"
-          size="sm"
-          onClick={() => removeTeamMemberAPI(m._id)}
-        >
-          Remove
-        </Button>
-      </td>
-    </tr>
-  ))}
-</tbody>
-
+                    {selectedVendor.team.map((m) => (
+                      <tr key={m._id}>
+                        <td>
+                          <span
+                            style={{
+                              cursor: "pointer",
+                              color: "black",
+                              textDecoration: "none",
+                            }}
+                            onClick={() => {
+                              setSelectedTeamMember(m);
+                              setShowMemberDetailsModal(true);
+                            }}
+                          >
+                            {m.name}
+                          </span>
+                        </td>
+                        <td>
+                          <Button
+                            variant="outline-danger"
+                            size="sm"
+                            onClick={() => removeTeamMemberAPI(m._id)}
+                          >
+                            Remove
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
                 </Table>
               )}
               <h5 className="mt-4 fw-semibold" style={{ fontSize: "14px" }}>
@@ -1349,7 +1623,9 @@ const goToPage = (p) => {
           size="lg"
         >
           <Modal.Header closeButton>
-            <Modal.Title style={{ fontSize: "16px" }}>Add New Vendor</Modal.Title>
+            <Modal.Title style={{ fontSize: "16px" }}>
+              Add New Vendor
+            </Modal.Title>
           </Modal.Header>
           <Modal.Body>
             <Form onSubmit={handleSubmit}>
@@ -1366,7 +1642,11 @@ const goToPage = (p) => {
                       placeholder="Enter Name"
                       required
                     />
-                      {errors.vendorName && <Form.Text className="text-danger">{errors.vendorName}</Form.Text>}
+                    {errors.vendorName && (
+                      <Form.Text className="text-danger">
+                        {errors.vendorName}
+                      </Form.Text>
+                    )}
                   </Form.Group>
                 </Col>
                 <Col md={6}>
@@ -1380,7 +1660,11 @@ const goToPage = (p) => {
                       placeholder="Enter Phone Number"
                       required
                     />
-                      {errors.mobileNumber && <Form.Text className="text-danger">{errors.mobileNumber}</Form.Text>}
+                    {errors.mobileNumber && (
+                      <Form.Text className="text-danger">
+                        {errors.mobileNumber}
+                      </Form.Text>
+                    )}
                   </Form.Group>
                 </Col>
               </Row>
@@ -1388,7 +1672,11 @@ const goToPage = (p) => {
                 <Col md={6}>
                   <Form.Group className="mb-3">
                     <Form.Label>Profile Photo</Form.Label>
-                    <Form.Control type="file" name="profileImage" onChange={handleFileChange} />
+                    <Form.Control
+                      type="file"
+                      name="profileImage"
+                      onChange={handleFileChange}
+                    />
                   </Form.Group>
                 </Col>
                 <Col md={6}>
@@ -1401,7 +1689,11 @@ const goToPage = (p) => {
                       onChange={handleInputChange}
                       required
                     />
-                    {errors.dateOfBirth && <Form.Text className="text-danger">{errors.dateOfBirth}</Form.Text>}
+                    {errors.dateOfBirth && (
+                      <Form.Text className="text-danger">
+                        {errors.dateOfBirth}
+                      </Form.Text>
+                    )}
                   </Form.Group>
                 </Col>
               </Row>
@@ -1417,18 +1709,31 @@ const goToPage = (p) => {
                       placeholder="Enter Year"
                       required
                     />
-                     {errors.yearOfWorking && <Form.Text className="text-danger">{errors.yearOfWorking}</Form.Text>}
+                    {errors.yearOfWorking && (
+                      <Form.Text className="text-danger">
+                        {errors.yearOfWorking}
+                      </Form.Text>
+                    )}
                   </Form.Group>
                 </Col>
                 <Col md={6}>
                   <Form.Group className="mb-3">
                     <Form.Label>City</Form.Label>
-                    <Form.Select name="city" value={formData.city} onChange={handleInputChange} required>
+                    <Form.Select
+                      name="city"
+                      value={formData.city}
+                      onChange={handleInputChange}
+                      required
+                    >
                       <option>Select City</option>
-                        <option>Bengaluru</option>
+                      <option>Bengaluru</option>
                       <option>Pune</option>
                     </Form.Select>
-                    {errors.city && <Form.Text className="text-danger">{errors.city}</Form.Text>}
+                    {errors.city && (
+                      <Form.Text className="text-danger">
+                        {errors.city}
+                      </Form.Text>
+                    )}
                   </Form.Group>
                 </Col>
               </Row>
@@ -1450,10 +1755,14 @@ const goToPage = (p) => {
                             {s}
                           </option>
                         ))} */}
-                          <option>House Painting</option>
+                      <option>House Painting</option>
                       <option>Deep Cleaning</option>
                     </Form.Select>
-                     {errors.serviceType && <Form.Text className="text-danger">{errors.serviceType}</Form.Text>}
+                    {errors.serviceType && (
+                      <Form.Text className="text-danger">
+                        {errors.serviceType}
+                      </Form.Text>
+                    )}
                   </Form.Group>
                 </Col>
                 <Col md={6}>
@@ -1467,7 +1776,11 @@ const goToPage = (p) => {
                       placeholder="Enter Capacity"
                       required
                     />
-                      {errors.capacity && <Form.Text className="text-danger">{errors.capacity}</Form.Text>}
+                    {errors.capacity && (
+                      <Form.Text className="text-danger">
+                        {errors.capacity}
+                      </Form.Text>
+                    )}
                   </Form.Group>
                 </Col>
               </Row>
@@ -1478,13 +1791,16 @@ const goToPage = (p) => {
                     <Form.Control
                       type="text"
                       name="serviceArea"
-                      // value={formData.serviceArea}
-                       value={formData.location}
-                      onChange={handleInputChange}
-                      placeholder="Enter Service Area"
-                      required
+                      value={formData.serviceArea}
+                      readOnly
+                      placeholder="Auto-filled from location"
                     />
-                     {errors.serviceArea && <Form.Text className="text-danger">{errors.serviceArea}</Form.Text>}
+
+                    {errors.serviceArea && (
+                      <Form.Text className="text-danger">
+                        {errors.serviceArea}
+                      </Form.Text>
+                    )}
                   </Form.Group>
                 </Col>
               </Row>
@@ -1501,7 +1817,11 @@ const goToPage = (p) => {
                       readOnly
                       onClick={() => setShowAddressPicker(true)}
                     />
-                        {errors.location && <Form.Text className="text-danger">{errors.location}</Form.Text>}
+                    {errors.location && (
+                      <Form.Text className="text-danger">
+                        {errors.location}
+                      </Form.Text>
+                    )}
                     <Form.Text className="text-muted">
                       <FaMapMarkerAlt className="me-1" />
                       Uses Google Maps (autocomplete + draggable pin)
@@ -1525,13 +1845,20 @@ const goToPage = (p) => {
                       placeholder="Enter Aadhar No."
                       required
                     />
-                    {errors.aadhaarNumber && <Form.Text className="text-danger">{errors.aadhaarNumber}</Form.Text>}
+                    {errors.aadhaarNumber && (
+                      <Form.Text className="text-danger">
+                        {errors.aadhaarNumber}
+                      </Form.Text>
+                    )}
                   </Form.Group>
                   <Form.Group className="mb-3">
                     <Form.Label>Upload Aadhar (Front Image)</Form.Label>
-                    <Form.Control type="file" name="aadhaarfrontImage" onChange={handleFileChange} />
+                    <Form.Control
+                      type="file"
+                      name="aadhaarfrontImage"
+                      onChange={handleFileChange}
+                    />
                   </Form.Group>
-                    
                 </Col>
                 <Col md={6}>
                   <Form.Group className="mb-3">
@@ -1544,24 +1871,41 @@ const goToPage = (p) => {
                       placeholder="Enter PAN No."
                       required
                     />
-                     {errors.panNumber && <Form.Text className="text-danger">{errors.panNumber}</Form.Text>}
+                    {errors.panNumber && (
+                      <Form.Text className="text-danger">
+                        {errors.panNumber}
+                      </Form.Text>
+                    )}
                   </Form.Group>
                   <Form.Group className="mb-3">
                     <Form.Label>Upload PAN Card</Form.Label>
-                    <Form.Control type="file" name="panImage" onChange={handleFileChange} />
+                    <Form.Control
+                      type="file"
+                      name="panImage"
+                      onChange={handleFileChange}
+                    />
                   </Form.Group>
                 </Col>
               </Row>
               <Form.Group className="mb-3">
-                    <Form.Label>Upload Aadhar (Back Image)</Form.Label>
-                    <Form.Control type="file" name="aadhaarbackImage" onChange={handleFileChange} />
-                  </Form.Group>
+                <Form.Label>Upload Aadhar (Back Image)</Form.Label>
+                <Form.Control
+                  type="file"
+                  name="aadhaarbackImage"
+                  onChange={handleFileChange}
+                />
+              </Form.Group>
               <Form.Group className="mb-3">
                 <Form.Label>Others / Police Verification</Form.Label>
-                <Form.Control type="file" name="otherPolicy" onChange={handleFileChange} />
+                <Form.Control
+                  type="file"
+                  name="otherPolicy"
+                  onChange={handleFileChange}
+                />
               </Form.Group>
-              
+
               <h5 className="mt-4 mb-3">Financial Details</h5>
+
               <Row>
                 <Col md={6}>
                   <Form.Group className="mb-3">
@@ -1574,7 +1918,11 @@ const goToPage = (p) => {
                       placeholder="Enter Bank Account No."
                       required
                     />
-                        {errors.accountNumber && <Form.Text className="text-danger">{errors.accountNumber}</Form.Text>}
+                    {errors.accountNumber && (
+                      <Form.Text className="text-danger">
+                        {errors.accountNumber}
+                      </Form.Text>
+                    )}
                   </Form.Group>
                 </Col>
                 <Col md={6}>
@@ -1588,7 +1936,11 @@ const goToPage = (p) => {
                       placeholder="Enter IFSC Code"
                       required
                     />
-                     {errors.ifscCode && <Form.Text className="text-danger">{errors.ifscCode}</Form.Text>}
+                    {errors.ifscCode && (
+                      <Form.Text className="text-danger">
+                        {errors.ifscCode}
+                      </Form.Text>
+                    )}
                   </Form.Group>
                 </Col>
               </Row>
@@ -1604,7 +1956,11 @@ const goToPage = (p) => {
                       placeholder="Enter Bank Name"
                       required
                     />
-                     {errors.bankName && <Form.Text className="text-danger">{errors.bankName}</Form.Text>}
+                    {errors.bankName && (
+                      <Form.Text className="text-danger">
+                        {errors.bankName}
+                      </Form.Text>
+                    )}
                   </Form.Group>
                 </Col>
                 <Col md={6}>
@@ -1618,7 +1974,11 @@ const goToPage = (p) => {
                       placeholder="Enter Name as per Bank"
                       required
                     />
-                        {errors.holderName && <Form.Text className="text-danger">{errors.holderName}</Form.Text>}
+                    {errors.holderName && (
+                      <Form.Text className="text-danger">
+                        {errors.holderName}
+                      </Form.Text>
+                    )}
                   </Form.Group>
                 </Col>
               </Row>
@@ -1636,7 +1996,11 @@ const goToPage = (p) => {
                       <option>Savings</option>
                       <option>Current</option>
                     </Form.Select>
-                      {errors.accountType && <Form.Text className="text-danger">{errors.accountType}</Form.Text>}
+                    {errors.accountType && (
+                      <Form.Text className="text-danger">
+                        {errors.accountType}
+                      </Form.Text>
+                    )}
                   </Form.Group>
                 </Col>
                 <Col md={6}>
@@ -1649,7 +2013,11 @@ const goToPage = (p) => {
                       onChange={handleInputChange}
                       placeholder="Enter GST No."
                     />
-                     {errors.gstNumber && <Form.Text className="text-danger">{errors.gstNumber}</Form.Text>}
+                    {errors.gstNumber && (
+                      <Form.Text className="text-danger">
+                        {errors.gstNumber}
+                      </Form.Text>
+                    )}
                   </Form.Group>
                 </Col>
               </Row>
@@ -1657,7 +2025,10 @@ const goToPage = (p) => {
                 <Button variant="primary" type="submit">
                   Save Vendor
                 </Button>
-                <Button variant="secondary" onClick={() => setShowAddVendorModal(false)}>
+                <Button
+                  variant="secondary"
+                  onClick={() => setShowAddVendorModal(false)}
+                >
                   Cancel
                 </Button>
               </Modal.Footer>
@@ -1671,7 +2042,9 @@ const goToPage = (p) => {
           size="lg"
         >
           <Modal.Header closeButton>
-            <Modal.Title style={{ fontSize: "16px" }}>Add Team Member</Modal.Title>
+            <Modal.Title style={{ fontSize: "16px" }}>
+              Add Team Member
+            </Modal.Title>
           </Modal.Header>
           <Modal.Body>
             <Form onSubmit={handleMemberSubmit}>
@@ -1688,7 +2061,11 @@ const goToPage = (p) => {
                       placeholder="Enter Name"
                       required
                     />
-                      {memberErrors.name && <Form.Text className="text-danger">{memberErrors.name}</Form.Text>}
+                    {memberErrors.name && (
+                      <Form.Text className="text-danger">
+                        {memberErrors.name}
+                      </Form.Text>
+                    )}
                   </Form.Group>
                 </Col>
                 <Col md={6}>
@@ -1702,7 +2079,11 @@ const goToPage = (p) => {
                       placeholder="Enter Phone Number"
                       required
                     />
-                      {memberErrors.mobileNumber && <Form.Text className="text-danger">{memberErrors.mobileNumber}</Form.Text>}
+                    {memberErrors.mobileNumber && (
+                      <Form.Text className="text-danger">
+                        {memberErrors.mobileNumber}
+                      </Form.Text>
+                    )}
                   </Form.Group>
                 </Col>
               </Row>
@@ -1710,7 +2091,11 @@ const goToPage = (p) => {
                 <Col md={6}>
                   <Form.Group className="mb-3">
                     <Form.Label>Profile Photo</Form.Label>
-                    <Form.Control type="file" name="profileImage" onChange={handleMemberFileChange} />
+                    <Form.Control
+                      type="file"
+                      name="profileImage"
+                      onChange={handleMemberFileChange}
+                    />
                   </Form.Group>
                 </Col>
                 <Col md={6}>
@@ -1723,7 +2108,11 @@ const goToPage = (p) => {
                       onChange={handleMemberInputChange}
                       required
                     />
-                     {memberErrors.dateOfBirth && <Form.Text className="text-danger">{memberErrors.dateOfBirth}</Form.Text>}
+                    {memberErrors.dateOfBirth && (
+                      <Form.Text className="text-danger">
+                        {memberErrors.dateOfBirth}
+                      </Form.Text>
+                    )}
                   </Form.Group>
                 </Col>
               </Row>
@@ -1731,7 +2120,12 @@ const goToPage = (p) => {
                 <Col md={6}>
                   <Form.Group className="mb-3">
                     <Form.Label>City</Form.Label>
-                    <Form.Select name="city" value={memberFormData.city} onChange={handleMemberInputChange} required>
+                    <Form.Select
+                      name="city"
+                      value={memberFormData.city}
+                      onChange={handleMemberInputChange}
+                      required
+                    >
                       <option>Select City</option>
                       {/* {cities
                         .filter((c) => c !== "All Cities")
@@ -1740,10 +2134,14 @@ const goToPage = (p) => {
                             {c}
                           </option>
                         ))} */}
-                           <option>Bengaluru</option>
+                      <option>Bengaluru</option>
                       <option>Pune</option>
                     </Form.Select>
-                    {memberErrors.city && <Form.Text className="text-danger">{memberErrors.city}</Form.Text>}
+                    {memberErrors.city && (
+                      <Form.Text className="text-danger">
+                        {memberErrors.city}
+                      </Form.Text>
+                    )}
                   </Form.Group>
                 </Col>
                 <Col md={6}>
@@ -1756,10 +2154,14 @@ const goToPage = (p) => {
                       required
                     >
                       <option>Select Service</option>
-                       <option>House Painting</option>
+                      <option>House Painting</option>
                       <option>Deep Cleaning</option>
                     </Form.Select>
-                      {memberErrors.serviceType && <Form.Text className="text-danger">{memberErrors.serviceType}</Form.Text>}
+                    {memberErrors.serviceType && (
+                      <Form.Text className="text-danger">
+                        {memberErrors.serviceType}
+                      </Form.Text>
+                    )}
                   </Form.Group>
                 </Col>
               </Row>
@@ -1775,7 +2177,11 @@ const goToPage = (p) => {
                       placeholder="Enter Service Area"
                       required
                     />
-                    {memberErrors.serviceArea && <Form.Text className="text-danger">{memberErrors.serviceArea}</Form.Text>}
+                    {memberErrors.serviceArea && (
+                      <Form.Text className="text-danger">
+                        {memberErrors.serviceArea}
+                      </Form.Text>
+                    )}
                   </Form.Group>
                 </Col>
               </Row>
@@ -1796,7 +2202,11 @@ const goToPage = (p) => {
                       <FaMapMarkerAlt className="me-1" />
                       Uses Google Maps (autocomplete + draggable pin)
                     </Form.Text>
-                      {memberErrors.location && <Form.Text className="text-danger">{memberErrors.location}</Form.Text>}
+                    {memberErrors.location && (
+                      <Form.Text className="text-danger">
+                        {memberErrors.location}
+                      </Form.Text>
+                    )}
                   </Form.Group>
                 </Col>
               </Row>
@@ -1813,11 +2223,19 @@ const goToPage = (p) => {
                       placeholder="Enter Aadhar No."
                       required
                     />
-                    {memberErrors.aadhaarNumber && <Form.Text className="text-danger">{memberErrors.aadhaarNumber}</Form.Text>}
+                    {memberErrors.aadhaarNumber && (
+                      <Form.Text className="text-danger">
+                        {memberErrors.aadhaarNumber}
+                      </Form.Text>
+                    )}
                   </Form.Group>
                   <Form.Group className="mb-3">
                     <Form.Label>Upload Aadhar (Front & Back)</Form.Label>
-                    <Form.Control type="file" name="aadhaarImage" onChange={handleMemberFileChange} />
+                    <Form.Control
+                      type="file"
+                      name="aadhaarImage"
+                      onChange={handleMemberFileChange}
+                    />
                   </Form.Group>
                 </Col>
                 <Col md={6}>
@@ -1831,17 +2249,29 @@ const goToPage = (p) => {
                       placeholder="Enter PAN No."
                       required
                     />
-                     {memberErrors.panNumber && <Form.Text className="text-danger">{memberErrors.panNumber}</Form.Text>}
+                    {memberErrors.panNumber && (
+                      <Form.Text className="text-danger">
+                        {memberErrors.panNumber}
+                      </Form.Text>
+                    )}
                   </Form.Group>
                   <Form.Group className="mb-3">
                     <Form.Label>Upload PAN Card</Form.Label>
-                    <Form.Control type="file" name="panImage" onChange={handleMemberFileChange} />
+                    <Form.Control
+                      type="file"
+                      name="panImage"
+                      onChange={handleMemberFileChange}
+                    />
                   </Form.Group>
                 </Col>
               </Row>
               <Form.Group className="mb-3">
                 <Form.Label>Others / Police Verification</Form.Label>
-                <Form.Control type="file" name="otherPolicy" onChange={handleMemberFileChange} />
+                <Form.Control
+                  type="file"
+                  name="otherPolicy"
+                  onChange={handleMemberFileChange}
+                />
               </Form.Group>
               <h5 className="mt-4 mb-3">Financial Details</h5>
               <Row>
@@ -1856,7 +2286,11 @@ const goToPage = (p) => {
                       placeholder="Enter Bank Account No."
                       required
                     />
-                    {memberErrors.accountNumber && <Form.Text className="text-danger">{memberErrors.accountNumber}</Form.Text>}
+                    {memberErrors.accountNumber && (
+                      <Form.Text className="text-danger">
+                        {memberErrors.accountNumber}
+                      </Form.Text>
+                    )}
                   </Form.Group>
                 </Col>
                 <Col md={6}>
@@ -1870,7 +2304,11 @@ const goToPage = (p) => {
                       placeholder="Enter IFSC Code"
                       required
                     />
-                      {memberErrors.ifscCode && <Form.Text className="text-danger">{memberErrors.ifscCode}</Form.Text>}
+                    {memberErrors.ifscCode && (
+                      <Form.Text className="text-danger">
+                        {memberErrors.ifscCode}
+                      </Form.Text>
+                    )}
                   </Form.Group>
                 </Col>
               </Row>
@@ -1886,7 +2324,11 @@ const goToPage = (p) => {
                       placeholder="Enter Bank Name"
                       required
                     />
-                        {memberErrors.bankName && <Form.Text className="text-danger">{memberErrors.bankName}</Form.Text>}
+                    {memberErrors.bankName && (
+                      <Form.Text className="text-danger">
+                        {memberErrors.bankName}
+                      </Form.Text>
+                    )}
                   </Form.Group>
                 </Col>
                 <Col md={6}>
@@ -1900,7 +2342,11 @@ const goToPage = (p) => {
                       placeholder="Enter Name as per Bank"
                       required
                     />
-                     {memberErrors.holderName && <Form.Text className="text-danger">{memberErrors.holderName}</Form.Text>}
+                    {memberErrors.holderName && (
+                      <Form.Text className="text-danger">
+                        {memberErrors.holderName}
+                      </Form.Text>
+                    )}
                   </Form.Group>
                 </Col>
               </Row>
@@ -1918,7 +2364,11 @@ const goToPage = (p) => {
                       <option>Savings</option>
                       <option>Current</option>
                     </Form.Select>
-                        {memberErrors.accountType && <Form.Text className="text-danger">{memberErrors.accountType}</Form.Text>}
+                    {memberErrors.accountType && (
+                      <Form.Text className="text-danger">
+                        {memberErrors.accountType}
+                      </Form.Text>
+                    )}
                   </Form.Group>
                 </Col>
                 <Col md={6}>
@@ -1931,7 +2381,11 @@ const goToPage = (p) => {
                       onChange={handleMemberInputChange}
                       placeholder="Enter GST No."
                     />
-                     {memberErrors.gstNumber && <Form.Text className="text-danger">{memberErrors.gstNumber}</Form.Text>}
+                    {memberErrors.gstNumber && (
+                      <Form.Text className="text-danger">
+                        {memberErrors.gstNumber}
+                      </Form.Text>
+                    )}
                   </Form.Group>
                 </Col>
               </Row>
@@ -1939,7 +2393,10 @@ const goToPage = (p) => {
                 <Button variant="primary" type="submit">
                   Add Member
                 </Button>
-                <Button variant="secondary" onClick={() => setShowAddMemberModal(false)}>
+                <Button
+                  variant="secondary"
+                  onClick={() => setShowAddMemberModal(false)}
+                >
                   Cancel
                 </Button>
               </Modal.Footer>
@@ -1947,97 +2404,128 @@ const goToPage = (p) => {
           </Modal.Body>
         </Modal>
 
-
-<Modal
-  show={showMemberDetailsModal}
-  onHide={() => setShowMemberDetailsModal(false)}
-  size="lg"
->
-  <Modal.Header closeButton>
-    <Modal.Title style={{ fontSize: "16px" }}>
-      Team Member Details
-    </Modal.Title>
-  </Modal.Header>
-  <Modal.Body>
-    {selectedTeamMember ? (
-      <Table bordered size="sm" style={{ fontSize: "13px" }}>
-        <tbody>
-          <tr>
-            <td><strong>Name</strong></td>
-            <td>{selectedTeamMember.name}</td>
-          </tr>
-          <tr>
-            <td><strong>Mobile</strong></td>
-            <td>{selectedTeamMember.mobileNumber}</td>
-          </tr>
-          <tr>
-            <td><strong>Date of Birth</strong></td>
-            <td>{selectedTeamMember.dateOfBirth}</td>
-          </tr>
-          <tr>
-            <td><strong>City</strong></td>
-            <td>{selectedTeamMember.city}</td>
-          </tr>
-          <tr>
-            <td><strong>Service Type</strong></td>
-            <td>{selectedTeamMember.serviceType}</td>
-          </tr>
-          <tr>
-            <td><strong>Service Area</strong></td>
-            <td>{selectedTeamMember.serviceArea}</td>
-          </tr>
-          <tr>
-            <td><strong>Aadhar Number</strong></td>
-            <td>{selectedTeamMember.aadhaarNumber}</td>
-          </tr>
-          <tr>
-            <td><strong>PAN Number</strong></td>
-            <td>{selectedTeamMember.panNumber}</td>
-          </tr>
-          <tr>
-            <td><strong>Bank Name</strong></td>
-            <td>{selectedTeamMember.bankName}</td>
-          </tr>
-          <tr>
-            <td><strong>Account Number</strong></td>
-            <td>{selectedTeamMember.accountNumber}</td>
-          </tr>
-          <tr>
-            <td><strong>IFSC Code</strong></td>
-            <td>{selectedTeamMember.ifscCode}</td>
-          </tr>
-          <tr>
-            <td><strong>GST Number</strong></td>
-            <td>{selectedTeamMember.gstNumber || "NA"}</td>
-          </tr>
-          <tr>
-            <td><strong>Address</strong></td>
-            <td>
-              {selectedTeamMember.location} <br />
-              
-            </td>
-          </tr>
-        </tbody>
-      </Table>
-    ) : (
-      <p>No details available.</p>
-    )}
-  </Modal.Body>
-</Modal>
+        <Modal
+          show={showMemberDetailsModal}
+          onHide={() => setShowMemberDetailsModal(false)}
+          size="lg"
+        >
+          <Modal.Header closeButton>
+            <Modal.Title style={{ fontSize: "16px" }}>
+              Team Member Details
+            </Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            {selectedTeamMember ? (
+              <Table bordered size="sm" style={{ fontSize: "13px" }}>
+                <tbody>
+                  <tr>
+                    <td>
+                      <strong>Name</strong>
+                    </td>
+                    <td>{selectedTeamMember.name}</td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <strong>Mobile</strong>
+                    </td>
+                    <td>{selectedTeamMember.mobileNumber}</td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <strong>Date of Birth</strong>
+                    </td>
+                    <td>{selectedTeamMember.dateOfBirth}</td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <strong>City</strong>
+                    </td>
+                    <td>{selectedTeamMember.city}</td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <strong>Service Type</strong>
+                    </td>
+                    <td>{selectedTeamMember.serviceType}</td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <strong>Service Area</strong>
+                    </td>
+                    <td>{selectedTeamMember.serviceArea}</td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <strong>Aadhar Number</strong>
+                    </td>
+                    <td>{selectedTeamMember.aadhaarNumber}</td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <strong>PAN Number</strong>
+                    </td>
+                    <td>{selectedTeamMember.panNumber}</td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <strong>Bank Name</strong>
+                    </td>
+                    <td>{selectedTeamMember.bankName}</td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <strong>Account Number</strong>
+                    </td>
+                    <td>{selectedTeamMember.accountNumber}</td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <strong>IFSC Code</strong>
+                    </td>
+                    <td>{selectedTeamMember.ifscCode}</td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <strong>GST Number</strong>
+                    </td>
+                    <td>{selectedTeamMember.gstNumber || "NA"}</td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <strong>Address</strong>
+                    </td>
+                    <td>
+                      {selectedTeamMember.location} <br />
+                    </td>
+                  </tr>
+                </tbody>
+              </Table>
+            ) : (
+              <p>No details available.</p>
+            )}
+          </Modal.Body>
+        </Modal>
 
         <AddressPickerModal
           show={showAddressPicker}
           onHide={() => setShowAddressPicker(false)}
           initialAddress={formData.location}
           initialLatLng={
-            formData.latitude && formData.longitude && !isNaN(formData.latitude) && !isNaN(formData.longitude)
-              ? { lat: parseFloat(formData.latitude), lng: parseFloat(formData.longitude) }
+            formData.latitude &&
+            formData.longitude &&
+            !isNaN(formData.latitude) &&
+            !isNaN(formData.longitude)
+              ? {
+                  lat: parseFloat(formData.latitude),
+                  lng: parseFloat(formData.longitude),
+                }
               : null
           }
           onSelect={(sel) =>
             setFormData((prev) => ({
               ...prev,
               location: sel.formattedAddress,
+              serviceArea: sel.formattedAddress, // ✅ ADD THIS LINE
               latitude: String(sel.lat),
               longitude: String(sel.lng),
             }))
@@ -2049,14 +2537,21 @@ const goToPage = (p) => {
           onHide={() => setShowMemberAddressPicker(false)}
           initialAddress={memberFormData.location}
           initialLatLng={
-            memberFormData.latitude && memberFormData.longitude && !isNaN(memberFormData.latitude) && !isNaN(memberFormData.longitude)
-              ? { lat: parseFloat(memberFormData.latitude), lng: parseFloat(memberFormData.longitude) }
+            memberFormData.latitude &&
+            memberFormData.longitude &&
+            !isNaN(memberFormData.latitude) &&
+            !isNaN(memberFormData.longitude)
+              ? {
+                  lat: parseFloat(memberFormData.latitude),
+                  lng: parseFloat(memberFormData.longitude),
+                }
               : null
           }
           onSelect={(sel) =>
             setMemberFormData((prev) => ({
               ...prev,
               location: sel.formattedAddress,
+              serviceArea: sel.formattedAddress, // ✅ auto-fill
               latitude: String(sel.lat),
               longitude: String(sel.lng),
             }))
@@ -2068,4 +2563,3 @@ const goToPage = (p) => {
 };
 
 export default VendorsDashboard;
-

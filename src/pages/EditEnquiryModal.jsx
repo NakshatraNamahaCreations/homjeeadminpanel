@@ -67,13 +67,51 @@ const EditEnquiryModal = ({
   const [secondAmount, setSecondAmount] = useState(0);
   const [finalAmount, setFinalAmount] = useState(0);
 
+  const invalidateSlot = () => {
+    if (isPendingBooking) {
+      setSlotDate("");
+      setSlotTime("");
+    }
+  };
+
   const isHousePaintingService = services.some(
     (s) => s.category?.toLowerCase() === "house painting"
   );
 
+  const hasDeepCleaningService = services.some(
+    (s) => (s.category || "").toLowerCase() === "deep cleaning"
+  );
+
+  const hasUnselectedDeepCleaningService = services.some(
+    (s) => s.category?.toLowerCase() === "deep cleaning" && !s.serviceName // service not selected yet
+  );
+  const hasExistingDeepCleaningServiceFromBackend =
+    initialServiceCount > 0 &&
+    services.some(
+      (s) =>
+        s.category?.toLowerCase() === "deep cleaning" && s.serviceName?.trim()
+    );
+
+  const hasServiceBeenModified = services.length !== initialServiceCount;
+
+  const bookingStatus =
+    enquiry?.raw?.bookingDetails?.status || enquiry?.raw?.status || "Pending";
+
+  const isPendingBooking = bookingStatus.toLowerCase() === "pending";
+
   // Refs to track service changes
   const serviceUpdatesRef = useRef(new Set());
   const initialLoadRef = useRef(true);
+
+  const deepCleaningPackageIds = services
+    .filter((s) => s.category?.toLowerCase() === "deep cleaning")
+    .map((s) => {
+      const pkg = deepList.find(
+        (d) => d.name === s.serviceName || d.serviceName === s.serviceName
+      );
+      return pkg?._id;
+    })
+    .filter(Boolean);
 
   // -------------------------------------------
   // LOAD ENQUIRY — restore EXACT old lead-mode AYTP logic
@@ -116,6 +154,7 @@ const EditEnquiryModal = ({
           serviceName: raw.serviceName || raw.name || "",
           price: priceVal !== undefined ? String(priceVal) : "",
           bookingAmount: raw.bookingAmount || "",
+          packageId: raw.packageId || null,
         };
       });
 
@@ -323,6 +362,7 @@ const EditEnquiryModal = ({
   // REMOVE SERVICE - COMPLETELY ATOMIC VERSION
   // ---------------------------------------
   const removeService = (idx) => {
+    invalidateSlot(); // 🔥 SLOT INVALID
     if (services.length === 1) {
       alert("At least one service must remain in the booking.");
       return;
@@ -434,6 +474,10 @@ const EditEnquiryModal = ({
         [field]: field === "price" && value === "" ? "" : value,
       };
 
+      if (field === "subCategory") {
+        invalidateSlot(); // ✅ slot must reset when package category changes
+      }
+
       // Handle price field changes
       if (field === "price") {
         const newPrice = Number(value || 0);
@@ -500,6 +544,8 @@ const EditEnquiryModal = ({
   // This ensures price is only added once when service is selected
   // ---------------------------------------
   const handleServiceSelection = (idx, selectedServiceName) => {
+    invalidateSlot(); // 🔥 SLOT INVALID
+
     // Find the selected service from deepList
     const selectedService = deepList.find(
       (item) =>
@@ -526,7 +572,8 @@ const EditEnquiryModal = ({
           ...copy[idx],
           serviceName: selectedServiceName,
           price: String(newPrice),
-          bookingAmount: String(bookingAmount),
+          // bookingAmount: String(bookingAmount),
+          packageId: selectedService._id,
         };
         return copy;
       });
@@ -733,19 +780,34 @@ const EditEnquiryModal = ({
     setEditingFinal(false);
   };
 
-  // ---------------------------------------
-  // Address & Slot handlers (used by address/time modals)
-  // ---------------------------------------
   const handleAddressSelect = (addressObj) => {
     if (!addressObj) return;
-    const { houseFlatNumber, streetArea, landmark, latLng } = addressObj;
-    setHouseFlatNumber(houseFlatNumber || "");
-    setStreetArea(streetArea || "");
-    setLandMark(landmark || "");
-    if (latLng && latLng.lat != null && latLng.lng != null) {
+
+    invalidateSlot(); // ✅ slot must reset after address change
+
+    setHouseFlatNumber(
+      addressObj.houseFlatNumber || addressObj.houseFlatNumber || ""
+    );
+
+    setStreetArea(
+      addressObj.streetArea ||
+        addressObj.formattedAddress ||
+        addressObj.addr ||
+        ""
+    );
+
+    setLandMark(addressObj.landMark || addressObj.landmark || "");
+
+    setCity(addressObj.city || city || ""); // ✅ update city too
+
+    // ✅ location supports both latLng and flat lat/lng
+    const lat = addressObj.latLng?.lat ?? addressObj.lat;
+    const lng = addressObj.latLng?.lng ?? addressObj.lng;
+
+    if (lat != null && lng != null) {
       setLocation({
         type: "Point",
-        coordinates: [latLng.lng, latLng.lat],
+        coordinates: [lng, lat],
       });
     }
   };
@@ -760,159 +822,6 @@ const EditEnquiryModal = ({
   // ---------------------------------------
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [showTimeModal, setShowTimeModal] = useState(false);
-
-  // ---------------------------------------
-  // Payment Summary UI (leadMode shows AYTP/refund; enquiry hides AYTP/refund)
-  // ---------------------------------------
-  // const PaymentSummarySection = () => {
-  //   // Calculate total change (difference between current and original)
-  //   const totalChange = serverFinalTotal - originalFinalTotal;
-
-  //   return (
-  //     <div
-  //       className="mt-3 p-3"
-  //       style={{
-  //         background: "#f8f9fa",
-  //         borderRadius: 8,
-  //         border: "1px solid #e3e3e3",
-  //       }}
-  //     >
-  //       <h6 style={{ marginBottom: 10 }}>Payment Summary</h6>
-
-  //       {/* Show original amount ALWAYS */}
-  //       <div className="d-flex justify-content-between mb-1">
-  //         <span>Original Total Amount:</span>
-  //         <strong>₹{originalFinalTotal}</strong>
-  //       </div>
-
-  //       {/* Show total change */}
-  //       {totalChange !== 0 && (
-  //         <div className="d-flex justify-content-between mb-2">
-  //           <span>Total Change:</span>
-  //           <strong
-  //             style={{ color: totalChange < 0 ? "red" : "green" }}
-  //           >
-  //             {totalChange < 0 ? "-" : "+"}₹{Math.abs(totalChange)}
-  //           </strong>
-  //         </div>
-  //       )}
-
-  //       {/* House painting enquiry: site visit only */}
-  //       {isHousePaintingService && !leadMode ? (
-  //         <div className="d-flex justify-content-between mb-2">
-  //           <span>Site Visit Charges:</span>
-  //           <strong>₹{siteVisitCharges}</strong>
-  //         </div>
-  //       ) : (
-  //         <>
-  //           {/* Final Total display & manual edit */}
-  //           <div
-  //             className="d-flex justify-content-between mb-2"
-  //             style={{ alignItems: "center" }}
-  //           >
-  //             <span> {totalChange ? "New Total Amount:": "Total Amount:"}</span>
-
-  //             {editingFinal ? (
-  //               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-  //                 <Form.Control
-  //                   type="number"
-  //                   size="sm"
-  //                   value={draftFinalTotal}
-  //                   onChange={(e) => setDraftFinalTotal(e.target.value)}
-  //                   style={{ width: 120 }}
-  //                 />
-  //                 <div
-  //                   style={{ color: "#007a0a", cursor: "pointer" }}
-  //                   onClick={applyManualFinalTotal}
-  //                   title="Apply"
-  //                 >
-  //                   <FaCheck />
-  //                 </div>
-  //                 <div
-  //                   style={{ color: "#d40000", cursor: "pointer" }}
-  //                   onClick={() => {
-  //                     setDraftFinalTotal(String(serverFinalTotal));
-  //                     setEditingFinal(false);
-  //                   }}
-  //                   title="Cancel"
-  //                 >
-  //                   <ImCancelCircle />
-  //                 </div>
-  //               </div>
-  //             ) : (
-  //               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-  //                 <strong style={{ color: "#007a0a" }}>
-  //                   ₹{serverFinalTotal}
-  //                 </strong>
-  //                 <span
-  //                   style={{ cursor: "pointer", color: "#7F6663" }}
-  //                   onClick={() => {
-  //                     setDraftFinalTotal(String(serverFinalTotal));
-  //                     setEditingFinal(true);
-  //                   }}
-  //                   title="Edit final total"
-  //                 >
-  //                   <FaEdit />
-  //                 </span>
-  //               </div>
-  //             )}
-  //           </div>
-
-  //           {/* Booking amount — 20% of final total for enquiry mode */}
-  //           {leadMode != true && (
-  //             <div className="d-flex justify-content-between mb-2">
-  //               <span>Booking Amount (20% of Final Total):</span>
-  //               <strong>₹{serverBookingAmount}</strong>
-  //             </div>
-  //           )}
-
-  //           {/* Paid amount */}
-  //           <div className="d-flex justify-content-between mb-2">
-  //             <span>Amount Paid:</span>
-  //             <strong>₹{paidAmount}</strong>
-  //           </div>
-
-  //           {/* Lead mode only — show AYTP or refund */}
-  //           {leadMode && (
-  //             <>
-  //               {refundAmount > 0 ? (
-  //                 <div className="d-flex justify-content-between mt-2">
-  //                   <span style={{ color: "red" }}>Refund Amount:</span>
-  //                   <strong style={{ color: "red" }}>₹{refundAmount}</strong>
-  //                 </div>
-  //               ) : (
-  //                 <div className="d-flex justify-content-between mt-2">
-  //                   <span>Amount Yet To Paid:</span>
-  //                   <strong>₹{amountYetToPay}</strong>
-  //                 </div>
-  //               )}
-  //             </>
-  //           )}
-
-  //           {/* House painting installments — leadMode only */}
-  //           {leadMode && isHousePaintingService && serverFinalTotal > 0 && (
-  //             <div
-  //               className="d-flex justify-content-between mt-2"
-  //               style={{ fontSize: 12 }}
-  //             >
-  //               <span className="text-muted">Current Installment:</span>
-
-  //               <strong>
-  //                 {!firstPaid
-  //                   ? "1st Installment (40%)"
-  //                   : firstPaid && !secondPaid
-  //                   ? "2nd Installment (40%)"
-  //                   : firstPaid && secondPaid && !finalPaid
-  //                   ? "Final Installment (20%)"
-  //                   : "Completed"}
-  //               </strong>
-  //             </div>
-  //           )}
-  //         </>
-  //       )}
-  //     </div>
-  //   );
-  // };
 
   const PaymentSummarySection = () => {
     const totalChange = serverFinalTotal - originalFinalTotal;
@@ -1163,15 +1072,56 @@ const EditEnquiryModal = ({
         slotTime,
       };
 
-      const normalizedServices = services.map((s) => ({
-        category: s.category,
-        subCategory: s.subCategory,
-        serviceName: s.serviceName,
-        price: Number(s.price || 0),
-        quantity: 1,
-        teamMembersRequired: 0,
-        bookingAmount: Number(s.bookingAmount || 0),
-      }));
+      // const normalizedServices = services.map((s) => ({
+      //   category: s.category,
+      //   subCategory: s.subCategory,
+      //   serviceName: s.serviceName,
+      //   price: Number(s.price || 0),
+      //   quantity: 1,
+      //   teamMembersRequired: 0,
+      //   // bookingAmount: Number(s.bookingAmount || 0),
+      //   packageId: s.packageId || null, // ✅ ADD THIS
+      // }));
+      const normalizedServices = services.map((s) => {
+        // Find deep cleaning package
+        const deepPkg = deepList.find(
+          (d) =>
+            d._id === s.packageId ||
+            d.name === s.serviceName ||
+            d.serviceName === s.serviceName
+        );
+
+        return {
+          category: s.category,
+          subCategory: s.subCategory,
+          serviceName: s.serviceName,
+
+          price: Number(s.price || 0),
+          quantity: s.quantity ?? 1,
+
+          // ✅ FIXED FIELD MAPPING
+          teamMembersRequired:
+            s.teamMembersRequired ??
+            deepPkg?.teamMembers ?? // ✅ correct key
+            0,
+
+          duration:
+            s.duration ??
+            deepPkg?.durationMinutes ?? // ✅ correct key
+            0,
+
+          bookingAmount: s.bookingAmount ?? deepPkg?.bookingAmount ?? 0,
+
+          // ✅ PackageId priority
+          packageId: s.packageId ?? deepPkg?._id ?? null,
+        };
+      });
+
+      normalizedServices.forEach((s, idx) => {
+        if (!s.packageId) {
+          throw new Error(`Service ${idx + 1} is missing package mapping`);
+        }
+      });
 
       // ------------------------------
       // Calculate price change details
@@ -1221,6 +1171,8 @@ const EditEnquiryModal = ({
           bookingDetailsPayload.siteVisitCharges = siteVisitCharges;
         }
       }
+
+      console.log("normalizedServices", normalizedServices);
 
       const finalPayload = {
         customer: {
@@ -1296,16 +1248,18 @@ const EditEnquiryModal = ({
           </Row>
 
           {/* ADDRESS SECTION */}
-          <div className="d-flex justify-content-between mb-2">
-            <h6 className="mb-0">Address *</h6>
-            <Button
-              variant="outline-secondary"
-              size="sm"
-              onClick={() => setShowAddressModal(true)}
-            >
-              Change Address
-            </Button>
-          </div>
+          {isPendingBooking && (
+            <div className="d-flex justify-content-between mb-2">
+              <h6 className="mb-0">Address *</h6>
+              <Button
+                variant="outline-secondary"
+                size="sm"
+                onClick={() => setShowAddressModal(true)}
+              >
+                Change Address
+              </Button>
+            </div>
+          )}
 
           <Row className="g-2 mb-3">
             <Col md={4}>
@@ -1330,16 +1284,47 @@ const EditEnquiryModal = ({
           </Row>
 
           {/* SLOT */}
-          <div className="d-flex justify-content-between mb-2">
-            <h6 className="mb-0">Preferred Slot</h6>
-            <Button
-              variant="outline-secondary"
-              size="sm"
-              onClick={() => setShowTimeModal(true)}
-            >
-              Change Date & Slot
-            </Button>
-          </div>
+          {isPendingBooking && (
+            <div className="d-flex justify-content-between mb-2">
+              <h6 className="mb-0">Preferred Slot</h6>
+              <Button
+                variant="outline-secondary"
+                size="sm"
+                onClick={() => {
+                  // 1️⃣ EDIT MODE — existing deep cleaning service → ALWAYS ALLOW
+                  if (
+                    hasExistingDeepCleaningServiceFromBackend &&
+                    !hasServiceBeenModified
+                  ) {
+                    setShowTimeModal(true);
+                    return;
+                  }
+
+                  // 2️⃣ NEW / MODIFIED SERVICE — service name missing
+                  if (hasUnselectedDeepCleaningService) {
+                    alert(
+                      "Please select a deep cleaning service before choosing a slot."
+                    );
+                    return;
+                  }
+
+                  // 3️⃣ NEW / MODIFIED SERVICE — invalid package mapping
+                  if (
+                    hasDeepCleaningService &&
+                    deepCleaningPackageIds.length === 0
+                  ) {
+                    alert("Selected service is not linked to a valid package.");
+                    return;
+                  }
+
+                  // 4️⃣ DEFAULT
+                  setShowTimeModal(true);
+                }}
+              >
+                Change Date & Slot
+              </Button>
+            </div>
+          )}
 
           <Row className="g-2 mb-3">
             <Col md={6}>
@@ -1499,7 +1484,14 @@ const EditEnquiryModal = ({
         <TimePickerModal
           onClose={() => setShowTimeModal(false)}
           onSelect={handleSlotSelect}
-          bookingId={enquiry?.bookingId}
+          serviceType={
+            hasDeepCleaningService ? "deep_cleaning" : "house_painting"
+          }
+          packageId={hasDeepCleaningService ? deepCleaningPackageIds : []}
+          coordinates={{
+            lat: location?.coordinates?.[1],
+            lng: location?.coordinates?.[0],
+          }}
         />
       )}
     </>
