@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { FaBars, FaPlus, FaBell } from "react-icons/fa";
+import React, { useEffect, useMemo, useState } from "react";
+import { FaBars, FaPlus, FaBell, FaUserCircle } from "react-icons/fa";
 import axios from "axios";
 import logo from "../assets/logo.svg";
 import CreateLeadModal from "../pages/CreateLeadModal";
@@ -16,13 +16,31 @@ const Header = ({ toggleSidebar }) => {
   const [hasNextPage, setHasNextPage] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  // ✅ logged in admin (from localStorage)
+  const loggedAdmin = useMemo(() => {
+    try {
+      const adminData = localStorage.getItem("adminData");
+      if (adminData) return JSON.parse(adminData);
+
+      const adminAuth = localStorage.getItem("adminAuth");
+      if (adminAuth) return JSON.parse(adminAuth);
+
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }, []);
+
+  const adminName = loggedAdmin?.name || "Admin";
+  const adminMobile = loggedAdmin?.mobileNumber ? `(${loggedAdmin.mobileNumber})` : "";
+
   /* ✅ SINGLE SOURCE OF TRUTH */
   const fetchNotifications = async (pageNo = 1, append = false) => {
     try {
       setLoading(true);
 
       const res = await axios.get(
-        `${BASE_URL}/in-app-notify/fetch-admin-notifications?page=${pageNo}&limit=8`
+        `${BASE_URL}/in-app-notify/fetch-admin-notifications?page=${pageNo}&limit=15`
       );
 
       const { data, unreadCount, pagination } = res.data;
@@ -31,9 +49,7 @@ const Header = ({ toggleSidebar }) => {
       setHasNextPage(pagination?.hasNextPage ?? false);
       setPage(pageNo);
 
-      setNotifications((prev) =>
-        append ? [...prev, ...data] : data
-      );
+      setNotifications((prev) => (append ? [...prev, ...data] : data));
     } catch (err) {
       console.error("❌ Notification fetch failed:", err);
     } finally {
@@ -41,29 +57,22 @@ const Header = ({ toggleSidebar }) => {
     }
   };
 
-  /* ✅ ALWAYS FETCH ON HEADER MOUNT */
   useEffect(() => {
     fetchNotifications(1, false);
   }, []);
 
-  /* ✅ ALSO FETCH WHEN TAB COMES BACK (VERY IMPORTANT) */
   useEffect(() => {
     const onFocus = () => fetchNotifications(1, false);
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
   }, []);
 
-  /* ✅ MARK AS READ */
   const markAsRead = async (id) => {
     try {
-      await axios.post(
-        `${BASE_URL}/in-app-notify/mark-notification-read/${id}`
-      );
+      await axios.post(`${BASE_URL}/in-app-notify/mark-notification-read/${id}`);
 
       setNotifications((prev) =>
-        prev.map((n) =>
-          n._id === id ? { ...n, status: "read" } : n
-        )
+        prev.map((n) => (n._id === id ? { ...n, status: "read" } : n))
       );
 
       setUnreadCount((prev) => Math.max(prev - 1, 0));
@@ -95,12 +104,16 @@ const Header = ({ toggleSidebar }) => {
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <FaPlus
-            style={{ color: "red", cursor: "pointer" }}
-            onClick={() => setShowModal(true)}
-          />
+          {/* ✅ Logged in Admin */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <FaUserCircle size={18} color="#333" />
+            <span style={{ fontSize: 14, fontWeight: 600, color: "#333" }}>
+              {adminName} 
+            </span>
+          </div>
 
-          {/* 🔔 Bell */}
+          <FaPlus style={{ color: "red", cursor: "pointer" }} onClick={() => setShowModal(true)} />
+
           <div
             style={{ position: "relative", cursor: "pointer" }}
             onClick={() => setShowNotification(true)}
@@ -118,7 +131,6 @@ const Header = ({ toggleSidebar }) => {
                   borderRadius: "50%",
                   fontSize: 10,
                   padding: "2px 5px",
-                  // minWidth: 14,
                   textAlign: "center",
                 }}
               >
@@ -146,4 +158,3 @@ const Header = ({ toggleSidebar }) => {
 };
 
 export default Header;
-

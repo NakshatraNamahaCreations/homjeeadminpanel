@@ -4,7 +4,6 @@ import logo from "../assets/logo.svg";
 import { isAuthed } from "../utils/auth";
 import { BASE_URL } from "../utils/config";
 
-
 const Login = () => {
   const [input, setInput] = useState("");
   const [error, setError] = useState("");
@@ -42,7 +41,14 @@ const Login = () => {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data?.message || "Failed to send OTP");
+        // Handle specific error cases
+        if (res.status === 404) {
+          throw new Error("Admin account not found. Please contact administrator.");
+        } else if (res.status === 429) {
+          throw new Error(data.message || "Please wait before requesting another OTP");
+        } else {
+          throw new Error(data?.message || "Failed to send OTP");
+        }
       }
 
       // success → go to OTP screen; pass mobile + ttl + (optionally) debug otp
@@ -60,13 +66,20 @@ const Login = () => {
     }
   };
 
+  // Handle Enter key press
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      handleLogin();
+    }
+  };
+
   return (
     <div style={styles.container}>
       <div style={styles.card}>
         <img src={logo} alt="HomeJee Logo" style={styles.logo} />
 
-        <h2 style={styles.heading}>Login</h2>
-        <p style={styles.subText}>Enter your phone number</p>
+        <h2 style={styles.heading}>Admin Login</h2>
+        <p style={styles.subText}>Enter your registered phone number</p>
 
         <input
           type="tel"
@@ -87,6 +100,7 @@ const Login = () => {
               setError("");
             }
           }}
+          onKeyPress={handleKeyPress}
           disabled={loading}
         />
 
@@ -94,7 +108,11 @@ const Login = () => {
 
         <button
           onClick={handleLogin}
-          style={styles.button}
+          style={{
+            ...styles.button,
+            opacity: (loading || input.length !== 10) ? 0.5 : 1,
+            cursor: (loading || input.length !== 10) ? 'not-allowed' : 'pointer'
+          }}
           disabled={loading || input.length !== 10}
         >
           {loading ? "Sending OTP..." : "Continue"}
@@ -132,7 +150,12 @@ const styles = {
     outline: "none",
     marginBottom: "1rem",
   },
-  error: { color: "red", fontSize: "0.8rem", marginBottom: "0.5rem" },
+  error: { 
+    color: "red", 
+    fontSize: "0.8rem", 
+    marginBottom: "0.5rem",
+    minHeight: "20px"
+  },
   button: {
     width: "100%",
     backgroundColor: "#C7191D",
@@ -141,9 +164,7 @@ const styles = {
     borderRadius: "5px",
     fontSize: "1rem",
     border: "none",
-    cursor: "pointer",
     transition: "0.3s",
-    opacity: 1,
   },
 };
 

@@ -22,7 +22,6 @@ const CreateLeadModal = ({ onClose }) => {
   const [discountMode, setDiscountMode] = useState("percent");
   const [discountValue, setDiscountValue] = useState("");
   const [discountApplied, setDiscountApplied] = useState(false);
-
   const [leadData, setLeadData] = useState({
     name: "",
     contact: "",
@@ -40,6 +39,9 @@ const CreateLeadModal = ({ onClose }) => {
     selectedPackage: "",
     coordinates: { lat: 0, lng: 0 },
   });
+
+  const [checkingUser, setCheckingUser] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const invalidateSlot = () => {
     setLeadData((p) => ({
@@ -82,6 +84,8 @@ const CreateLeadModal = ({ onClose }) => {
   -------------------------------------------------- */
   const fetchExistingUser = async (mobile) => {
     try {
+      setCheckingUser(true);
+
       const res = await axios.post(
         `${BASE_URL}/user/finding-user-exist/mobilenumber`,
         { mobileNumber: mobile }
@@ -104,10 +108,16 @@ const CreateLeadModal = ({ onClose }) => {
             lng: addr.longitude || 0,
           },
         }));
-        toast.success("Existing user loaded");
+
+        toast.success("Existing user found");
+      } else {
+        setExistingUser(null);
       }
     } catch (err) {
       console.error(err);
+      toast.error("Failed to check existing user");
+    } finally {
+      setCheckingUser(false);
     }
   };
 
@@ -243,90 +253,123 @@ const CreateLeadModal = ({ onClose }) => {
     setDiscountValue("");
   };
 
+  const isFormValid = () => {
+    if (!leadData.contact || leadData.contact.length !== 10) return false;
+    if (!existingUser && !leadData.name) return false;
+    if (!leadData.googleAddress) return false;
+    if (!leadData.city) return false;
+    if (!leadData.serviceType) return false;
+
+    if (leadData.serviceType === "Deep Cleaning") {
+      if (leadData.packages.length === 0) return false;
+    }
+
+    if (!leadData.slotDate || !leadData.slotTime) return false;
+
+    return true;
+  };
+
   /* -----------------------------------------------------------
      SAVE
   ------------------------------------------------------------ */
   const handleSave = async () => {
-    if (!isTimeSelectionEnabled) {
-      toast.error("Please complete service & slot selection");
+    if (checkingUser || saving) return;
+
+    if (!isFormValid()) {
+      toast.error("Please fill all required fields");
       return;
     }
-    console.log("p", leadData.packages);
-    const payload = {
-      customer: existingUser
-        ? {
-            customerId: existingUser._id,
-            phone: existingUser.mobileNumber,
-            name: existingUser.userName,
-          }
-        : {
-            phone: leadData.contact,
-            name: leadData.name,
-          },
 
-      service:
-        leadData.serviceType === "House Painting"
-          ? [
-              {
-                category: "House Painting",
-                serviceName: "House Painters & Waterproofing",
-                price: leadData.bookingAmount,
+    try {
+      if (!isTimeSelectionEnabled) {
+        toast.error("Please complete service & slot selection");
+        return;
+      }
+      console.log("p", leadData.packages);
+      const payload = {
+        customer: existingUser
+          ? {
+              customerId: existingUser._id,
+              phone: existingUser.mobileNumber,
+              name: existingUser.userName,
+            }
+          : {
+              phone: leadData.contact,
+              name: leadData.name,
+            },
+
+        service:
+          leadData.serviceType === "House Painting"
+            ? [
+                {
+                  category: "House Painting",
+                  serviceName: "House Painters & Waterproofing",
+                  price: leadData.bookingAmount,
+                  quantity: 1,
+                },
+              ]
+            : leadData.packages.map((p) => ({
+                category: "Deep Cleaning",
+                subCategory: p.category,
+                serviceName: p.name,
+                price: p.totalAmount,
                 quantity: 1,
-              },
-            ]
-          : leadData.packages.map((p) => ({
-              category: "Deep Cleaning",
-              subCategory: p.category,
-              serviceName: p.name,
-              price: p.totalAmount,
-              quantity: 1,
 
-              // ✅ already present
-              teamMembersRequired: p.teamMembers,
+                // ✅ already present
+                teamMembersRequired: p.teamMembers,
 
-              // ✅ ADD THESE TWO
-              packageId: p._id,
-              duration: p.durationMinutes || p.duration || 0,
-            })),
+                // ✅ ADD THESE TWO
+                packageId: p._id,
+                duration: p.durationMinutes || p.duration || 0,
+              })),
 
-      bookingDetails: {
-        bookingAmount: leadData.bookingAmount,
-        finalTotal: leadData.totalAmount,
-        paidAmount: 0,
-        paymentMethod: "None",
-      },
-
-      address: {
-        houseFlatNumber: leadData.houseNo,
-        streetArea: leadData.googleAddress,
-        landMark: leadData.landmark,
-        city: leadData.city,
-        location: {
-          type: "Point",
-          coordinates: [leadData.coordinates.lng, leadData.coordinates.lat],
+        bookingDetails: {
+          bookingAmount: leadData.bookingAmount,
+          finalTotal: leadData.totalAmount,
+          paidAmount: 0,
+          paymentMethod: "None",
         },
-      },
 
-      selectedSlot: {
-        slotDate: leadData.slotDate,
-        slotTime: leadData.slotTime,
-      },
+        address: {
+          houseFlatNumber: leadData.houseNo,
+          streetArea: leadData.googleAddress,
+          landMark: leadData.landmark,
+          city: leadData.city,
+          location: {
+            type: "Point",
+            coordinates: [leadData.coordinates.lng, leadData.coordinates.lat],
+          },
+        },
 
-      formName: "admin panel",
-      isEnquiry: leadData.bookingAmount > 0,
-    };
-    console.log("booking payload", payload);
-    await axios.post(`${BASE_URL}/bookings/create-admin-booking`, payload);
-    toast.success(
-      `${
-        leadData.bookingAmount == 0
-          ? "Lead created successfully!"
-          : " Enquiry created successfully!"
-      }`
-    );
-    onClose();
-    navigate(`${leadData.bookingAmount == 0 ? "/newleads" : "/enquiries"}`);
+        selectedSlot: {
+          slotDate: leadData.slotDate,
+          slotTime: leadData.slotTime,
+        },
+
+        formName: "admin panel",
+        isEnquiry: leadData.bookingAmount > 0,
+      };
+      console.log("booking payload", payload);
+
+      await axios.post(`${BASE_URL}/bookings/create-admin-booking`, payload);
+
+      toast.success(
+        `${
+          leadData.bookingAmount == 0
+            ? "Lead created successfully!"
+            : " Enquiry created successfully!"
+        }`
+      );
+      onClose();
+      navigate(`${leadData.bookingAmount == 0 ? "/newleads" : "/enquiries"}`);
+    } catch (err) {
+      console.error(err);
+      toast.error(err?.response?.data?.message || "Save failed");
+    } finally {
+      setSaving(false);
+    }
   };
+
   /* -----------------------------------------------------------
      UI
   ------------------------------------------------------------ */
@@ -348,6 +391,12 @@ const CreateLeadModal = ({ onClose }) => {
             onChange={handleChange}
             value={leadData.contact}
           />
+
+          {checkingUser && (
+            <div style={{ fontSize: 12, color: "#888", marginBottom: 10 }}>
+              Checking existing user…
+            </div>
+          )}
 
           {/* NAME */}
           <input
@@ -527,9 +576,6 @@ const CreateLeadModal = ({ onClose }) => {
             <option value="Deep Cleaning">Deep Cleaning</option>
           </select>
 
-          {/* ----------------------------
-              HOUSE PAINTING UI
-          ----------------------------- */}
           {leadData.serviceType === "House Painting" && (
             <>
               <label style={styles.label}>Booking Amount</label>
@@ -543,12 +589,8 @@ const CreateLeadModal = ({ onClose }) => {
             </>
           )}
 
-          {/* ----------------------------
-              DEEP CLEANING UI
-          ----------------------------- */}
           {leadData.serviceType === "Deep Cleaning" && (
             <>
-              {/* SUBCATEGORY */}
               <select
                 value={selectedSubCategory}
                 style={styles.input}
@@ -556,7 +598,7 @@ const CreateLeadModal = ({ onClose }) => {
                   setSelectedSubCategory(e.target.value);
                   setLeadData((p) => ({
                     ...p,
-                    selectedPackage: "", // ✅ RESET SLOT
+                    selectedPackage: "",
                     slotDate: "",
                     slotTime: "",
                   }));
@@ -568,7 +610,6 @@ const CreateLeadModal = ({ onClose }) => {
                 ))}
               </select>
 
-              {/* PACKAGE SELECT */}
               <div style={{ display: "flex", gap: 10 }}>
                 <select
                   value={leadData.selectedPackage}
@@ -596,7 +637,6 @@ const CreateLeadModal = ({ onClose }) => {
                 </button>
               </div>
 
-              {/* SELECTED PACKAGES */}
               <ul style={styles.pkgList}>
                 {leadData.packages.map((pkg) => (
                   <li key={pkg._id} style={styles.pkgItem}>
@@ -609,7 +649,6 @@ const CreateLeadModal = ({ onClose }) => {
                 ))}
               </ul>
 
-              {/* TOTAL */}
               <label style={styles.label}>Total Amount</label>
               <input
                 style={{ ...styles.input, background: "#eee" }}
@@ -617,7 +656,6 @@ const CreateLeadModal = ({ onClose }) => {
                 value={leadData.totalAmount}
               />
 
-              {/* DISCOUNT */}
               {!discountApplied ? (
                 <div style={styles.discountRow}>
                   <select
@@ -653,7 +691,6 @@ const CreateLeadModal = ({ onClose }) => {
                 </div>
               )}
 
-              {/* BOOKING AMOUNT */}
               <label style={styles.label}>Booking Amount</label>
               <input
                 name="bookingAmount"
@@ -663,7 +700,6 @@ const CreateLeadModal = ({ onClose }) => {
                 onChange={handleChange}
               />
 
-              {/* AMOUNT YET TO PAY */}
               <label style={styles.label}>Amount Yet To Pay</label>
               <input
                 readOnly
@@ -680,8 +716,22 @@ const CreateLeadModal = ({ onClose }) => {
               marginTop: "20px",
             }}
           >
-            <button style={styles.saveBtn} onClick={handleSave}>
-              Save
+            <button
+              style={{
+                ...styles.saveBtn,
+                background:
+                  checkingUser || saving || !isFormValid()
+                    ? "#ccc"
+                    : styles.saveBtn.background,
+                cursor:
+                  checkingUser || saving || !isFormValid()
+                    ? "not-allowed"
+                    : "pointer",
+              }}
+              disabled={checkingUser || saving || !isFormValid()}
+              onClick={handleSave}
+            >
+              {saving ? "Saving..." : "Save"}
             </button>
           </div>
         </div>
@@ -691,19 +741,23 @@ const CreateLeadModal = ({ onClose }) => {
       {showAddress && (
         <AddressPickerModal
           onClose={() => setShowAddress(false)}
+          initialAddress={leadData.googleAddress || ""}
+          initialLatLng={
+            leadData.coordinates?.lat && leadData.coordinates?.lng
+              ? leadData.coordinates
+              : null
+          }
           onSelect={(sel) =>
             setLeadData((p) => ({
               ...p,
-              googleAddress: sel.streetArea, // ✅ CORRECT KEY
+              googleAddress: sel.streetArea,
               houseNo: sel.houseFlatNumber || p.houseNo,
               landmark: sel.landMark || p.landmark,
               coordinates: {
-                lat: sel.latLng.lat,
-                lng: sel.latLng.lng,
+                lat: sel.latLng?.lat || 0,
+                lng: sel.latLng?.lng || 0,
               },
               city: sel.city || p.city,
-
-              // ✅ IMPORTANT: invalidate old slot
               slotDate: "",
               slotTime: "",
             }))
@@ -729,7 +783,7 @@ const CreateLeadModal = ({ onClose }) => {
           }
           packageId={
             leadData.serviceType === "Deep Cleaning"
-              ? leadData.packages.map((p) => p._id) // ✅ ARRAY
+              ? leadData.packages.map((p) => p._id)
               : []
           }
           coordinates={leadData.coordinates}
@@ -788,12 +842,10 @@ const styles = {
     overflowY: "auto",
     overflowX: "hidden",
     paddingRight: 5,
-    // Hide scrollbar but keep functionality
-    scrollbarWidth: "none" /* Firefox */,
-    msOverflowStyle: "none" /* IE and Edge */,
+    scrollbarWidth: "none",
+    msOverflowStyle: "none",
   },
   contentScroll: {
-    /* Webkit browsers (Chrome, Safari) */
     "&::-webkit-scrollbar": {
       display: "none",
     },

@@ -4,7 +4,7 @@
 // import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
 // import { useNavigate } from "react-router-dom";
 
-// const API_BASE = "https://homjee-backend.onrender.com";
+// const BASE_URL = "https://homjee-backend.onrender.com";
 
 // const productTypes = [
 //   "Paints",
@@ -34,7 +34,7 @@
 //   useEffect(() => {
 //     (async () => {
 //       try {
-//         const res = await fetch(`${API_BASE}/api/service/latest`);
+//         const res = await fetch(`${BASE_URL}/api/service/latest`);
 //         const result = await res.json();
 //         if (res.ok) setSavedPricing(result.data);
 //       } catch (e) {
@@ -50,7 +50,7 @@
 //         const productsData = {};
 //         for (const type of productTypes) {
 //           const res = await fetch(
-//             `${API_BASE}/api/products/get-products-by-type?productType=${encodeURIComponent(type)}`
+//             `${BASE_URL}/api/products/get-products-by-type?productType=${encodeURIComponent(type)}`
 //           );
 //           const result = await res.json();
 //           productsData[type] = res.ok ? result.data || [] : [];
@@ -68,7 +68,7 @@
 //       return;
 //     }
 //     try {
-//       const res = await fetch(`${API_BASE}/api/service/create`, {
+//       const res = await fetch(`${BASE_URL}/api/service/create`, {
 //         method: "POST",
 //         headers: { "Content-Type": "application/json" },
 //         body: JSON.stringify({
@@ -130,7 +130,7 @@
 //       }
 
 //       const method = editingProduct ? "PUT" : "POST";
-//       const res = await fetch(`${API_BASE}/api/products/${endpoint}`, {
+//       const res = await fetch(`${BASE_URL}/api/products/${endpoint}`, {
 //         method,
 //         headers: { "Content-Type": "application/json" },
 //         body: JSON.stringify(payload),
@@ -139,7 +139,7 @@
 
 //       if (res.ok) {
 //         const updated = await fetch(
-//           `${API_BASE}/api/products/get-products-by-type?productType=${encodeURIComponent(product.productType)}`
+//           `${BASE_URL}/api/products/get-products-by-type?productType=${encodeURIComponent(product.productType)}`
 //         ).then((r) => r.json());
 //         setProductsByType((prev) => ({
 //           ...prev,
@@ -163,7 +163,7 @@
 //     try {
 //       const productId = productsByType[type][index]._id;
 //       const endpoint = type === "Packages" ? "delete-package" : "delete-paint";
-//       const res = await fetch(`${API_BASE}/api/products/${endpoint}/${productId}`, {
+//       const res = await fetch(`${BASE_URL}/api/products/${endpoint}/${productId}`, {
 //         method: "DELETE",
 //         headers: { "Content-Type": "application/json" },
 //       });
@@ -456,7 +456,7 @@
 //   useEffect(() => {
 //     (async () => {
 //       try {
-//         const res = await fetch(`${API_BASE}/api/products/get-all-paints`);
+//         const res = await fetch(`${BASE_URL}/api/products/get-all-paints`);
 //         const result = await res.json();
 //         if (res.ok) {
 //           setAllPaints(result.paints || []);
@@ -643,9 +643,10 @@ import { Table, Container, Row, Col, Form, Modal, Button } from "react-bootstrap
 import { FaPlus, FaEdit, FaTrash, FaStar } from "react-icons/fa";
 import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
 import { useNavigate } from "react-router-dom";
+import { BASE_URL } from "../utils/config"
 
-const API_BASE = "https://homjee-backend.onrender.com";
-// const API_BASE = "http://localhost:9000";
+// const BASE_URL = "https://homjee-backend.onrender.com";
+// const BASE_URL = "http://localhost:9000";
 
 
 const productTypes = [
@@ -676,7 +677,7 @@ const ProductsDashboard = () => {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/service/latest`);
+        const res = await fetch(`${BASE_URL}/service/latest`);
         const result = await res.json();
         if (res.ok) setSavedPricing(result.data);
       } catch (e) {
@@ -696,7 +697,7 @@ const ProductsDashboard = () => {
         });
 
         // Fetch finishing paints
-        const finishingRes = await fetch(`${API_BASE}/api/products/get-all-finishing-paints`);
+        const finishingRes = await fetch(`${BASE_URL}/products/get-all-finishing-paints`);
         const finishingResult = await finishingRes.json();
         if (finishingRes.ok && finishingResult.data) {
           // Group finishing paints by productType
@@ -709,7 +710,7 @@ const ProductsDashboard = () => {
 
         // Fetch packages separately
         const packagesRes = await fetch(
-          `${API_BASE}/api/products/get-products-by-type?productType=${encodeURIComponent("Packages")}`
+          `${BASE_URL}/products/get-products-by-type?productType=${encodeURIComponent("Packages")}`
         );
         const packagesResult = await packagesRes.json();
         if (packagesRes.ok) {
@@ -718,7 +719,7 @@ const ProductsDashboard = () => {
 
         // Fetch paints separately
         const paintsRes = await fetch(
-          `${API_BASE}/api/products/get-products-by-type?productType=${encodeURIComponent("Paints")}`
+          `${BASE_URL}/products/get-products-by-type?productType=${encodeURIComponent("Paints")}`
         );
         const paintsResult = await paintsRes.json();
         if (paintsRes.ok) {
@@ -733,35 +734,44 @@ const ProductsDashboard = () => {
   }, []);
 
   const handlePricingSave = async () => {
-    if (!siteVisitCharge || !vendorCoins || !puttyPrice) {
-      alert("Please enter all values");
-      return;
+  // allow 0 — only block if value is empty string, null, or undefined
+  if (
+    siteVisitCharge === "" ||
+    vendorCoins === "" ||
+    puttyPrice === ""
+  ) {
+    alert("Please enter all values");
+    return;
+  }
+
+  try {
+    const res = await fetch(`${BASE_URL}/service/create`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        siteVisitCharge: Number(siteVisitCharge),
+        vendorCoins: Number(vendorCoins),
+        puttyPrice: Number(puttyPrice),
+      }),
+    });
+
+    const data = await res.json();
+
+    if (res.ok) {
+      alert("Saved successfully");
+      setSavedPricing(data.data);
+      setSiteVisitCharge("");
+      setVendorCoins("");
+      setPuttyPrice("");
+    } else {
+      alert(data.message || "Something went wrong");
     }
-    try {
-      const res = await fetch(`${API_BASE}/api/service/create`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          siteVisitCharge: Number(siteVisitCharge),
-          vendorCoins: Number(vendorCoins),
-          puttyPrice: Number(puttyPrice),
-        }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        alert("Saved successfully");
-        setSavedPricing(data.data);
-        setSiteVisitCharge("");
-        setVendorCoins("");
-        setPuttyPrice("");
-      } else {
-        alert(data.message || "Something went wrong");
-      }
-    } catch (e) {
-      console.error("Error saving pricing:", e);
-      alert("Server error");
-    }
-  };
+  } catch (e) {
+    console.error("Error saving pricing:", e);
+    alert("Server error");
+  }
+};
+
 
   // Save or update product (paint, finishing paint, or package)
   const handleSave = async (product) => {
@@ -816,7 +826,7 @@ const ProductsDashboard = () => {
         endpoint = editingProduct ? `update-paint/${editingProduct._id}` : "add-paint";
       }
 
-      const res = await fetch(`${API_BASE}/api/products/${endpoint}`, {
+      const res = await fetch(`${BASE_URL}/products/${endpoint}`, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -826,7 +836,7 @@ const ProductsDashboard = () => {
       if (res.ok) {
         // Refresh products for the specific productType
         const updated = await fetch(
-          `${API_BASE}/api/products/get-products-by-type?productType=${encodeURIComponent(product.productType)}`
+          `${BASE_URL}/products/get-products-by-type?productType=${encodeURIComponent(product.productType)}`
         ).then((r) => r.json());
         setProductsByType((prev) => ({
           ...prev,
@@ -860,7 +870,7 @@ const ProductsDashboard = () => {
         "Wood Polish",
       ];
       const endpoint = type === "Packages" ? "delete-package" : finishingTypes.includes(type) ? "delete-finishing-paint" : "delete-paint";
-      const res = await fetch(`${API_BASE}/api/products/${endpoint}/${productId}`, {
+      const res = await fetch(`${BASE_URL}/products/${endpoint}/${productId}`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
       });
@@ -1156,7 +1166,7 @@ const ProductModal = ({
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/products/get-all-finishing-paints`);
+        const res = await fetch(`${BASE_URL}/products/get-all-finishing-paints`);
         const result = await res.json();
         if (res.ok) {
           setAllPaints(result.data || []);
