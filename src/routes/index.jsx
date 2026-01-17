@@ -85,6 +85,7 @@ import DeepCleaningDashboard from "../pages/DeepCleaningDashboard";
 import Settings from "../pages/Setting";
 import Logout from "../pages/Logout";
 import AllReminders from "../pages/AllReminders";
+import AdminCleaningCatalogEditor from "../pages/AdminCleaningCatalogEditor";
 import EnquiriesList from "../pages/EnquiriesList";
 import EnquiryDetails from "../pages/EnquiryDetails";
 import VendorDetailsPage from "../pages/VendorDetailsPage";
@@ -107,16 +108,32 @@ const AppRoutes = () => {
           <Route path="/newleads" element={<NewLeads />} />
           <Route path="/notification" element={<NotificationSettings />} />
           <Route path="/ongoing-leads" element={<OngoingLeads />} />
-          <Route path="/lead-details/:bookingId" element={<OngoingLeadDetails />} />
+          <Route
+            path="/lead-details/:bookingId"
+            element={<OngoingLeadDetails />}
+          />
           <Route path="/moneydashboard" element={<MoneyDashboard />} />
-          <Route path="/performancedashboard" element={<PerformanceDashboard />} />
+          <Route
+            path="/performancedashboard"
+            element={<PerformanceDashboard />}
+          />
           <Route path="/vendors-list" element={<VendorsDashboard />} />
-          <Route path="/vendor-details/:vendorId" element={<VendorDetailsPage />} />
+          <Route
+            path="/vendor-details/:vendorId"
+            element={<VendorDetailsPage />}
+          />
           <Route path="/product" element={<ProductsDashboard />} />
-          <Route path="/deep-cleaning-dashboard" element={<DeepCleaningDashboard />} />
+          <Route
+            path="/deep-cleaning-dashboard"
+            element={<DeepCleaningDashboard />}
+          />
           <Route path="/all-reminders" element={<AllReminders />} />
           <Route path="/logout" element={<Logout />} />
           <Route path="/setting" element={<Settings />} />
+          <Route
+            path="/admincleaningcatalogeditor"
+            element={<AdminCleaningCatalogEditor />}
+          />
         </Route>
       </Route>
 

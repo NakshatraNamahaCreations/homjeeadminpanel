@@ -16,6 +16,9 @@ import { BASE_URL } from "../utils/config";
 const MoneyDashboard = () => {
   const [showModal, setShowModal] = useState(false);
   const [payments, setPayments] = useState([]);
+  const [overallCoinsIncome, setOverallCoinsIncome] = useState(0);
+  const [overallCoinSold, setOverallCoinSold] = useState(0);
+
   const [manualPayments, setManualPayments] = useState([]);
   const [filter, setFilter] = useState("paid"); // paid | pending | refund
   const [paymentMode, setPaymentMode] = useState("booking"); // booking | manual
@@ -282,27 +285,27 @@ const MoneyDashboard = () => {
         txs,
         (tx) =>
           String(tx?.installment || "").toLowerCase() === "first" &&
-          !isSiteVisitTx(p, tx)
+          !isSiteVisitTx(p, tx),
       );
 
       const paidSecond = sumTx(
         txs,
         (tx) =>
           String(tx?.installment || "").toLowerCase() === "second" &&
-          !isSiteVisitTx(p, tx)
+          !isSiteVisitTx(p, tx),
       );
 
       const paidFinal = sumTx(
         txs,
         (tx) =>
           String(tx?.installment || "").toLowerCase() === "final" &&
-          !isSiteVisitTx(p, tx)
+          !isSiteVisitTx(p, tx),
       );
 
       const installmentPaid = paidFirst + paidSecond + paidFinal;
       const installmentPending = Math.max(
         installmentTarget - installmentPaid,
-        0
+        0,
       );
 
       const rawSiteVisitPaid = sumTx(txs, (tx) => isSiteVisitTx(p, tx));
@@ -316,7 +319,7 @@ const MoneyDashboard = () => {
       const splitBooking = sumByMethod(
         txs,
         (tx) => isBookingMoneyTx(p, tx),
-        (tx) => tx?.method
+        (tx) => tx?.method,
       );
 
       return {
@@ -409,6 +412,24 @@ const MoneyDashboard = () => {
       setPayments([]);
     }
   };
+  const fetchOverallIncomfromcoins = async () => {
+    try {
+      const res = await axios.get(`${BASE_URL}/wallet/overall-coin-sold`);
+      setOverallCoinsIncome(Number(res?.data?.data?.grandTotal || 0));
+    } catch (err) {
+      console.error("Error Fetching overall Coins:", err);
+      setOverallCoinsIncome(0);
+    }
+  };
+  const fetchOverallCoinsSold = async () => {
+    try {
+      const res = await axios.get(`${BASE_URL}/vendor/overall-coin-sold`);
+      setOverallCoinSold(Number(res?.data?.total || 0));
+    } catch (err) {
+      console.error("Error Fetching overall Coins:", err);
+      setOverallCoinSold(0);
+    }
+  };
 
   // ✅ DIRECT CALL: mark manual payment paid (method=cash, providerRef auto)
   const markManualPaid = async (payment) => {
@@ -434,7 +455,7 @@ const MoneyDashboard = () => {
         {
           method: "Cash",
           providerRef,
-        }
+        },
       );
 
       if (res?.data?.success === false) {
@@ -459,7 +480,12 @@ const MoneyDashboard = () => {
     const loadAll = async () => {
       try {
         setLoading(true);
-        await Promise.all([fetchManualPayments(), fetchPayments()]);
+        await Promise.all([
+          fetchManualPayments(),
+          fetchPayments(),
+          fetchOverallIncomfromcoins(),
+          fetchOverallCoinsSold()
+        ]);
       } catch (e) {
         console.error("Initial load error", e);
       } finally {
@@ -470,6 +496,10 @@ const MoneyDashboard = () => {
     loadAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    fetchOverallIncomfromcoins();
+  }, [manualPayments]);
 
   /* ======================================================
         TOTALS (UPDATED)
@@ -496,7 +526,7 @@ const MoneyDashboard = () => {
       });
 
       const manualPaidList = (manualPayments || []).filter(
-        (m) => m.payment?.status === "Paid"
+        (m) => m.payment?.status === "Paid",
       );
 
       const manualPending = (manualPayments || [])
@@ -505,13 +535,13 @@ const MoneyDashboard = () => {
 
       const manualPaid = manualPaidList.reduce(
         (sum, m) => sum + Number(m.amount || 0),
-        0
+        0,
       );
 
       const manualSplit = sumByMethod(
         manualPaidList,
         () => true,
-        (m) => getManualMethod(m)
+        (m) => getManualMethod(m),
       );
 
       cash += Number(manualSplit.cash || 0);
@@ -573,7 +603,7 @@ const MoneyDashboard = () => {
           paid,
           target,
           remaining,
-          predicateForLastDate
+          predicateForLastDate,
         ) => {
           try {
             if (!(paid > 0)) return;
@@ -608,7 +638,7 @@ const MoneyDashboard = () => {
           totals.remaining.first,
           (tx) =>
             String(tx?.installment || "").toLowerCase() === "first" &&
-            !isSiteVisitTx(p, tx)
+            !isSiteVisitTx(p, tx),
         );
 
         pushStage(
@@ -618,7 +648,7 @@ const MoneyDashboard = () => {
           totals.remaining.second,
           (tx) =>
             String(tx?.installment || "").toLowerCase() === "second" &&
-            !isSiteVisitTx(p, tx)
+            !isSiteVisitTx(p, tx),
         );
 
         pushStage(
@@ -628,7 +658,7 @@ const MoneyDashboard = () => {
           totals.remaining.final,
           (tx) =>
             String(tx?.installment || "").toLowerCase() === "final" &&
-            !isSiteVisitTx(p, tx)
+            !isSiteVisitTx(p, tx),
         );
 
         if (Number(totals.targets.siteVisit || 0) > 0) {
@@ -687,8 +717,8 @@ const MoneyDashboard = () => {
         const date = p?.selectedSlot
           ? `${p.selectedSlot.slotDate} ${p.selectedSlot.slotTime}`
           : b.bookingDate
-          ? fmt(b.bookingDate)
-          : fmt(p.createdDate);
+            ? fmt(b.bookingDate)
+            : fmt(p.createdDate);
 
         const customerName = p?.customer?.name || "-";
         const customerPhone = p?.customer?.phone || "-";
@@ -849,7 +879,7 @@ const MoneyDashboard = () => {
       const list = (manualPayments || []).filter((m) =>
         filter === "paid"
           ? m.payment?.status === "Paid"
-          : m.payment?.status === "Pending"
+          : m.payment?.status === "Pending",
       );
 
       return list.map((m) => ({
@@ -1048,8 +1078,11 @@ const MoneyDashboard = () => {
               Amount Yet to Be Collected: ₹
               {Number(pendingAmount || 0).toLocaleString()}
             </h6>
-            <p style={{ fontSize: 12 }}>Coins Sold: ₹0</p>
-            <p style={{ fontSize: 12 }}>Income from Coins: ₹0</p>
+            <p style={{ fontSize: 12 }}>Coins Sold: ₹{overallCoinSold}</p>
+            <p style={{ fontSize: 12 }}>
+              Income from Coins: ₹
+              {Number(overallCoinsIncome || 0).toLocaleString()}
+            </p>
           </Card>
         </Col>
       </Row>
@@ -1282,7 +1315,7 @@ const MoneyDashboard = () => {
                   .filter((m) =>
                     filter === "paid"
                       ? m.payment?.status === "Paid"
-                      : m.payment?.status === "Pending"
+                      : m.payment?.status === "Pending",
                   )
                   .map((m, i) => (
                     <tr key={i} style={{ fontSize: 12 }}>
