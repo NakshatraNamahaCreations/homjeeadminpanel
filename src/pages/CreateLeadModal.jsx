@@ -317,6 +317,7 @@ const CreateLeadModal = ({ onClose }) => {
 
                 // ✅ already present
                 teamMembersRequired: p.teamMembers,
+                coinDeduction: p.coinsForVendor || 0,
 
                 // ✅ ADD THESE TWO
                 packageId: p._id,

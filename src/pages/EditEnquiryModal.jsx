@@ -96,7 +96,7 @@ const EditEnquiryModal = ({
   const isPendingBooking = bookingStatus.toLowerCase() === "pending";
 
   const canEditServices = ALLOWED_SERVICE_EDIT_STATUSES.includes(
-    bookingStatus.toLowerCase()
+    bookingStatus.toLowerCase(),
   );
 
   const invalidateSlot = () => {
@@ -107,22 +107,22 @@ const EditEnquiryModal = ({
   };
 
   const isHousePaintingService = services.some(
-    (s) => s.category?.toLowerCase() === "house painting"
+    (s) => s.category?.toLowerCase() === "house painting",
   );
 
   const hasDeepCleaningService = services.some(
-    (s) => (s.category || "").toLowerCase() === "deep cleaning"
+    (s) => (s.category || "").toLowerCase() === "deep cleaning",
   );
 
   const hasUnselectedDeepCleaningService = services.some(
-    (s) => s.category?.toLowerCase() === "deep cleaning" && !s.serviceName
+    (s) => s.category?.toLowerCase() === "deep cleaning" && !s.serviceName,
   );
 
   const hasExistingDeepCleaningServiceFromBackend =
     initialServiceCount > 0 &&
     services.some(
       (s) =>
-        s.category?.toLowerCase() === "deep cleaning" && s.serviceName?.trim()
+        s.category?.toLowerCase() === "deep cleaning" && s.serviceName?.trim(),
     );
 
   const hasServiceBeenModified = services.length !== initialServiceCount;
@@ -135,7 +135,7 @@ const EditEnquiryModal = ({
     .filter((s) => s.category?.toLowerCase() === "deep cleaning")
     .map((s) => {
       const pkg = deepList.find(
-        (d) => d.name === s.serviceName || d.serviceName === s.serviceName
+        (d) => d.name === s.serviceName || d.serviceName === s.serviceName,
       );
       return pkg?._id;
     })
@@ -437,7 +437,7 @@ const EditEnquiryModal = ({
 
       setCustomerName(customer?.name || "");
       setCustomerPhone(
-        normalizePhone(enquiry?.contact) || customer?.phone || ""
+        normalizePhone(enquiry?.contact) || customer?.phone || "",
       );
       setFormName(fm || enquiry?.formName || "");
 
@@ -470,7 +470,7 @@ const EditEnquiryModal = ({
       // Backend totals
       const backendOriginal = Number(bookingDetails?.originalTotalAmount || 0);
       const backendFinal = Number(
-        bookingDetails?.finalTotal ?? bookingDetails?.originalTotalAmount ?? 0
+        bookingDetails?.finalTotal ?? bookingDetails?.originalTotalAmount ?? 0,
       );
       const backendPaid = Number(bookingDetails?.paidAmount || 0);
       const backendBooking = Number(bookingDetails?.bookingAmount || 0);
@@ -484,7 +484,7 @@ const EditEnquiryModal = ({
 
       // House painting info
       const isHP = (service || []).some(
-        (it) => it.category?.toLowerCase() === "house painting"
+        (it) => it.category?.toLowerCase() === "house painting",
       );
       const svc = Number(bookingDetails?.siteVisitCharges || 0);
       setSiteVisitCharges(svc);
@@ -582,7 +582,7 @@ const EditEnquiryModal = ({
     const fetchData = async () => {
       try {
         const res = await fetch(
-          `${BASE_URL}/deeppackage/deep-cleaning-packages`
+          `${BASE_URL}/deeppackage/deep-cleaning-packages`,
         );
         const data = await res.json();
         setDeepList(data?.data || []);
@@ -704,12 +704,12 @@ const EditEnquiryModal = ({
     const selectedService = deepList.find(
       (item) =>
         item.name === selectedServiceName ||
-        item.serviceName === selectedServiceName
+        item.serviceName === selectedServiceName,
     );
 
     if (selectedService) {
       const newPrice = Number(
-        selectedService.totalAmount || selectedService.price || 0
+        selectedService.totalAmount || selectedService.price || 0,
       );
 
       const currentPrice = Number(services[idx]?.price || 0);
@@ -749,7 +749,7 @@ const EditEnquiryModal = ({
     if (!enquiry?.raw) return;
 
     const isHP = services.some(
-      (s) => (s.category || "").toLowerCase() === "house painting"
+      (s) => (s.category || "").toLowerCase() === "house painting",
     );
 
     const finalTotalVal = Number(serverFinalTotal || 0);
@@ -822,7 +822,7 @@ const EditEnquiryModal = ({
     // else show backend installment logic
     if (leadMode) {
       const isHP = services.some(
-        (s) => (s.category || "").toLowerCase() === "house painting"
+        (s) => (s.category || "").toLowerCase() === "house painting",
       );
 
       const backendFT = n(currentBackendFinal);
@@ -871,7 +871,7 @@ const EditEnquiryModal = ({
       addressObj.streetArea ||
         addressObj.formattedAddress ||
         addressObj.addr ||
-        ""
+        "",
     );
 
     setLandMark(addressObj.landMark || addressObj.landmark || "");
@@ -900,15 +900,15 @@ const EditEnquiryModal = ({
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [showTimeModal, setShowTimeModal] = useState(false);
 
-  const canShowFinalTotalEdit = Number(serverFinalTotal) > 0 &&  Number(serverFinalTotal) != paidAmount ; // because your rule is leadMode based
+  const canShowFinalTotalEdit =
+    Number(serverFinalTotal) > 0 && Number(serverFinalTotal) != paidAmount; // because your rule is leadMode based
 
   const PaymentSummarySection = () => {
     const totalChange = serverFinalTotal - originalFinalTotal;
 
     const isDeepCleaning = services.some(
-      (s) => s.category?.toLowerCase() === "deep cleaning"
+      (s) => s.category?.toLowerCase() === "deep cleaning",
     );
-
     return (
       <div
         className="mt-3 p-3"
@@ -1143,7 +1143,7 @@ const EditEnquiryModal = ({
       if (s.category.toLowerCase() === "deep cleaning") {
         if (!s.price || Number(s.price) <= 0)
           return alert(
-            `Service ${i + 1}: Valid price required for Deep Cleaning`
+            `Service ${i + 1}: Valid price required for Deep Cleaning`,
           );
       }
     }
@@ -1172,7 +1172,7 @@ const EditEnquiryModal = ({
           (d) =>
             d._id === s.packageId ||
             d.name === s.serviceName ||
-            d.serviceName === s.serviceName
+            d.serviceName === s.serviceName,
         );
 
         return {
@@ -1182,6 +1182,7 @@ const EditEnquiryModal = ({
 
           price: Number(s.price || 0),
           quantity: s.quantity ?? 1,
+          coinDeduction: deepPkg?.coinsForVendor ?? 0,
 
           teamMembersRequired:
             s.teamMembersRequired ?? deepPkg?.teamMembers ?? 0,
@@ -1363,7 +1364,7 @@ const EditEnquiryModal = ({
 
                   if (hasUnselectedDeepCleaningService) {
                     alert(
-                      "Please select a deep cleaning service before choosing a slot."
+                      "Please select a deep cleaning service before choosing a slot.",
                     );
                     return;
                   }
@@ -1447,7 +1448,7 @@ const EditEnquiryModal = ({
                           <option key={cat} value={cat}>
                             {cat}
                           </option>
-                        )
+                        ),
                       )}
                     </Form.Select>
                   </Col>
@@ -1562,12 +1563,10 @@ const EditEnquiryModal = ({
 
 export default EditEnquiryModal;
 
-
-// while editing the final total in frontend calculate and show the amount yet to but in backend just udpate the final total so 
+// while editing the final total in frontend calculate and show the amount yet to but in backend just udpate the final total so
 // when vendor will request for second payment it will auto calcualte and udpate requested amount other values (this is only when the current inst is pending and requested amount is 0 )
 // if requested amount is there and status is pending in that case only you calcualte in backend and update the request amt and remaing amount same and amount 0.
 // if status is partial and then calculate the req amt and then again take the diff of requested amount - amount = remaining.
-
 
 // import React, { useEffect, useState, useRef } from "react";
 // import { Modal, Button, Form, Row, Col, InputGroup } from "react-bootstrap";
