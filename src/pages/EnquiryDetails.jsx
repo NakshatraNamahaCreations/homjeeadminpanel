@@ -142,7 +142,7 @@ const EnquiryDetails = () => {
     setLoading(true);
     try {
       const res = await fetch(
-        `${BASE_URL}/bookings/get-bookings-by-bookingid/${id}`
+        `${BASE_URL}/bookings/get-bookings-by-bookingid/${id}`,
       );
       const data = await res.json();
 
@@ -236,7 +236,8 @@ const EnquiryDetails = () => {
   const deepPackages = enquiry
     ? (enquiry.raw?.service || []).filter(
         (s) =>
-          s?.category && s.category.toString().toLowerCase() === "deep cleaning"
+          s?.category &&
+          s.category.toString().toLowerCase() === "deep cleaning",
       )
     : [];
 
@@ -244,8 +245,10 @@ const EnquiryDetails = () => {
   const bookingDetails = enquiry?.raw?.bookingDetails || {};
   const isHousePainting = enquiry?.raw?.service?.some(
     (s) =>
-      s?.category && s.category.toString().toLowerCase() === "house painting"
+      s?.category && s.category.toString().toLowerCase() === "house painting",
   );
+
+  const paymentLinkUrl = enquiry?.raw?.bookingDetails?.paymentLink?.url || "";
 
   /* ---------------------------
      UI
@@ -342,7 +345,7 @@ const EnquiryDetails = () => {
                 style={{ fontSize: "12px", maxWidth: "800px" }}
               >
                 <FaMapMarkerAlt className="me-1" />
-               
+
                 {[
                   enquiry?.filledData?.houseNumber,
                   enquiry?.filledData?.location,
@@ -373,11 +376,11 @@ const EnquiryDetails = () => {
 
             <div className="text-end">
               <p className="text-black mb-0" style={{ fontSize: 14 }}>
-       {enquiry.date}
+                {enquiry.date}
               </p>
 
               <p className="fw-bold mb-2" style={{ fontSize: 14 }}>
-             {enquiry.time}
+                {enquiry.time}
               </p>
 
               <button
@@ -404,6 +407,10 @@ const EnquiryDetails = () => {
             </div>
           </div>
 
+          <a href={paymentLinkUrl} target="__balnk">
+            Open Payment link
+          </a>
+       
           <hr />
 
           <div className="d-flex justify-content-between mt-4">

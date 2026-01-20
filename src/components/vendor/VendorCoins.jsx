@@ -10,6 +10,8 @@ const VendorCoins = ({
   onAddCoins,
   onReduceCoins,
 }) => {
+  console.log("vendor coin component", vendor.wallet.paymentLink);
+
   return (
     <>
       <h5 className="mt-4 fw-semibold" style={{ fontSize: "14px" }}>
@@ -17,7 +19,23 @@ const VendorCoins = ({
       </h5>
       <div className="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
         <p className="mb-0" style={{ fontSize: "14px" }}>
-          <strong>Coins Balance:</strong> {coinsBalance} coins
+          <strong>Coins Balance:</strong> {coinsBalance} coins <br />
+          {vendor?.wallet?.paymentLink ? (
+            <a
+              href={vendor.wallet.paymentLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                color: "#dc3545",
+                textDecoration: "underline",
+                wordBreak: "break-all",
+              }}
+            >
+              Recharge link
+            </a>
+          ) : (
+            <span className="text-muted">N/A</span>
+          )}
         </p>
         <div className="d-flex align-items-center gap-2">
           <Form.Control
@@ -38,11 +56,7 @@ const VendorCoins = ({
           >
             Add Coins
           </Button>
-          <Button
-            variant="outline-danger"
-            size="sm"
-            onClick={onReduceCoins}
-          >
+          <Button variant="outline-danger" size="sm" onClick={onReduceCoins}>
             Reduce Coins
           </Button>
         </div>

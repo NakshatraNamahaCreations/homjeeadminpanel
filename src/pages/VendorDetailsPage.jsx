@@ -89,6 +89,7 @@ const VendorDetailsPage = () => {
           other: vendorData.documents?.otherPolicy || "",
         },
         team: (vendorData.team || []).map(normalizeMember),
+        wallet:(vendorData?.wallet || [])
       };
 
       setSelectedVendor(detailedVendor);

@@ -250,7 +250,7 @@ const OngoingLeadDetails = () => {
   // -----------------------------
   const maxRequiredTeamMembers = Array.isArray(booking?.service)
     ? Math.max(
-        ...booking.service.map((s) => Number(s.teamMembersRequired || 1))
+        ...booking.service.map((s) => Number(s.teamMembersRequired || 1)),
       )
     : 1;
 
@@ -260,6 +260,7 @@ const OngoingLeadDetails = () => {
 
   const totalAmount = booking?.bookingDetails?.finalTotal;
   const fullamountYetToPay = booking?.bookingDetails?.amountYetToPay;
+  const paymentLinkUrl = booking?.bookingDetails?.paymentLink?.url || "";
 
   const canChangeVendor =
     !isCancelled &&
@@ -302,7 +303,7 @@ const OngoingLeadDetails = () => {
       setError(null);
 
       const res = await fetch(
-        `${BASE_URL}/bookings/get-bookings-by-bookingid/${bookingId}`
+        `${BASE_URL}/bookings/get-bookings-by-bookingid/${bookingId}`,
       );
       if (!res.ok) {
         throw new Error(`Booking API error: ${res.status} ${res.statusText}`);
@@ -365,7 +366,7 @@ const OngoingLeadDetails = () => {
       if (booking?.serviceType === "deep_cleaning") {
         payload.requiredTeamMembers = booking?.service?.reduce(
           (max, s) => Math.max(max, s.teamMembers || 1),
-          1
+          1,
         );
       }
 
@@ -403,7 +404,7 @@ const OngoingLeadDetails = () => {
         if (!vendorId) return;
 
         const res = await fetch(
-          `${BASE_URL}/vendor/get-vendor-by-vendorId/${vendorId}`
+          `${BASE_URL}/vendor/get-vendor-by-vendorId/${vendorId}`,
         );
         if (!res.ok) throw new Error("Failed to fetch vendor");
 
@@ -439,7 +440,7 @@ const OngoingLeadDetails = () => {
       if (lat && lng) {
         window.open(
           `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`,
-          "_blank"
+          "_blank",
         );
         return;
       }
@@ -450,9 +451,9 @@ const OngoingLeadDetails = () => {
         }`.trim();
         window.open(
           `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-            q
+            q,
           )}`,
-          "_blank"
+          "_blank",
         );
         return;
       }
@@ -544,7 +545,7 @@ const OngoingLeadDetails = () => {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
-        }
+        },
       );
 
       const data = await res.json();
@@ -568,7 +569,7 @@ const OngoingLeadDetails = () => {
   const handleCancelBooking = async () => {
     try {
       alert(
-        "Please paste your existing handleCancelBooking logic here (not included in your snippet)."
+        "Please paste your existing handleCancelBooking logic here (not included in your snippet).",
       );
     } catch (err) {
       console.error(err);
@@ -886,6 +887,9 @@ const OngoingLeadDetails = () => {
                             />
                           )}
                         </p>
+                        <a href={paymentLinkUrl} target="__balnk">
+                          Open Payment link
+                        </a>
 
                         {isCancelled && isrefundAmount && (
                           <div
@@ -937,7 +941,7 @@ const OngoingLeadDetails = () => {
                                     computeInstallmentCashDue(booking);
                                   if (info?.canPay)
                                     setCashPayment(
-                                      String(asNum(info.amountYetToPay))
+                                      String(asNum(info.amountYetToPay)),
                                     );
                                   else setCashPayment("");
                                   setCashPaymentPopup(true);
@@ -969,9 +973,8 @@ const OngoingLeadDetails = () => {
                   {booking?.bookingDetails?.priceUpdateRequestedToAdmin && (
                     <AmountChangeCard
                       booking={booking?.bookingDetails}
-                      bookingId ={booking?._id}
-
-                      fetchBooking= { fetchBooking}
+                      bookingId={booking?._id}
+                      fetchBooking={fetchBooking}
                     />
                   )}
                 </div>
@@ -1278,7 +1281,7 @@ const OngoingLeadDetails = () => {
                     <strong>
                       ₹
                       {asNum(installmentInfo?.requestedAmount).toLocaleString(
-                        "en-IN"
+                        "en-IN",
                       )}
                     </strong>
                   </div>
