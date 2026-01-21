@@ -87,8 +87,9 @@ import Logout from "../pages/Logout";
 import AllReminders from "../pages/AllReminders";
 import AdminCleaningCatalogEditor from "../pages/AdminCleaningCatalogEditor";
 import EnquiriesList from "../pages/EnquiriesList";
-import EnquiryDetails from "../pages/EnquiryDetails";
 import VendorDetailsPage from "../pages/VendorDetailsPage";
+import EnquiryDetails from "../pages/EnquiryDetails";
+import QuoteDetails from "../pages/QuoteDetails";
 import ProtectedRoute from "../layouts/ProtectedRoute";
 
 const AppRoutes = () => {
@@ -134,6 +135,8 @@ const AppRoutes = () => {
             path="/admincleaningcatalogeditor"
             element={<AdminCleaningCatalogEditor />}
           />
+
+          <Route path="/quote-details/:id" element={<QuoteDetails />} />
         </Route>
       </Route>
 

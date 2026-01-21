@@ -88,7 +88,7 @@ const CreateLeadModal = ({ onClose }) => {
 
       const res = await axios.post(
         `${BASE_URL}/user/finding-user-exist/mobilenumber`,
-        { mobileNumber: mobile }
+        { mobileNumber: mobile },
       );
 
       if (res.data?.isNewUser === false) {
@@ -359,7 +359,7 @@ const CreateLeadModal = ({ onClose }) => {
           leadData.bookingAmount == 0
             ? "Lead created successfully!"
             : " Enquiry created successfully!"
-        }`
+        }`,
       );
       onClose();
       navigate(`${leadData.bookingAmount == 0 ? "/newleads" : "/enquiries"}`);
@@ -473,7 +473,7 @@ const CreateLeadModal = ({ onClose }) => {
                       toast.error(
                         leadData.serviceType === "Deep Cleaning"
                           ? "Add at least one package"
-                          : "Select service first"
+                          : "Select service first",
                       );
                       return;
                     }
@@ -555,7 +555,7 @@ const CreateLeadModal = ({ onClose }) => {
 
               if (val === "Deep Cleaning") {
                 const res = await axios.get(
-                  `${BASE_URL}/deeppackage/deep-cleaning-packages`
+                  `${BASE_URL}/deeppackage/deep-cleaning-packages`,
                 );
                 setCategories(res.data.data || []);
               }

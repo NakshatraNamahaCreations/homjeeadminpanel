@@ -185,10 +185,7 @@ const OTPVerification = () => {
   }, [timer]);
 
   const handleVerifyOTP = async () => {
-    if (!/^\d{6}$/.test(otp)) {
-      setError("Enter a valid 6-digit OTP.");
-      return;
-    }
+ 
 
     try {
       setVerifying(true);
@@ -316,10 +313,7 @@ const OTPVerification = () => {
             onChange={(e) => {
               const value = e.target.value.replace(/\D/g, "").slice(0, 6);
               setOtp(value);
-              if (value.length === 6) {
-                // Auto-submit when 6 digits entered
-                handleVerifyOTP();
-              }
+             
             }}
             onKeyPress={(e) => e.key === "Enter" && handleVerifyOTP()}
             disabled={verifying}

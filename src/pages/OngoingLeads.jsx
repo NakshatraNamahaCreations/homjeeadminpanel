@@ -732,7 +732,7 @@ const OngoingLeads = () => {
           <option value="Set Remainder">Set Remainder</option>
         </select>
 
-        <select
+        {/* <select
           style={styles.dropdown}
           value={vendorFilter}
           onChange={(e) => setVendorFilter(e.target.value)}
@@ -743,7 +743,7 @@ const OngoingLeads = () => {
               {v.vendor.vendorName}
             </option>
           ))}
-        </select>
+        </select> */}
       </div>
       {loading ? (
         <div

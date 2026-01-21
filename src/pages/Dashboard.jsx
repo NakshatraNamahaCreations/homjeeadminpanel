@@ -483,11 +483,11 @@ const Dashboard = () => {
       }).length;
 
       setUpdatedKeyMetrics([
-        { title: "Total Sales", value: totalSales, trend: "+10%" },
-        { title: "Amount Yet to Be Collected", value: totalPending, trend: "-5%" },
-        { title: "Total Leads", value: leads.length, trend: "+8%" },
-        { title: "Ongoing Projects", value: ongoing, trend: "+2%" },
-        { title: "Upcoming Projects", value: upcoming, trend: "-3%" },
+        { title: "Total Sales", value: totalSales, },
+        { title: "Amount Yet to Be Collected", value: totalPending, },
+        { title: "Total Leads", value: leads.length,  },
+        { title: "Ongoing Projects", value: ongoing, },
+        { title: "Upcoming Projects", value: upcoming,  },
 
         // ✅ Optional: if you want these 2 extra cards, uncomment
         // { title: "Online Payments", value: online, trend: "+1%" },
@@ -666,7 +666,7 @@ const Dropdown = ({ value, onChange, options }) => (
 );
 
 /** Cards */
-const MetricCard = ({ title, value, trend }) => {
+const MetricCard = ({ title, value }) => {
   const isRupee = title === "Total Sales" || title === "Amount Yet to Be Collected";
 
   return (
@@ -675,15 +675,7 @@ const MetricCard = ({ title, value, trend }) => {
       <p style={styles.metricValue}>
         {isRupee ? `₹ ${value?.toLocaleString?.()}` : value}
       </p>
-      <p
-        style={{
-          color: trend.includes("+") ? "green" : "red",
-          fontSize: 12,
-          fontWeight: "bold",
-        }}
-      >
-        {trend}
-      </p>
+     
     </div>
   );
 };
