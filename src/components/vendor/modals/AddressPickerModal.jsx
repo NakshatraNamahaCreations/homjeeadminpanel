@@ -1,89 +1,324 @@
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Modal, Button } from "react-bootstrap";
 
 const GOOGLE_MAPS_API_KEY = "AIzaSyBF48uqsKVyp9P2NlDX-heBJksvvT_8Cqk";
 
-const loadGoogleMaps = () =>
-  new Promise((resolve, reject) => {
-    if (window.google?.maps) return resolve();
-    const existing = document.querySelector('script[data-google="maps"]');
-    if (existing) {
-      existing.addEventListener("load", () => resolve());
-      existing.addEventListener("error", reject);
-      return;
+/* ================= SAFE MAPS+PLACES LOADER ================= */
+let __googleMapsPlacesPromise = null;
+
+const hasPlaces = () =>
+  !!window.google?.maps?.places?.Autocomplete &&
+  typeof window.google.maps.places.Autocomplete === "function";
+
+const findMapsScript = () => {
+  try {
+    const scripts = Array.from(document.querySelectorAll("script[src]"));
+    return scripts.find((s) =>
+      s.src.includes("https://maps.googleapis.com/maps/api/js")
+    );
+  } catch (e) {
+    return null;
+  }
+};
+
+const loadGoogleMaps = () => {
+  if (__googleMapsPlacesPromise) return __googleMapsPlacesPromise;
+
+  __googleMapsPlacesPromise = new Promise((resolve, reject) => {
+    try {
+      if (hasPlaces()) return resolve();
+
+      const existing = findMapsScript();
+
+      const injectPlacesAddon = () => {
+        try {
+          if (hasPlaces()) return resolve();
+
+          const addonAlready = document.querySelector(
+            'script[data-google="maps-places-addon"]'
+          );
+
+          if (addonAlready) {
+            addonAlready.addEventListener("load", () => {
+              try {
+                if (hasPlaces()) resolve();
+                else reject(new Error("Places addon loaded but still missing."));
+              } catch (e) {
+                reject(e);
+              }
+            });
+            addonAlready.addEventListener("error", reject);
+            return;
+          }
+
+          const addon = document.createElement("script");
+          addon.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&v=weekly`;
+          addon.async = true;
+          addon.defer = true;
+          addon.setAttribute("data-google", "maps-places-addon");
+          addon.onload = () => {
+            try {
+              if (!hasPlaces()) {
+                return reject(
+                  new Error(
+                    "Google Maps loaded but Places library is missing. Enable Places API + Billing."
+                  )
+                );
+              }
+              resolve();
+            } catch (e) {
+              reject(e);
+            }
+          };
+          addon.onerror = reject;
+          document.head.appendChild(addon);
+        } catch (err) {
+          reject(err);
+        }
+      };
+
+      if (existing) {
+        // If maps already loaded but places missing → inject addon
+        if (window.google?.maps && !hasPlaces()) {
+          injectPlacesAddon();
+          return;
+        }
+
+        const onLoad = () => {
+          try {
+            if (hasPlaces()) return resolve();
+            injectPlacesAddon();
+          } catch (e) {
+            reject(e);
+          }
+        };
+
+        existing.addEventListener("load", onLoad);
+        existing.addEventListener("error", reject);
+
+        // If maps already loaded earlier (load won't fire)
+        if (window.google?.maps) onLoad();
+
+        return;
+      }
+
+      // No script at all → inject WITH places
+      const s = document.createElement("script");
+      s.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&v=weekly`;
+      s.async = true;
+      s.defer = true;
+      s.setAttribute("data-google", "maps");
+      s.onload = () => {
+        try {
+          if (!hasPlaces()) {
+            return reject(
+              new Error(
+                "Google Maps loaded but Places library is missing. Check API key permissions."
+              )
+            );
+          }
+          resolve();
+        } catch (e) {
+          reject(e);
+        }
+      };
+      s.onerror = reject;
+      document.head.appendChild(s);
+    } catch (err) {
+      reject(err);
     }
-    const s = document.createElement("script");
-    s.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places`;
-    s.async = true;
-    s.defer = true;
-    s.setAttribute("data-google", "maps");
-    s.onload = () => resolve();
-    s.onerror = reject;
-    document.head.appendChild(s);
   });
 
-const AddressPickerModal = ({ show, onHide, onSelect, initialAddress = "", initialLatLng }) => {
+  return __googleMapsPlacesPromise;
+};
+
+/* ================= HELPERS ================= */
+
+const isValidLatLng = (obj) => {
+  try {
+    const lat = Number(obj?.lat);
+    const lng = Number(obj?.lng);
+    return (
+      obj &&
+      !Number.isNaN(lat) &&
+      !Number.isNaN(lng) &&
+      Math.abs(lat) <= 90 &&
+      Math.abs(lng) <= 180
+    );
+  } catch (e) {
+    return false;
+  }
+};
+
+const ensureAutocompleteZIndex = () => {
+  try {
+    const containers = document.querySelectorAll(".pac-container");
+    containers.forEach((el) => {
+      el.style.zIndex = "2147483647"; // above modal/backdrop
+      el.style.position = "fixed";
+    });
+  } catch (e) {}
+};
+
+const getCurrentPosition = () =>
+  new Promise((resolve) => {
+    try {
+      if (!navigator.geolocation) return resolve(null);
+
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          try {
+            const p = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+            console.log("✅ GPS FOUND:", p);
+            resolve(p);
+          } catch (e) {
+            resolve(null);
+          }
+        },
+        (err) => {
+          console.log("❌ GPS DENIED/BLOCKED:", err?.message);
+          resolve(null);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 0,
+        }
+      );
+    } catch (e) {
+      resolve(null);
+    }
+  });
+
+/* ================= COMPONENT ================= */
+
+const AddressPickerModal = ({
+  show,
+  onHide,
+  onSelect,
+  initialAddress = "",
+  initialLatLng,
+}) => {
+  const mapDivRef = useRef(null);
   const mapRef = useRef(null);
-  const inputRef = useRef(null);
   const markerRef = useRef(null);
   const geocoderRef = useRef(null);
+  const placesServiceRef = useRef(null);
+  const inputRef = useRef(null);
   const autocompleteRef = useRef(null);
 
   const [addr, setAddr] = useState(initialAddress || "");
-  const [latLng, setLatLng] = useState(initialLatLng || { lat: null, lng: null });
+  const [placeName, setPlaceName] = useState("");
+  const [latLng, setLatLng] = useState(
+    isValidLatLng(initialLatLng)
+      ? { lat: Number(initialLatLng.lat), lng: Number(initialLatLng.lng) }
+      : { lat: null, lng: null }
+  );
+
+  // ✅ search input must stay independent and start blank
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
-    if (!show || !mapRef.current) return;
+    try {
+      if (show) setSearchQuery("");
+    } catch (e) {}
+  }, [show]);
 
-    let map, marker, geocoder;
+  useEffect(() => {
+    if (!show || !mapDivRef.current) return;
 
-    const getCurrentPosition = () =>
+    let cleanupFns = [];
+    let map, marker, geocoder, autocomplete;
+
+    const fetchPlaceName = (placeId) =>
       new Promise((resolve) => {
-        if (!navigator.geolocation) return resolve(null);
-        navigator.geolocation.getCurrentPosition(
-          (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-          () => resolve(null),
-          { enableHighAccuracy: true, timeout: 5000, maximumAge: 60000 }
-        );
+        try {
+          const svc = placesServiceRef.current;
+          if (!svc || !placeId) return resolve("");
+
+          svc.getDetails({ placeId, fields: ["name"] }, (place, status) => {
+            try {
+              if (
+                status === window.google.maps.places.PlacesServiceStatus.OK &&
+                place?.name
+              ) {
+                return resolve(place.name);
+              }
+              resolve("");
+            } catch (e) {
+              resolve("");
+            }
+          });
+        } catch (e) {
+          resolve("");
+        }
       });
+
+    const reverseGeocode = (pos, formattedAddrFromPlace = null, nameFromPlace = null) => {
+      try {
+        if (!geocoderRef.current) return;
+
+        if (markerRef.current) markerRef.current.setPosition(pos);
+        if (mapRef.current) {
+          mapRef.current.setCenter(pos);
+          mapRef.current.setZoom(16);
+        }
+
+        setLatLng({ lat: pos.lat, lng: pos.lng });
+
+        if (formattedAddrFromPlace) setAddr(formattedAddrFromPlace);
+        if (nameFromPlace) setPlaceName(nameFromPlace);
+
+        geocoderRef.current.geocode({ location: pos }, async (results, status) => {
+          try {
+            if (status === "OK" && results?.[0]) {
+              const formatted = results[0].formatted_address || "";
+              const pid = results[0].place_id;
+
+              if (!formattedAddrFromPlace) setAddr(formatted);
+
+              // ✅ fetch place name if possible
+              const name = await fetchPlaceName(pid);
+              setPlaceName(name || nameFromPlace || "");
+            }
+          } catch (e) {
+            console.warn("reverseGeocode callback error:", e);
+          }
+        });
+      } catch (e) {}
+    };
 
     const init = async () => {
       try {
         await loadGoogleMaps();
 
+        // priority:
+        // 1) initialLatLng
+        // 2) GPS
+        // 3) Bangalore fallback
         let start = null;
 
-        // 1️⃣ EDIT VENDOR: Use existing coordinates if available
-        if (
-          initialLatLng?.lat &&
-          initialLatLng?.lng &&
-          !isNaN(Number(initialLatLng.lat)) &&
-          !isNaN(Number(initialLatLng.lng))
-        ) {
+        if (isValidLatLng(initialLatLng)) {
           start = { lat: Number(initialLatLng.lat), lng: Number(initialLatLng.lng) };
-        }
-
-        // 2️⃣ ADD VENDOR: Fetch current position if no initialLatLng
-        if (!start) {
+        } else {
           start = await getCurrentPosition();
         }
 
-        // 3️⃣ Fallback: default India center
-        if (!start) start = { lat: 20.5937, lng: 78.9629 };
-
-        // Force container height so map is visible
-        mapRef.current.style.minHeight = "500px";
-        mapRef.current.style.height = "500px";
+        if (!start) start = { lat: 12.9716, lng: 77.5946 };
 
         geocoder = new window.google.maps.Geocoder();
         geocoderRef.current = geocoder;
 
-        map = new window.google.maps.Map(mapRef.current, {
+        map = new window.google.maps.Map(mapDivRef.current, {
           center: start,
-          zoom: 13,
+          zoom: isValidLatLng(initialLatLng) ? 16 : 15,
           streetViewControl: false,
           mapTypeControl: false,
         });
+        mapRef.current = map;
+
+        // ✅ needed to fetch business name
+        placesServiceRef.current = new window.google.maps.places.PlacesService(map);
 
         marker = new window.google.maps.Marker({
           map,
@@ -91,56 +326,80 @@ const AddressPickerModal = ({ show, onHide, onSelect, initialAddress = "", initi
           draggable: true,
           title: "Drag to exact location",
         });
-
         markerRef.current = marker;
-        setLatLng(start); // Set initial lat/lng in React state
 
-        // Autocomplete search
+        setLatLng(start);
+
+        if (initialAddress?.trim()) {
+          setAddr(initialAddress.trim());
+        } else {
+          reverseGeocode(start);
+        }
+
+        // ✅ autocomplete
         if (inputRef.current) {
-          const autocomplete = new window.google.maps.places.Autocomplete(inputRef.current, {
-            fields: ["formatted_address", "geometry"],
+          autocomplete = new window.google.maps.places.Autocomplete(inputRef.current, {
+            fields: ["formatted_address", "geometry", "name", "place_id"],
           });
+          autocompleteRef.current = autocomplete;
+
+          ensureAutocompleteZIndex();
 
           autocomplete.addListener("place_changed", () => {
-            const place = autocomplete.getPlace();
-            if (place.geometry?.location) {
+            try {
+              const place = autocomplete.getPlace();
+              if (!place?.geometry?.location) return;
+
               const newPos = {
                 lat: place.geometry.location.lat(),
                 lng: place.geometry.location.lng(),
               };
-              setLatLng(newPos);
-              setAddr(place.formatted_address);
-              map.setCenter(newPos);
-              marker.setPosition(newPos);
+
+              setSearchQuery(place.formatted_address || place.name || "");
+              reverseGeocode(
+                newPos,
+                place.formatted_address || place.name || "",
+                place.name || ""
+              );
+
+              ensureAutocompleteZIndex();
+            } catch (e) {
+              console.warn("place_changed error:", e);
             }
           });
 
-          autocompleteRef.current = autocomplete;
+          const observer = new MutationObserver(ensureAutocompleteZIndex);
+          observer.observe(document.body, { childList: true, subtree: true });
+          cleanupFns.push(() => observer.disconnect());
         }
 
-        // Marker drag & map click update
-        const updatePosition = () => {
-          const pos = marker.getPosition();
-          const newPos = { lat: pos.lat(), lng: pos.lng() };
-          setLatLng(newPos);
-          if (geocoder) {
-            geocoder.geocode({ location: newPos }, (results, status) => {
-              if (status === "OK" && results?.[0]) setAddr(results[0].formatted_address);
-            });
+        marker.addListener("dragend", () => {
+          try {
+            const pos = marker.getPosition();
+            const newPos = { lat: pos.lat(), lng: pos.lng() };
+            reverseGeocode(newPos);
+          } catch (e) {
+            console.warn("marker drag error:", e);
           }
-        };
-
-        marker.addListener("dragend", updatePosition);
-        map.addListener("click", (e) => {
-          marker.setPosition({ lat: e.latLng.lat(), lng: e.latLng.lng() });
-          updatePosition();
         });
 
-        // Force map resize (fix modal display issues)
+        map.addListener("click", (e) => {
+          try {
+            const newPos = { lat: e.latLng.lat(), lng: e.latLng.lng() };
+            marker.setPosition(newPos);
+            reverseGeocode(newPos);
+          } catch (e) {
+            console.warn("map click error:", e);
+          }
+        });
+
         setTimeout(() => {
-          window.google.maps.event.trigger(map, "resize");
-          map.setCenter(start);
-        }, 100);
+          try {
+            window.google.maps.event.trigger(map, "resize");
+            map.setCenter(start);
+            ensureAutocompleteZIndex();
+          } catch (e) {}
+        }, 200);
       } catch (err) {
         console.error("❌ Map init failed:", err);
       }
@@ -149,46 +408,320 @@ const AddressPickerModal = ({ show, onHide, onSelect, initialAddress = "", initi
     init();
 
     return () => {
-      if (map) window.google.maps.event.clearInstanceListeners(map);
-      if (marker) window.google.maps.event.clearInstanceListeners(marker);
-      if (geocoder) window.google.maps.event.clearInstanceListeners(geocoder);
+      try {
+        cleanupFns.forEach((fn) => fn());
+        if (map) window.google.maps.event.clearInstanceListeners(map);
+        if (marker) window.google.maps.event.clearInstanceListeners(marker);
+      } catch (e) {}
     };
   }, [show, initialLatLng, initialAddress]);
 
   const handleUseLocation = () => {
-    if (!latLng.lat || !latLng.lng) {
-      alert("Please select a valid location on the map.");
-      return;
+    try {
+      if (!latLng?.lat || !latLng?.lng) {
+        alert("Please select a valid location on the map.");
+        return;
+      }
+
+      onSelect({
+        placeName: placeName || "",
+        formattedAddress: addr,
+        lat: latLng.lat,
+        lng: latLng.lng,
+      });
+
+      onHide();
+    } catch (e) {
+      alert("Something went wrong while selecting location.");
     }
-    onSelect({ formattedAddress: addr, lat: latLng.lat, lng: latLng.lng });
-    onHide();
   };
 
   return (
-    <Modal show={show} onHide={onHide} centered size="lg" dialogClassName="gmap-dialog" contentClassName="gmap-content" fullscreen="md-down" scrollable>
+    <Modal
+      show={show}
+      onHide={onHide}
+      centered
+      size="lg"
+      dialogClassName="gmap-dialog"
+      contentClassName="gmap-content"
+      fullscreen="md-down"
+      scrollable
+    >
       <Modal.Header closeButton>
         <Modal.Title>
-          Pick Location <span className="text-muted" style={{ fontWeight: 400 }}>(Google Maps)</span>
+          Pick Location{" "}
+          <span className="text-muted" style={{ fontWeight: 400 }}>
+            (Google Maps)
+          </span>
         </Modal.Title>
       </Modal.Header>
+
       <Modal.Body className="gmap-body">
-        <input ref={inputRef} placeholder="Search location or paste address" style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid #ddd", marginBottom: "12px" }} />
-        <div ref={mapRef} style={{ width: "100%", height: "500px", borderRadius: "8px", border: "1px solid #eee" }} />
-        <div style={{ marginTop: "12px", padding: "8px", border: "1px solid #eee", borderRadius: "8px", background: "#f8f9fa", fontSize: "13px" }}>
-          <strong>Selected:</strong> {addr || "Click map or search"}
+        <input
+          ref={inputRef}
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          onFocus={ensureAutocompleteZIndex}
+          placeholder="Search new location..."
+          style={{
+            width: "100%",
+            padding: "12px",
+            borderRadius: "8px",
+            border: "1px solid #ddd",
+            marginBottom: "12px",
+          }}
+        />
+
+        <div
+          ref={mapDivRef}
+          style={{
+            width: "100%",
+            height: "500px",
+            borderRadius: "8px",
+            border: "1px solid #eee",
+            overflow: "hidden",
+          }}
+        />
+
+        <div
+          style={{
+            marginTop: "12px",
+            padding: "8px",
+            border: "1px solid #eee",
+            borderRadius: "8px",
+            background: "#f8f9fa",
+            fontSize: "13px",
+          }}
+        >
+          <strong>Selected:</strong>{" "}
+          {placeName ? `${placeName}, ` : ""}
+          {addr || "Click map / drag marker / search"}
           <br />
-          <span className="text-muted" style={{ fontSize: "12px" }}>Lat: {latLng.lat?.toFixed(6) || "N/A"} | Lng: {latLng.lng?.toFixed(6) || "N/A"}</span>
+          <span className="text-muted" style={{ fontSize: "12px" }}>
+            Lat: {latLng?.lat != null ? Number(latLng.lat).toFixed(6) : "N/A"} |{" "}
+            Lng: {latLng?.lng != null ? Number(latLng.lng).toFixed(6) : "N/A"}
+          </span>
         </div>
       </Modal.Body>
+
       <Modal.Footer>
-        <Button variant="secondary" onClick={onHide}>Cancel</Button>
-        <Button variant="primary" onClick={handleUseLocation}>Use this location</Button>
+        <Button variant="secondary" onClick={onHide}>
+          Cancel
+        </Button>
+        <Button variant="primary" onClick={handleUseLocation}>
+          Use this location
+        </Button>
       </Modal.Footer>
     </Modal>
   );
 };
 
 export default AddressPickerModal;
+
+
+// 22-01-2026
+// import { useState, useEffect, useRef } from "react";
+// import { Modal, Button } from "react-bootstrap";
+
+// const GOOGLE_MAPS_API_KEY = "AIzaSyBF48uqsKVyp9P2NlDX-heBJksvvT_8Cqk";
+
+// const loadGoogleMaps = () =>
+//   new Promise((resolve, reject) => {
+//     if (window.google?.maps) return resolve();
+//     const existing = document.querySelector('script[data-google="maps"]');
+//     if (existing) {
+//       existing.addEventListener("load", () => resolve());
+//       existing.addEventListener("error", reject);
+//       return;
+//     }
+//     const s = document.createElement("script");
+//     s.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places`;
+//     s.async = true;
+//     s.defer = true;
+//     s.setAttribute("data-google", "maps");
+//     s.onload = () => resolve();
+//     s.onerror = reject;
+//     document.head.appendChild(s);
+//   });
+
+// const AddressPickerModal = ({ show, onHide, onSelect, initialAddress = "", initialLatLng }) => {
+//   const mapRef = useRef(null);
+//   const inputRef = useRef(null);
+//   const markerRef = useRef(null);
+//   const geocoderRef = useRef(null);
+//   const autocompleteRef = useRef(null);
+
+//   const [addr, setAddr] = useState(initialAddress || "");
+//   const [latLng, setLatLng] = useState(initialLatLng || { lat: null, lng: null });
+
+//   useEffect(() => {
+//     if (!show || !mapRef.current) return;
+
+//     let map, marker, geocoder;
+
+//     const getCurrentPosition = () =>
+//       new Promise((resolve) => {
+//         if (!navigator.geolocation) return resolve(null);
+//         navigator.geolocation.getCurrentPosition(
+//           (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+//           () => resolve(null),
+//           { enableHighAccuracy: true, timeout: 5000, maximumAge: 60000 }
+//         );
+//       });
+
+//     const init = async () => {
+//       try {
+//         await loadGoogleMaps();
+
+//         let start = null;
+
+//         // 1️⃣ EDIT VENDOR: Use existing coordinates if available
+//         if (
+//           initialLatLng?.lat &&
+//           initialLatLng?.lng &&
+//           !isNaN(Number(initialLatLng.lat)) &&
+//           !isNaN(Number(initialLatLng.lng))
+//         ) {
+//           start = { lat: Number(initialLatLng.lat), lng: Number(initialLatLng.lng) };
+//         }
+
+//         // 2️⃣ ADD VENDOR: Fetch current position if no initialLatLng
+//         if (!start) {
+//           start = await getCurrentPosition();
+//         }
+
+//         // 3️⃣ Fallback: default India center
+//         if (!start) start = { lat: 20.5937, lng: 78.9629 };
+
+//         // Force container height so map is visible
+//         mapRef.current.style.minHeight = "500px";
+//         mapRef.current.style.height = "500px";
+
+//         geocoder = new window.google.maps.Geocoder();
+//         geocoderRef.current = geocoder;
+
+//         map = new window.google.maps.Map(mapRef.current, {
+//           center: start,
+//           zoom: 13,
+//           streetViewControl: false,
+//           mapTypeControl: false,
+//         });
+
+//         marker = new window.google.maps.Marker({
+//           map,
+//           position: start,
+//           draggable: true,
+//           title: "Drag to exact location",
+//         });
+
+//         markerRef.current = marker;
+//         setLatLng(start); // Set initial lat/lng in React state
+
+//         // Autocomplete search
+//         if (inputRef.current) {
+//           const autocomplete = new window.google.maps.places.Autocomplete(inputRef.current, {
+//             fields: ["formatted_address", "geometry"],
+//           });
+
+//           autocomplete.addListener("place_changed", () => {
+//             const place = autocomplete.getPlace();
+//             if (place.geometry?.location) {
+//               const newPos = {
+//                 lat: place.geometry.location.lat(),
+//                 lng: place.geometry.location.lng(),
+//               };
+//               setLatLng(newPos);
+//               setAddr(place.formatted_address);
+//               map.setCenter(newPos);
+//               marker.setPosition(newPos);
+//             }
+//           });
+
+//           autocompleteRef.current = autocomplete;
+//         }
+
+//         // Marker drag & map click update
+//         const updatePosition = () => {
+//           const pos = marker.getPosition();
+//           const newPos = { lat: pos.lat(), lng: pos.lng() };
+//           setLatLng(newPos);
+//           if (geocoder) {
+//             geocoder.geocode({ location: newPos }, (results, status) => {
+//               if (status === "OK" && results?.[0]) setAddr(results[0].formatted_address);
+//             });
+//           }
+//         };
+
+//         marker.addListener("dragend", updatePosition);
+//         map.addListener("click", (e) => {
+//           marker.setPosition({ lat: e.latLng.lat(), lng: e.latLng.lng() });
+//           updatePosition();
+//         });
+
+//         // Force map resize (fix modal display issues)
+//         setTimeout(() => {
+//           window.google.maps.event.trigger(map, "resize");
+//           map.setCenter(start);
+//         }, 100);
+//       } catch (err) {
+//         console.error("❌ Map init failed:", err);
+//       }
+//     };
+
+//     init();
+
+//     return () => {
+//       if (map) window.google.maps.event.clearInstanceListeners(map);
+//       if (marker) window.google.maps.event.clearInstanceListeners(marker);
+//       if (geocoder) window.google.maps.event.clearInstanceListeners(geocoder);
+//     };
+//   }, [show, initialLatLng, initialAddress]);
+
+//   const handleUseLocation = () => {
+//     if (!latLng.lat || !latLng.lng) {
+//       alert("Please select a valid location on the map.");
+//       return;
+//     }
+//     onSelect({ formattedAddress: addr, lat: latLng.lat, lng: latLng.lng });
+//     onHide();
+//   };
+
+//   return (
+//     <Modal show={show} onHide={onHide} centered size="lg" dialogClassName="gmap-dialog" contentClassName="gmap-content" fullscreen="md-down" scrollable>
+//       <Modal.Header closeButton>
+//         <Modal.Title>
+//           Pick Location <span className="text-muted" style={{ fontWeight: 400 }}>(Google Maps)</span>
+//         </Modal.Title>
+//       </Modal.Header>
+//       <Modal.Body className="gmap-body">
+//         <input ref={inputRef} placeholder="Search location or paste address" style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid #ddd", marginBottom: "12px" }} />
+//         <div ref={mapRef} style={{ width: "100%", height: "500px", borderRadius: "8px", border: "1px solid #eee" }} />
+//         <div style={{ marginTop: "12px", padding: "8px", border: "1px solid #eee", borderRadius: "8px", background: "#f8f9fa", fontSize: "13px" }}>
+//           <strong>Selected:</strong> {addr || "Click map or search"}
+//           <br />
+//           <span className="text-muted" style={{ fontSize: "12px" }}>Lat: {latLng.lat?.toFixed(6) || "N/A"} | Lng: {latLng.lng?.toFixed(6) || "N/A"}</span>
+//         </div>
+//       </Modal.Body>
+//       <Modal.Footer>
+//         <Button variant="secondary" onClick={onHide}>Cancel</Button>
+//         <Button variant="primary" onClick={handleUseLocation}>Use this location</Button>
+//       </Modal.Footer>
+//     </Modal>
+//   );
+// };
+
+// export default AddressPickerModal;
+
+
+
+
+
+
+
+
+
+
+
 
 // import { useState, useEffect, useCallback, useRef } from "react";
 // import {

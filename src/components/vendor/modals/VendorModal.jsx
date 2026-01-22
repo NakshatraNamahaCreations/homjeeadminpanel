@@ -6,6 +6,7 @@ import VendorForm from "../forms/VendorForm";
 import { validateVendorForm } from "../../../utils/helpers";
 import axios from "axios";
 import { BASE_URL } from "../../../utils/config";
+import AddressPickerModal from "../modals/AddressPickerModal";
 
 const VendorModal = ({
   show,
@@ -14,7 +15,7 @@ const VendorModal = ({
   vendorId = null,
   formData: initialFormData = null,
   onSuccess,
-  onAddressPickerOpen,
+  // onAddressPickerOpen,
 }) => {
   const [formData, setFormData] = useState({
     vendorName: "",
@@ -48,6 +49,7 @@ const VendorModal = ({
   });
   const [loading, setLoading] = useState(false);
   const [geocodingError, setGeocodingError] = useState(null);
+  const [showAddressPicker, setShowAddressPicker] = useState(false);
 
   useEffect(() => {
     if (isEditing && initialFormData) {
@@ -97,7 +99,7 @@ const VendorModal = ({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     const validationErrors = validateVendorForm(formData);
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
@@ -105,7 +107,12 @@ const VendorModal = ({
     }
     setErrors({});
 
-    if (!formData.latitude || !formData.longitude || isNaN(formData.latitude) || isNaN(formData.longitude)) {
+    if (
+      !formData.latitude ||
+      !formData.longitude ||
+      isNaN(formData.latitude) ||
+      isNaN(formData.longitude)
+    ) {
       alert("Please select a valid location using the map picker.");
       return;
     }
@@ -162,14 +169,9 @@ const VendorModal = ({
         appendIfFile("panImage", files.panImage);
         appendIfFile("otherPolicy", files.otherPolicy);
 
-        await axios.put(
-          `${BASE_URL}/vendor/update-vendor/${vendorId}`,
-          fd,
-          {
-            headers: { "Content-Type": "multipart/form-data" },
-          }
-        );
-        alert("Vendor updated successfully!");
+        await axios.put(`${BASE_URL}/vendor/update-vendor/${vendorId}`, fd, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
       } else {
         fd.append("vendor", JSON.stringify(vendor));
         fd.append("documents", JSON.stringify(documents));
@@ -177,15 +179,16 @@ const VendorModal = ({
         fd.append("address", JSON.stringify(address));
 
         if (files.profileImage) fd.append("profileImage", files.profileImage);
-        if (files.aadhaarbackImage) fd.append("aadhaarbackImage", files.aadhaarbackImage);
-        if (files.aadhaarfrontImage) fd.append("aadhaarfrontImage", files.aadhaarfrontImage);
+        if (files.aadhaarbackImage)
+          fd.append("aadhaarbackImage", files.aadhaarbackImage);
+        if (files.aadhaarfrontImage)
+          fd.append("aadhaarfrontImage", files.aadhaarfrontImage);
         if (files.panImage) fd.append("panImage", files.panImage);
         if (files.otherPolicy) fd.append("otherPolicy", files.otherPolicy);
 
         await axios.post(`${BASE_URL}/vendor/create-vendor`, fd, {
           headers: { "Content-Type": "multipart/form-data" },
         });
-        alert("Vendor created successfully!");
       }
 
       onSuccess();
@@ -194,7 +197,7 @@ const VendorModal = ({
       console.error("Error saving vendor:", error);
       alert(
         "Failed to save vendor: " +
-          (error.response?.data?.message || error.message)
+          (error.response?.data?.message || error.message),
       );
     } finally {
       setLoading(false);
@@ -216,18 +219,46 @@ const VendorModal = ({
             files={files}
             onInputChange={handleInputChange}
             onFileChange={handleFileChange}
-            onAddressPickerOpen={onAddressPickerOpen}
+            onAddressPickerOpen={() => setShowAddressPicker(true)}
             geocodingError={geocodingError}
           />
           <Modal.Footer>
             <Button variant="primary" type="submit" disabled={loading}>
-              {loading ? "Saving..." : isEditing ? "Update Vendor" : "Save Vendor"}
+              {loading
+                ? "Saving..."
+                : isEditing
+                  ? "Update Vendor"
+                  : "Save Vendor"}
             </Button>
             <Button variant="secondary" onClick={onHide} disabled={loading}>
               Cancel
             </Button>
           </Modal.Footer>
         </Form>
+
+        <AddressPickerModal
+          show={showAddressPicker}
+          onHide={() => setShowAddressPicker(false)}
+          initialAddress={formData.location}
+          initialLatLng={
+            formData.latitude && formData.longitude
+              ? {
+                  lat: parseFloat(formData.latitude),
+                  lng: parseFloat(formData.longitude),
+                }
+              : null
+          }
+          onSelect={(sel) => {
+            setFormData((prev) => ({
+              ...prev,
+              location: sel.formattedAddress,
+              serviceArea: sel.formattedAddress,
+              latitude: String(sel.lat),
+              longitude: String(sel.lng),
+            }));
+            setShowAddressPicker(false);
+          }}
+        />
       </Modal.Body>
     </Modal>
   );

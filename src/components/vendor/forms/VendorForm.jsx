@@ -135,12 +135,15 @@ const VendorForm = ({
               <option value="">Select Service</option>
               <option value="House Painting">House Painting</option>
               <option value="Deep Cleaning">Deep Cleaning</option>
-              <option value="Plumbing">Plumbing</option>
+              <option value="House Interior">House Interior</option>
+              <option value="Packers & Movers">Packers & Movers</option>
+
+              {/* <option value="Plumbing">Plumbing</option>
               <option value="Electrical">Electrical</option>
               <option value="Carpentry">Carpentry</option>
               <option value="Pest Control">Pest Control</option>
               <option value="AC Service">AC Service</option>
-              <option value="Car Wash">Car Wash</option>
+              <option value="Car Wash">Car Wash</option> */}
             </Form.Select>
             <Form.Control.Feedback type="invalid">
               {errors.serviceType}
@@ -407,8 +410,7 @@ const VendorForm = ({
               <option value="Savings">Savings</option>
               <option value="Current">Current</option>
               <option value="Salary">Salary</option>
-              <option value="Fixed Deposit">Fixed Deposit</option>
-              <option value="Recurring Deposit">Recurring Deposit</option>
+     
             </Form.Select>
             <Form.Control.Feedback type="invalid">
               {errors.accountType}

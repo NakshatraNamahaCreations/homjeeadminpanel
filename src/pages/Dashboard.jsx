@@ -748,13 +748,13 @@ export const styles = {
   cardContainer: {
     marginTop: 20,
     display: "flex",
-    gap: 10,
+    gap: 20,
     flexWrap: "wrap",
-    justifyContent: "center",
+    // justifyContent: "center",
   },
   card: {
-    padding: 15,
-    width: 220,
+    padding: 16,
+    width: 240,
     borderRadius: 8,
     background: "#fff",
     boxShadow: "0 3px 10px rgba(0,0,0,0.1)",

@@ -560,7 +560,7 @@ const VendorDetailsPage = () => {
         vendorId={editingVendorId}
         formData={vendorFormData}
         onSuccess={handleVendorSuccess}
-        onAddressPickerOpen={() => setShowAddressPicker(true)}
+        // onAddressPickerOpen={() => setShowAddressPicker(true)}
       />
 
       <TeamMemberModal
@@ -612,17 +612,17 @@ const VendorDetailsPage = () => {
               }
             : null
         }
-        onSelect={(sel) => {
-          if (vendorFormData) {
-            setVendorFormData((prev) => ({
-              ...prev,
-              location: sel.formattedAddress,
-              serviceArea: sel.formattedAddress,
-              latitude: String(sel.lat),
-              longitude: String(sel.lng),
-            }));
-          }
-        }}
+        // onSelect={(sel) => {
+        //   if (vendorFormData) {
+        //     setVendorFormData((prev) => ({
+        //       ...prev,
+        //       location: sel.formattedAddress,
+        //       serviceArea: sel.formattedAddress,
+        //       latitude: String(sel.lat),
+        //       longitude: String(sel.lng),
+        //     }));
+        //   }
+        // }}
       />
 
       <AddressPickerModal
