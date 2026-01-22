@@ -73,8 +73,12 @@ const OngoingLeadDetails = () => {
   const [paymentDetails, setPaymentDetails] = useState({
     totalAmount: 0,
     amountPaid: 0,
+    amountYetToPay: 0,
     paymentId: "",
   });
+
+  const [siteVisitPaid, setSiteVisitPaid] = useState(false);
+  const [firstPaymentPaid, setFirstPaymentPaid] = useState(false);
 
   const [assignedVendorDetails, setAssignedVendorDetails] = useState(null);
   const [vendorTeamCount, setVendorTeamCount] = useState(0);
@@ -94,6 +98,10 @@ const OngoingLeadDetails = () => {
   const asNum = (v) => {
     const n = Number(v);
     return Number.isFinite(n) ? n : 0;
+  };
+
+  const getPaymentStatus = (payment) => {
+    return payment?.status?.toLowerCase() || "pending";
   };
 
   const formatIST = (isoLike) => {
@@ -277,14 +285,11 @@ const OngoingLeadDetails = () => {
     }
   }, [booking]);
 
-  const isCancelled = useMemo(() => {
-    try {
-      return Boolean(booking?.bookingDetails?.status?.includes("Cancelled"));
-    } catch (err) {
-      console.error("isCancelled error:", err);
-      return false;
-    }
-  }, [booking]);
+  // Cancelled Status Check
+  const isCancelled =
+    booking?.bookingDetails?.status === "Customer Cancelled" ||
+    booking?.bookingDetails?.status === "Admin Cancelled" ||
+    booking?.bookingDetails?.status === "Cancelled";
 
   const paidAmount = booking?.bookingDetails?.paidAmount ?? 0;
   const isrefundAmount = (booking?.bookingDetails?.refundAmount ?? 0) > 0;
@@ -298,7 +303,8 @@ const OngoingLeadDetails = () => {
     booking?.assignedProfessional &&
     booking?.assignedProfessional?.acceptedDate;
 
-  const bookingStatus = booking?.bookingDetails?.status || booking?.status || "";
+  const bookingStatus =
+    booking?.bookingDetails?.status || booking?.status || "";
   const canReschedule =
     !isCancelled &&
     RESCHEDULE_ALLOWED_STATUSES.includes(String(bookingStatus).toLowerCase());
@@ -312,11 +318,18 @@ const OngoingLeadDetails = () => {
   // ✅ IMPORTANT: keep your old behaviour for pay via cash
   // (If you want condition stricter, uncomment the canPay + due check)
 
-  const secondRequestAmount = booking?.bookingDetails?.secondPayment?.requestedAmount;
+  const secondRequestAmount =
+    booking?.bookingDetails?.secondPayment?.requestedAmount;
   const shouldShowPayViaCash =
-    asNum(fullamountYetToPay) > 0 && asNum(totalAmount) > 0 && secondRequestAmount > 0;
+    asNum(fullamountYetToPay) > 0 &&
+    asNum(totalAmount) > 0 &&
+    secondRequestAmount > 0;
 
   const isHousePainting = booking?.serviceType === "house_painting";
+
+  // Amount Yet to Pay Logic
+  const amountYetToPay =
+    isCancelled && refundAmount > 0 ? 0 : paymentDetails.amountYetToPay;
 
   // -----------------------------
   // Fetch booking
@@ -345,18 +358,31 @@ const OngoingLeadDetails = () => {
 
       setBooking(normalized);
 
-      const paid = normalized?.bookingDetails?.paidAmount ?? 0;
-      const total =
-        normalized?.bookingDetails?.bookingAmount ??
-        normalized?.bookingDetails?.originalTotalAmount ??
-        0;
+      const firstPayment = normalized?.bookingDetails?.firstPayment || {};
+      const siteVisitPayment =
+        normalized?.bookingDetails?.siteVisitPayment || {};
 
+      // Check if the first payment is paid and if the amounts match
+      const firstPaymentStatus = getPaymentStatus(firstPayment);
+      const firstPaymentAmount = asNum(firstPayment?.amount);
+      const firstPaymentRequestedAmount = asNum(firstPayment?.requestedAmount);
+
+      const siteVisitStatus = getPaymentStatus(siteVisitPayment);
+
+      // Set state based on the payment status
+      setSiteVisitPaid(siteVisitStatus === "paid");
+      setFirstPaymentPaid(
+        firstPaymentStatus === "paid" &&
+          firstPaymentAmount === firstPaymentRequestedAmount,
+      );
+
+      setRefundAmount(normalized?.bookingDetails?.refundAmount || 0);
+      // Set payment details state
       setPaymentDetails({
-        totalAmount: total,
-        amountPaid: paid,
-        paymentId: normalized?.bookingDetails?.otp
-          ? String(normalized.bookingDetails.otp)
-          : normalized?.bookingDetails?.paymentLink?.providerRef || "N/A",
+        totalAmount: asNum(normalized?.bookingDetails?.finalTotal),
+        amountPaid: asNum(normalized?.bookingDetails?.paidAmount),
+        amountYetToPay: asNum(normalized?.bookingDetails?.amountYetToPay),
+        paymentId: "",
       });
     } catch (err) {
       console.error("Booking fetch error:", err);
@@ -385,7 +411,8 @@ const OngoingLeadDetails = () => {
       const res = await fetch(url);
       const data = await res.json();
 
-      if (!res.ok) throw new Error(data?.message || "Failed to fetch quotations");
+      if (!res.ok)
+        throw new Error(data?.message || "Failed to fetch quotations");
 
       const list = data?.data?.list || [];
       setQuotes(Array.isArray(list) ? list : []);
@@ -410,7 +437,8 @@ const OngoingLeadDetails = () => {
       );
       const data = await res.json();
 
-      if (!res.ok) throw new Error(data?.message || "Failed to fetch measurements");
+      if (!res.ok)
+        throw new Error(data?.message || "Failed to fetch measurements");
 
       const payload = data?.data ?? data?.measurements ?? data;
 
@@ -439,7 +467,8 @@ const OngoingLeadDetails = () => {
 
       // quotes by leadId + vendorId
       const vendorId = booking?.assignedProfessional?.professionalId;
-      if (bookingId && vendorId) fetchQuotesByLeadAndVendor(bookingId, vendorId);
+      if (bookingId && vendorId)
+        fetchQuotesByLeadAndVendor(bookingId, vendorId);
     } catch (err) {
       console.error("quotes/measurements effect error:", err);
     }
@@ -473,7 +502,8 @@ const OngoingLeadDetails = () => {
       const lat = booking?.address?.location?.coordinates?.[1];
       const lng = booking?.address?.location?.coordinates?.[0];
 
-      if (lat == null || lng == null) throw new Error("Booking location not available");
+      if (lat == null || lng == null)
+        throw new Error("Booking location not available");
 
       const payload = {
         lat,
@@ -531,7 +561,9 @@ const OngoingLeadDetails = () => {
         const data = await res.json();
         setAssignedVendorDetails(data.vendor);
 
-        const teamCount = Array.isArray(data.vendor?.team) ? data.vendor.team.length : 0;
+        const teamCount = Array.isArray(data.vendor?.team)
+          ? data.vendor.team.length
+          : 0;
         setVendorTeamCount(teamCount + 1);
       } catch (err) {
         console.error("Vendor fetch error:", err);
@@ -564,7 +596,8 @@ const OngoingLeadDetails = () => {
       }
 
       if (booking?.address?.streetArea || booking?.address?.city) {
-        const q = `${booking.address.streetArea || ""} ${booking.address.city || ""}`.trim();
+        const q =
+          `${booking.address.streetArea || ""} ${booking.address.city || ""}`.trim();
         window.open(
           `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`,
           "_blank",
@@ -624,7 +657,8 @@ const OngoingLeadDetails = () => {
 
       const secondPayment = booking?.bookingDetails?.secondPayment || {};
       const isAdditionalAmount =
-        asNum(secondPayment?.amount) === asNum(secondPayment?.requestedAmount) &&
+        asNum(secondPayment?.amount) ===
+          asNum(secondPayment?.requestedAmount) &&
         normStatus(secondPayment?.status) === "paid";
 
       const getInstallmentStage = () => {
@@ -680,11 +714,44 @@ const OngoingLeadDetails = () => {
 
   const handleCancelBooking = async () => {
     try {
-      alert(
-        "Please paste your existing handleCancelBooking logic here (not included in your snippet).",
-      );
+      if (!refundAmount || refundAmount < 0) {
+        alert("Please enter valid refund amount");
+        return;
+      }
+
+      const status = booking?.bookingDetails?.status;
+
+      const payload = {
+        bookingId: booking._id,
+        refundAmount: Number(refundAmount),
+      };
+
+      let apiUrl = "";
+
+      // ✅ CASE 1: Already cancelled → approve refund
+      if (status === "Customer Cancelled" || status === "Cancelled") {
+        apiUrl = `${BASE_URL}/bookings/approve-cancel-booking/refund/admin`;
+      }
+      // ✅ CASE 2: Admin cancelling now
+      else {
+        apiUrl = `${BASE_URL}/bookings/cancel-booking-by-admin`;
+      }
+
+      const res = await fetch(apiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        throw new Error(`Cancel API failed: ${res.status}`);
+      }
+
+      setShowCancelPopup(false);
+      fetchBooking();
     } catch (err) {
-      console.error("handleCancelBooking error:", err);
+      console.error("Cancel booking error:", err);
+      alert("Failed to cancel booking / refund");
     }
   };
 
@@ -757,7 +824,9 @@ const OngoingLeadDetails = () => {
   const bookingSlotTime =
     booking?.selectedSlot?.slotTime || booking?.bookingDetails?.bookingTime;
 
-  const normalizedStatus = String(booking?.bookingDetails?.status || "").toLowerCase();
+  const normalizedStatus = String(
+    booking?.bookingDetails?.status || "",
+  ).toLowerCase();
   const isProjectCompleted = normalizedStatus === "project completed";
 
   return (
@@ -781,7 +850,8 @@ const OngoingLeadDetails = () => {
         <div className="card-body">
           {/* Status Badge */}
           {(() => {
-            const status = booking?.bookingDetails?.status || booking?.status || "Pending";
+            const status =
+              booking?.bookingDetails?.status || booking?.status || "Pending";
             return (
               <div
                 style={{
@@ -838,7 +908,9 @@ const OngoingLeadDetails = () => {
               }}
             >
               <div>
-                <p style={{ color: "#D44B4B", fontWeight: 700, marginBottom: 6 }}>
+                <p
+                  style={{ color: "#D44B4B", fontWeight: 700, marginBottom: 6 }}
+                >
                   {booking?.service?.[0]?.category || "Unknown Service"}
                 </p>
 
@@ -873,7 +945,8 @@ const OngoingLeadDetails = () => {
                 </p>
 
                 <p style={{ color: "#6c757d", fontSize: 13, margin: 0 }}>
-                  <FaPhone className="me-1" /> {booking?.customer?.phone || "N/A"}
+                  <FaPhone className="me-1" />{" "}
+                  {booking?.customer?.phone || "N/A"}
                 </p>
               </div>
 
@@ -888,7 +961,9 @@ const OngoingLeadDetails = () => {
                   {bookingSlotTime || "N/A"}
                 </div>
 
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <div
+                  style={{ display: "flex", flexDirection: "column", gap: 8 }}
+                >
                   <button
                     onClick={handleOpenMaps}
                     className="btn btn-sm btn-danger"
@@ -914,19 +989,21 @@ const OngoingLeadDetails = () => {
           {/* Main columns */}
           <div className="row">
             <div className="col-md-7">
-
-               {/* Service Details */}
+              {/* Service Details */}
               <div className="card p-3 mb-3" style={{ borderRadius: 8 }}>
                 <h6 className="fw-bold mb-2" style={{ fontSize: 14 }}>
-                 Service Details
+                  Service Details
                 </h6>
-                <p className="fw-bold mb-2" style={{ fontSize: 13, marginLeft:6,marginBottom:6  }}>
-                  {booking?.service?.[0]?.category === "Deep Cleaning"
-                    && " Deep Cleaning Packages"
-                  }
+                <p
+                  className="fw-bold mb-2"
+                  style={{ fontSize: 13, marginLeft: 6, marginBottom: 6 }}
+                >
+                  {booking?.service?.[0]?.category === "Deep Cleaning" &&
+                    " Deep Cleaning Packages"}
                 </p>
 
-                {Array.isArray(booking?.service) && booking.service.length > 0 ? (
+                {Array.isArray(booking?.service) &&
+                booking.service.length > 0 ? (
                   booking.service.map((s, index) => (
                     <div
                       key={index}
@@ -936,7 +1013,10 @@ const OngoingLeadDetails = () => {
                       <div>
                         <p className="mb-1 fw-semibold">• {s.serviceName}</p>
                         {s.subCategory && (
-                          <p className="text-muted mb-0" style={{ fontSize: 12 }}>
+                          <p
+                            className="text-muted mb-0"
+                            style={{ fontSize: 12 }}
+                          >
                             {s.subCategory}
                           </p>
                         )}
@@ -955,16 +1035,486 @@ const OngoingLeadDetails = () => {
                   </p>
                 )}
               </div>
+
               {/* Payment Details */}
-              <div className="card mb-3" style={{ borderRadius: 8 }}>
+              <div className="card mb-3">
+                <div className="card-body">
+                  <h6 className="fw-bold">Payment Summary</h6>
+
+                  {/* If first payment is not paid, show only site visit charges */}
+                  {!firstPaymentPaid && (
+                    <>
+                      <p style={{ fontSize: 12, marginBottom: "1%" }}>
+                        <span className="text-muted">Site Visit Charges:</span>{" "}
+                        <strong>
+                          ₹
+                          {asNum(
+                            booking?.bookingDetails?.siteVisitCharges,
+                          ).toLocaleString("en-IN")}
+                        </strong>
+                      </p>
+
+                      <div style={{ marginTop: 10 }}>
+                        {booking?.payments?.map((p, idx) => {
+                          const payments = Array.isArray(booking?.payments)
+                            ? booking.payments
+                            : [];
+
+                          const isCashMethod = (m) =>
+                            String(m || "")
+                              .toLowerCase()
+                              .trim() === "cash";
+
+                          const getPaymentId = (p) => {
+                            if (!p) return "N/A";
+                            if (isCashMethod(p.method)) return "CASH";
+                            return p.providerRef || "N/A";
+                          };
+
+                          const getPaymentLabel = (p) => {
+                            const purpose = String(p?.purpose || "")
+                              .toLowerCase()
+                              .trim();
+                            const inst = String(p?.installment || "")
+                              .toLowerCase()
+                              .trim();
+
+                            if (purpose === "site_visit")
+                              return "Site Visit Charges";
+                            if (inst === "first") return "First Payment";
+                            if (inst === "second") return "Second Payment";
+                            if (inst === "final") return "Final Payment";
+                            return "Payment";
+                          };
+                          const label = getPaymentLabel(p);
+                          const paymentId = getPaymentId(p);
+
+                          const paidAt = p?.at
+                            ? new Date(p.at)
+                                .toLocaleString("en-GB", {
+                                  day: "2-digit",
+                                  month: "2-digit",
+                                  year: "numeric",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                  hour12: true,
+                                })
+                                .replace(",", "")
+                                .replace(/\b(am|pm)\b/g, (m) => m.toUpperCase())
+                            : "";
+
+                          return (
+                            <div
+                              key={p._id || idx}
+                              style={{
+                                border: "1px solid #eef0f3",
+                                borderRadius: 12,
+                                padding: "6px 14px",
+                                marginBottom: 10,
+                                background: "#fff",
+                                boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+                              }}
+                            >
+                              <div
+                                style={{
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  alignItems: "center",
+                                  gap: 12,
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    gap: 4,
+                                  }}
+                                >
+                                  <div
+                                    style={{
+                                      fontSize: 12,
+                                      fontWeight: 700,
+                                      color: "#6c757d",
+                                    }}
+                                  >
+                                    {label}
+                                  </div>
+
+                                  <div
+                                    style={{
+                                      fontSize: 12,
+                                      fontWeight: 800,
+                                      color: "#111",
+                                    }}
+                                  >
+                                    ₹{asNum(p.amount).toLocaleString("en-IN")}
+                                  </div>
+
+                                  {paidAt ? (
+                                    <div
+                                      style={{ fontSize: 11, color: "#8a8f98" }}
+                                    >
+                                      Paid at {paidAt}
+                                    </div>
+                                  ) : null}
+                                </div>
+
+                                <div style={{ textAlign: "right" }}>
+                                  <div
+                                    style={{
+                                      fontSize: 11,
+                                      color: "#8a8f98",
+                                      marginBottom: 6,
+                                    }}
+                                  >
+                                    Payment ID
+                                  </div>
+
+                                  <div
+                                    style={{
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: 8,
+                                      padding: "2px 10px",
+                                      borderRadius: 999,
+                                      border: "1px solid #e9ecef",
+                                      background: "#f8f9fa",
+                                      fontSize: 10,
+                                      fontWeight: 700,
+                                      color: "#111",
+                                    }}
+                                  >
+                                    <span>{paymentId}</span>
+
+                                    {paymentId !== "N/A" &&
+                                      paymentId !== "CASH" && (
+                                        <FaCopy
+                                          className="text-danger"
+                                          style={{ cursor: "pointer" }}
+                                          onClick={() =>
+                                            navigator.clipboard.writeText(
+                                              paymentId,
+                                            )
+                                          }
+                                          title="Copy Payment ID"
+                                        />
+                                      )}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Map Payments if the first payment is not paid */}
+                      {/* {booking?.payments?.map((payment, index) => (
+                        <div key={index} style={{ fontSize: 12 }}>
+                          <div>
+                            <span className="text-muted">Payment Method:</span>{" "}
+                            <strong>{payment?.method}</strong>
+                          </div>
+                          <div>
+                            <span className="text-muted">Payment Amount:</span>{" "}
+                            <strong>
+                              ₹{asNum(payment?.amount).toLocaleString("en-IN")}
+                            </strong>
+                          </div>
+                        </div>
+                      ))} */}
+                    </>
+                  )}
+
+                  {/* If first payment is paid, show full payment details */}
+                  {firstPaymentPaid && (
+                    <>
+                      <p style={{ fontSize: 12, marginBottom: 1 }}>
+                        <span className="text-muted">Total Amount:</span>{" "}
+                        <strong>
+                          ₹{paymentDetails.totalAmount.toLocaleString("en-IN")}
+                        </strong>
+                      </p>
+
+                      <p style={{ fontSize: 12, marginBottom: 1 }}>
+                        <span className="text-muted">Amount Paid:</span>{" "}
+                        <strong>
+                          ₹{paymentDetails.amountPaid.toLocaleString("en-IN")}
+                        </strong>
+                      </p>
+
+                      {!isCancelled && !isrefundAmount && (
+                        <p style={{ fontSize: 12, marginBottom: 8 }}>
+                          <span className="text-muted">
+                            Amount Yet to Pay :
+                          </span>{" "}
+                          <strong>
+                            ₹
+                            {paymentDetails.amountYetToPay.toLocaleString(
+                              "en-IN",
+                            )}
+                          </strong>
+                        </p>
+                      )}
+
+                      {isCancelled && isrefundAmount && (
+                        <div
+                          style={{
+                            marginTop: 6,
+                            padding: "6px 10px",
+                            borderLeft: "4px solid #dc3545",
+                            backgroundColor: "#fdecea",
+                            borderRadius: 4,
+                          }}
+                        >
+                          <p style={{ fontSize: 12, marginBottom: 2 }}>
+                            <span className="fw-bold text-danger">
+                              Refund Amount
+                            </span>
+                          </p>
+                          <p
+                            className="fw-bold text-dark mb-0"
+                            style={{ fontSize: 14 }}
+                          >
+                            ₹{refundAmount.toLocaleString("en-IN")}
+                            <span
+                              style={{
+                                fontSize: 11,
+                                marginLeft: 6,
+                                color: "#6c757d",
+                                fontWeight: 500,
+                              }}
+                            >
+                              (initiated)
+                            </span>
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Map Payments */}
+
+                      <div style={{ marginTop: 10 }}>
+                        {booking?.payments?.map((p, idx) => {
+                          const payments = Array.isArray(booking?.payments)
+                            ? booking.payments
+                            : [];
+
+                          const isCashMethod = (m) =>
+                            String(m || "")
+                              .toLowerCase()
+                              .trim() === "cash";
+
+                          const getPaymentId = (p) => {
+                            if (!p) return "N/A";
+                            if (isCashMethod(p.method)) return "CASH";
+                            return p.providerRef || "N/A";
+                          };
+
+                          const getPaymentLabel = (p) => {
+                            const purpose = String(p?.purpose || "")
+                              .toLowerCase()
+                              .trim();
+                            const inst = String(p?.installment || "")
+                              .toLowerCase()
+                              .trim();
+
+                            if (purpose === "site_visit")
+                              return "Site Visit Charges";
+                            if (inst === "first") return "First Payment";
+                            if (inst === "second") return "Second Payment";
+                            if (inst === "final") return "Final Payment";
+                            return "Payment";
+                          };
+                          const label = getPaymentLabel(p);
+                          const paymentId = getPaymentId(p);
+
+                          const paidAt = p?.at
+                            ? new Date(p.at)
+                                .toLocaleString("en-GB", {
+                                  day: "2-digit",
+                                  month: "2-digit",
+                                  year: "numeric",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                  hour12: true,
+                                })
+                                .replace(",", "")
+                                .replace(/\b(am|pm)\b/g, (m) => m.toUpperCase())
+                            : "";
+
+                          return (
+                            <div
+                              key={p._id || idx}
+                              style={{
+                                border: "1px solid #eef0f3",
+                                borderRadius: 12,
+                                padding: "6px 14px",
+                                marginBottom: 10,
+                                background: "#fff",
+                                boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+                              }}
+                            >
+                              <div
+                                style={{
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  alignItems: "center",
+                                  gap: 12,
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    gap: 4,
+                                  }}
+                                >
+                                  <div
+                                    style={{
+                                      fontSize: 12,
+                                      fontWeight: 700,
+                                      color: "#6c757d",
+                                    }}
+                                  >
+                                    {label}
+                                  </div>
+
+                                  <div
+                                    style={{
+                                      fontSize: 12,
+                                      fontWeight: 800,
+                                      color: "#111",
+                                    }}
+                                  >
+                                    ₹{asNum(p.amount).toLocaleString("en-IN")}
+                                  </div>
+
+                                  {paidAt ? (
+                                    <div
+                                      style={{ fontSize: 11, color: "#8a8f98" }}
+                                    >
+                                      Paid at {paidAt}
+                                    </div>
+                                  ) : null}
+                                </div>
+
+                                <div style={{ textAlign: "right" }}>
+                                  <div
+                                    style={{
+                                      fontSize: 11,
+                                      color: "#8a8f98",
+                                      marginBottom: 6,
+                                    }}
+                                  >
+                                    Payment ID
+                                  </div>
+
+                                  <div
+                                    style={{
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: 8,
+                                      padding: "2px 10px",
+                                      borderRadius: 999,
+                                      border: "1px solid #e9ecef",
+                                      background: "#f8f9fa",
+                                      fontSize: 10,
+                                      fontWeight: 700,
+                                      color: "#111",
+                                    }}
+                                  >
+                                    <span>{paymentId}</span>
+
+                                    {paymentId !== "N/A" &&
+                                      paymentId !== "CASH" && (
+                                        <FaCopy
+                                          className="text-danger"
+                                          style={{ cursor: "pointer" }}
+                                          onClick={() =>
+                                            navigator.clipboard.writeText(
+                                              paymentId,
+                                            )
+                                          }
+                                          title="Copy Payment ID"
+                                        />
+                                      )}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
+
+                  {paymentLinkUrl && (
+                    <a href={paymentLinkUrl} target="__balnk" rel="noreferrer">
+                      Open Payment link
+                    </a>
+                  )}
+
+                  {shouldShowPayViaCash && !isProjectCompleted && (
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "flex-end",
+                        marginTop: 12,
+                      }}
+                    >
+                      <button
+                        onClick={() => {
+                          try {
+                            const info = computeInstallmentCashDue(booking);
+                            if (info?.canPay)
+                              setCashPayment(
+                                String(asNum(info.amountYetToPay)),
+                              );
+                            else setCashPayment("");
+                            setCashPaymentPopup(true);
+                          } catch (err) {
+                            console.error(err);
+                            setCashPaymentPopup(true);
+                          }
+                        }}
+                        style={{
+                          padding: "6px 16px",
+                          fontSize: 13,
+                          fontWeight: 600,
+                          color: "#fff",
+                          backgroundColor: "#000",
+                          border: "1px solid #000",
+                          borderRadius: 6,
+                          cursor: "pointer",
+                          boxShadow: "0 2px 6px rgba(0,0,0,0.15)",
+                        }}
+                      >
+                        Pay via Cash
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {booking?.bookingDetails?.priceUpdateRequestedToAdmin && (
+                  <AmountChangeCard
+                    booking={booking?.bookingDetails}
+                    bookingId={booking?._id}
+                    fetchBooking={fetchBooking}
+                  />
+                )}
+              </div>
+
+              {/* Payment Details old */}
+              {/* <div className="card mb-3" style={{ borderRadius: 8 }}>
                 <div className="card-body">
                   <h6 className="fw-bold" style={{ fontSize: 14 }}>
-                    Payment Details
+                    old Payment Details
                   </h6>
 
                   {(() => {
                     const d = booking?.bookingDetails || {};
-                    const statusText = String(d.status || booking?.status || "").toLowerCase();
+                    const statusText = String(
+                      d.status || booking?.status || "",
+                    ).toLowerCase();
 
                     const total = asNum(
                       d.finalTotal ??
@@ -984,7 +1534,9 @@ const OngoingLeadDetails = () => {
                       : [];
 
                     const isCashMethod = (m) =>
-                      String(m || "").toLowerCase().trim() === "cash";
+                      String(m || "")
+                        .toLowerCase()
+                        .trim() === "cash";
 
                     const getPaymentId = (p) => {
                       if (!p) return "N/A";
@@ -993,8 +1545,12 @@ const OngoingLeadDetails = () => {
                     };
 
                     const getPaymentLabel = (p) => {
-                      const purpose = String(p?.purpose || "").toLowerCase().trim();
-                      const inst = String(p?.installment || "").toLowerCase().trim();
+                      const purpose = String(p?.purpose || "")
+                        .toLowerCase()
+                        .trim();
+                      const inst = String(p?.installment || "")
+                        .toLowerCase()
+                        .trim();
 
                       if (purpose === "site_visit") return "Site Visit Charges";
                       if (inst === "first") return "First Payment";
@@ -1004,13 +1560,21 @@ const OngoingLeadDetails = () => {
                     };
 
                     const siteVisitPayment = payments.find((p) => {
-                      const purpose = String(p?.purpose || "").toLowerCase().trim();
+                      const purpose = String(p?.purpose || "")
+                        .toLowerCase()
+                        .trim();
                       return purpose === "site_visit";
                     });
 
                     const showOnlySiteVisit =
                       total === 0 &&
-                      ["pending", "confirmed", "survey ongoing", "survey completed", "pending hiring"].some((s) =>
+                      [
+                        "pending",
+                        "confirmed",
+                        "survey ongoing",
+                        "survey completed",
+                        "pending hiring",
+                      ].some((s) =>
                         statusText.includes(String(s).toLowerCase()),
                       );
 
@@ -1019,8 +1583,12 @@ const OngoingLeadDetails = () => {
                         {showOnlySiteVisit ? (
                           <>
                             <p style={{ fontSize: 12, marginBottom: "1%" }}>
-                              <span className="text-muted">Site Visit Charges:</span>{" "}
-                              <strong>₹{siteVisitCharges.toLocaleString("en-IN")}</strong>
+                              <span className="text-muted">
+                                Site Visit Charges:
+                              </span>{" "}
+                              <strong>
+                                ₹{siteVisitCharges.toLocaleString("en-IN")}
+                              </strong>
                             </p>
 
                             <p style={{ fontSize: 12 }}>
@@ -1032,7 +1600,9 @@ const OngoingLeadDetails = () => {
                                     className="ms-1 text-danger"
                                     style={{ cursor: "pointer" }}
                                     onClick={() =>
-                                      navigator.clipboard.writeText(getPaymentId(siteVisitPayment))
+                                      navigator.clipboard.writeText(
+                                        getPaymentId(siteVisitPayment),
+                                      )
                                     }
                                   />
                                 )}
@@ -1051,11 +1621,13 @@ const OngoingLeadDetails = () => {
                             </p>
 
                             <p style={{ fontSize: 12, marginBottom: 8 }}>
-                              <span className="text-muted">Amount Yet to Pay :</span>{" "}
+                              <span className="text-muted">
+                                Amount Yet to Pay :
+                              </span>{" "}
                               <strong>₹{yet.toLocaleString("en-IN")}</strong>
                             </p>
 
-                            {/* Payments List */}
+               
                             {payments.length > 0 && (
                               <div style={{ marginTop: 10 }}>
                                 {payments.map((p, idx) => {
@@ -1073,7 +1645,9 @@ const OngoingLeadDetails = () => {
                                           hour12: true,
                                         })
                                         .replace(",", "")
-                                        .replace(/\b(am|pm)\b/g, (m) => m.toUpperCase())
+                                        .replace(/\b(am|pm)\b/g, (m) =>
+                                          m.toUpperCase(),
+                                        )
                                     : "";
 
                                   return (
@@ -1120,18 +1694,32 @@ const OngoingLeadDetails = () => {
                                               color: "#111",
                                             }}
                                           >
-                                            ₹{asNum(p.amount).toLocaleString("en-IN")}
+                                            ₹
+                                            {asNum(p.amount).toLocaleString(
+                                              "en-IN",
+                                            )}
                                           </div>
 
                                           {paidAt ? (
-                                            <div style={{ fontSize: 11, color: "#8a8f98" }}>
+                                            <div
+                                              style={{
+                                                fontSize: 11,
+                                                color: "#8a8f98",
+                                              }}
+                                            >
                                               Paid at {paidAt}
                                             </div>
                                           ) : null}
                                         </div>
 
                                         <div style={{ textAlign: "right" }}>
-                                          <div style={{ fontSize: 11, color: "#8a8f98", marginBottom: 6 }}>
+                                          <div
+                                            style={{
+                                              fontSize: 11,
+                                              color: "#8a8f98",
+                                              marginBottom: 6,
+                                            }}
+                                          >
                                             Payment ID
                                           </div>
 
@@ -1151,14 +1739,19 @@ const OngoingLeadDetails = () => {
                                           >
                                             <span>{paymentId}</span>
 
-                                            {paymentId !== "N/A" && paymentId !== "CASH" && (
-                                              <FaCopy
-                                                className="text-danger"
-                                                style={{ cursor: "pointer" }}
-                                                onClick={() => navigator.clipboard.writeText(paymentId)}
-                                                title="Copy Payment ID"
-                                              />
-                                            )}
+                                            {paymentId !== "N/A" &&
+                                              paymentId !== "CASH" && (
+                                                <FaCopy
+                                                  className="text-danger"
+                                                  style={{ cursor: "pointer" }}
+                                                  onClick={() =>
+                                                    navigator.clipboard.writeText(
+                                                      paymentId,
+                                                    )
+                                                  }
+                                                  title="Copy Payment ID"
+                                                />
+                                              )}
                                           </div>
                                         </div>
                                       </div>
@@ -1171,12 +1764,15 @@ const OngoingLeadDetails = () => {
                         )}
 
                         {paymentLinkUrl && (
-                          <a href={paymentLinkUrl} target="__balnk" rel="noreferrer">
+                          <a
+                            href={paymentLinkUrl}
+                            target="__balnk"
+                            rel="noreferrer"
+                          >
                             Open Payment link
                           </a>
                         )}
 
-                        {/* ✅ Pay via Cash (kept from old code) */}
                         {shouldShowPayViaCash && !isProjectCompleted && (
                           <div
                             style={{
@@ -1188,8 +1784,12 @@ const OngoingLeadDetails = () => {
                             <button
                               onClick={() => {
                                 try {
-                                  const info = computeInstallmentCashDue(booking);
-                                  if (info?.canPay) setCashPayment(String(asNum(info.amountYetToPay)));
+                                  const info =
+                                    computeInstallmentCashDue(booking);
+                                  if (info?.canPay)
+                                    setCashPayment(
+                                      String(asNum(info.amountYetToPay)),
+                                    );
                                   else setCashPayment("");
                                   setCashPaymentPopup(true);
                                 } catch (err) {
@@ -1225,9 +1825,7 @@ const OngoingLeadDetails = () => {
                     />
                   )}
                 </div>
-              </div>
-
-             
+              </div> */}
 
               {/* Form Details */}
               <div className="card mt-3" style={{ borderRadius: 8 }}>
@@ -1240,7 +1838,9 @@ const OngoingLeadDetails = () => {
                     <strong>{booking?.formName || "—"}</strong>
                   </p>
                   <p style={{ fontSize: 13, margin: 0 }}>
-                    <span className="text-muted">Form Filling Date &amp; Time:</span>{" "}
+                    <span className="text-muted">
+                      Form Filling Date &amp; Time:
+                    </span>{" "}
                     <strong>
                       {createdOn.d} : {createdOn.t}
                     </strong>
@@ -1276,7 +1876,9 @@ const OngoingLeadDetails = () => {
                       onChange={handleVendorChange}
                     >
                       <option value="">Change Vendor</option>
-                      {vendorsLoading && <option disabled>Loading vendors...</option>}
+                      {vendorsLoading && (
+                        <option disabled>Loading vendors...</option>
+                      )}
                       {vendorsError && <option disabled>{vendorsError}</option>}
                       {vendors.map((v) => (
                         <option key={v._id} value={v._id}>
@@ -1289,7 +1891,11 @@ const OngoingLeadDetails = () => {
                   {canReschedule && (
                     <button
                       className="btn btn-sm btn-secondary"
-                      style={{ borderRadius: 10, fontSize: "12px", fontWeight: 700 }}
+                      style={{
+                        borderRadius: 10,
+                        fontSize: "12px",
+                        fontWeight: 700,
+                      }}
                       onClick={() => setShowRescheduleModal(true)}
                     >
                       Reschedule
@@ -1299,7 +1905,11 @@ const OngoingLeadDetails = () => {
                   {!isCancelled && (
                     <button
                       className="btn btn-sm btn-secondary"
-                      style={{ borderRadius: 10, fontSize: "12px", fontWeight: 700 }}
+                      style={{
+                        borderRadius: 10,
+                        fontSize: "12px",
+                        fontWeight: 700,
+                      }}
                       onClick={() => setShowEditModal(true)}
                     >
                       Edit
@@ -1309,7 +1919,11 @@ const OngoingLeadDetails = () => {
                   {!isrefundAmount && (
                     <button
                       className="btn btn-sm btn-danger"
-                      style={{ borderRadius: 10, fontSize: "12px", fontWeight: 800 }}
+                      style={{
+                        borderRadius: 10,
+                        fontSize: "12px",
+                        fontWeight: 800,
+                      }}
                       onClick={() => setShowCancelPopup(true)}
                     >
                       Cancel Lead
@@ -1327,12 +1941,19 @@ const OngoingLeadDetails = () => {
                 style={{
                   borderRadius: 8,
                   minHeight: 280,
-                  border: isTeamMismatch ? "2px solid #dc3545" : "1px solid #e0e0e0",
-                  boxShadow: isTeamMismatch ? "0 0 0 3px rgba(220,53,69,0.15)" : "none",
+                  border: isTeamMismatch
+                    ? "2px solid #dc3545"
+                    : "1px solid #e0e0e0",
+                  boxShadow: isTeamMismatch
+                    ? "0 0 0 3px rgba(220,53,69,0.15)"
+                    : "none",
                 }}
               >
                 <div className="card-body text-center">
-                  <h6 className="fw-bold" style={{ fontSize: 14, textAlign: "left" }}>
+                  <h6
+                    className="fw-bold"
+                    style={{ fontSize: 14, textAlign: "left" }}
+                  >
                     Vendor Assign
                   </h6>
 
@@ -1359,7 +1980,9 @@ const OngoingLeadDetails = () => {
                       }}
                     />
                     <p style={{ fontSize: 13, fontWeight: 700, marginTop: 8 }}>
-                      {assigned?.name || assigned?.vendor?.vendorName || "Unassigned"}
+                      {assigned?.name ||
+                        assigned?.vendor?.vendorName ||
+                        "Unassigned"}
                     </p>
                   </div>
 
@@ -1393,7 +2016,10 @@ const OngoingLeadDetails = () => {
                                 month: "2-digit",
                                 year: "numeric",
                               })
-                              .replace(/,/g, "")} ${assigned?.acceptedTime || ""}`.trim()
+                              .replace(
+                                /,/g,
+                                "",
+                              )} ${assigned?.acceptedTime || ""}`.trim()
                           : "N/A"}
                       </strong>
                     </p>
@@ -1414,7 +2040,8 @@ const OngoingLeadDetails = () => {
                         textAlign: "left",
                       }}
                     >
-                      ⚠ Assigned vendor does not have enough team members for this job.
+                      ⚠ Assigned vendor does not have enough team members for
+                      this job.
                       <br />
                       Please change the vendor to continue.
                     </div>
@@ -1439,7 +2066,9 @@ const OngoingLeadDetails = () => {
                       <strong
                         style={{
                           color:
-                            vendorTeamCount >= maxRequiredTeamMembers ? "#28a745" : "#dc3545",
+                            vendorTeamCount >= maxRequiredTeamMembers
+                              ? "#28a745"
+                              : "#dc3545",
                         }}
                       >
                         {vendorTeamCount}
@@ -1485,7 +2114,8 @@ const OngoingLeadDetails = () => {
 
                       const interior =
                         asNum(totals?.interior) ||
-                        asNum(totals?.wallsArea) + asNum(totals?.ceilingsArea) ||
+                        asNum(totals?.wallsArea) +
+                          asNum(totals?.ceilingsArea) ||
                         0;
 
                       const exterior = asNum(totals?.exterior) || 0;
@@ -1514,7 +2144,10 @@ const OngoingLeadDetails = () => {
                               marginBottom: 10,
                             }}
                           >
-                            <h6 className="fw-bold mb-0" style={{ fontSize: 14 }}>
+                            <h6
+                              className="fw-bold mb-0"
+                              style={{ fontSize: 14 }}
+                            >
                               Measurement Summary
                             </h6>
 
@@ -1533,27 +2166,51 @@ const OngoingLeadDetails = () => {
                             </span>
                           </div>
 
-                          <div style={{ borderTop: "1px dashed #cfd4da", marginBottom: 8 }} />
+                          <div
+                            style={{
+                              borderTop: "1px dashed #cfd4da",
+                              marginBottom: 8,
+                            }}
+                          />
 
                           <div style={rowStyle}>
                             <span style={{ fontWeight: 600 }}>Interior</span>
-                            <span style={{ fontWeight: 800 }}>{asNum(interior)} sq ft</span>
+                            <span style={{ fontWeight: 800 }}>
+                              {asNum(interior)} sq ft
+                            </span>
                           </div>
 
                           <div style={rowStyle}>
                             <span style={{ fontWeight: 600 }}>Exterior</span>
-                            <span style={{ fontWeight: 800 }}>{asNum(exterior)} sq ft</span>
+                            <span style={{ fontWeight: 800 }}>
+                              {asNum(exterior)} sq ft
+                            </span>
                           </div>
 
                           <div style={rowStyle}>
                             <span style={{ fontWeight: 600 }}>Others</span>
-                            <span style={{ fontWeight: 800 }}>{asNum(others)} sq ft</span>
+                            <span style={{ fontWeight: 800 }}>
+                              {asNum(others)} sq ft
+                            </span>
                           </div>
 
-                          <div style={{ borderTop: "1px dashed #cfd4da", marginTop: 8 }} />
+                          <div
+                            style={{
+                              borderTop: "1px dashed #cfd4da",
+                              marginTop: 8,
+                            }}
+                          />
 
-                          <div style={{ ...rowStyle, paddingTop: 14, fontSize: 14 }}>
-                            <span style={{ fontWeight: 900 }}>Total Measurement</span>
+                          <div
+                            style={{
+                              ...rowStyle,
+                              paddingTop: 14,
+                              fontSize: 14,
+                            }}
+                          >
+                            <span style={{ fontWeight: 900 }}>
+                              Total Measurement
+                            </span>
                             <span style={{ fontWeight: 900, color: "#111" }}>
                               {asNum(totalMeasurement)} sq ft
                             </span>
@@ -1602,7 +2259,9 @@ const OngoingLeadDetails = () => {
                   </h6>
 
                   {quotesLoading ? (
-                    <span style={{ fontSize: 12, color: "#6c757d" }}>Loading...</span>
+                    <span style={{ fontSize: 12, color: "#6c757d" }}>
+                      Loading...
+                    </span>
                   ) : (
                     <span
                       style={{
@@ -1651,7 +2310,13 @@ const OngoingLeadDetails = () => {
                 )}
 
                 {!quotesLoading && quotes.length > 0 && (
-                  <div style={{ borderTop: "1px dashed #cfd4da", marginTop: 8, paddingTop: 10 }}>
+                  <div
+                    style={{
+                      borderTop: "1px dashed #cfd4da",
+                      marginTop: 8,
+                      paddingTop: 10,
+                    }}
+                  >
                     {quotes.map((q, idx) => {
                       const isFinal = q?.finalized === true;
                       const amt = asNum(q?.amount ?? 0);
@@ -1671,17 +2336,37 @@ const OngoingLeadDetails = () => {
                             gap: 12,
                           }}
                         >
-                          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                            <div style={{ fontSize: 13, fontWeight: 900, color: "#111" }}>
+                          <div
+                            style={{
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: 4,
+                            }}
+                          >
+                            <div
+                              style={{
+                                fontSize: 13,
+                                fontWeight: 900,
+                                color: "#111",
+                              }}
+                            >
                               {q?.title || `Quote ${idx + 1}`}{" "}
                               {isFinal && (
-                                <span style={{ color: "#dc3545", fontWeight: 900 }}>
+                                <span
+                                  style={{ color: "#dc3545", fontWeight: 900 }}
+                                >
                                   (Final Quote)
                                 </span>
                               )}
                             </div>
 
-                            <div style={{ fontSize: 12, color: "#6c757d", fontWeight: 700 }}>
+                            <div
+                              style={{
+                                fontSize: 12,
+                                color: "#6c757d",
+                                fontWeight: 700,
+                              }}
+                            >
                               ₹{amt.toLocaleString("en-IN")}
                             </div>
                           </div>
@@ -1717,7 +2402,10 @@ const OngoingLeadDetails = () => {
               className="position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center"
               style={{ background: "rgba(0,0,0,0.4)", zIndex: 9999 }}
             >
-              <div className="bg-white p-4 rounded shadow" style={{ width: "380px" }}>
+              <div
+                className="bg-white p-4 rounded shadow"
+                style={{ width: "380px" }}
+              >
                 <h6 className="fw-bold mb-2">Pay via Cash</h6>
 
                 <div
@@ -1729,19 +2417,26 @@ const OngoingLeadDetails = () => {
                     marginBottom: 12,
                   }}
                 >
-                  <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>
+                  <div
+                    style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}
+                  >
                     {installmentInfo?.installmentLabel || "Payment"}
                   </div>
 
                   <div style={{ fontSize: 13, marginBottom: 4 }}>
                     <span className="text-muted">Requested Amount:</span>{" "}
                     <strong>
-                      ₹{asNum(installmentInfo?.requestedAmount).toLocaleString("en-IN")}
+                      ₹
+                      {asNum(installmentInfo?.requestedAmount).toLocaleString(
+                        "en-IN",
+                      )}
                     </strong>
                   </div>
 
                   <div style={{ fontSize: 13 }}>
-                    <span className="text-muted">Amount Yet To Pay (This Installment):</span>{" "}
+                    <span className="text-muted">
+                      Amount Yet To Pay (This Installment):
+                    </span>{" "}
                     <strong style={{ color: "#dc3545" }}>
                       ₹{installmentDue.toLocaleString("en-IN")}
                     </strong>
@@ -1778,8 +2473,8 @@ const OngoingLeadDetails = () => {
                     />
 
                     <small className="text-muted">
-                      You can pay partially, but not more than the remaining amount for this
-                      installment.
+                      You can pay partially, but not more than the remaining
+                      amount for this installment.
                     </small>
                   </>
                 ) : (
@@ -1828,7 +2523,10 @@ const OngoingLeadDetails = () => {
               className="position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center"
               style={{ background: "rgba(0,0,0,0.4)", zIndex: 9999 }}
             >
-              <div className="bg-white p-4 rounded shadow" style={{ width: "350px" }}>
+              <div
+                className="bg-white p-4 rounded shadow"
+                style={{ width: "350px" }}
+              >
                 <h6 className="fw-bold mb-3">Cancel Lead</h6>
 
                 <p>Amount to refund : {paidAmount}</p>
@@ -1851,11 +2549,17 @@ const OngoingLeadDetails = () => {
                 />
 
                 <div className="d-flex justify-content-end gap-2">
-                  <button className="btn btn-sm btn-secondary" onClick={() => setShowCancelPopup(false)}>
+                  <button
+                    className="btn btn-sm btn-secondary"
+                    onClick={() => setShowCancelPopup(false)}
+                  >
                     Close
                   </button>
 
-                  <button className="btn btn-danger btn-sm" onClick={handleCancelBooking}>
+                  <button
+                    className="btn btn-danger btn-sm"
+                    onClick={handleCancelBooking}
+                  >
                     Save & Cancel Booking
                   </button>
                 </div>
@@ -1871,7 +2575,10 @@ const OngoingLeadDetails = () => {
               booking={booking}
               onUpdated={(updatedBooking) => {
                 try {
-                  setBooking((prev) => ({ ...prev, ...(updatedBooking || {}) }));
+                  setBooking((prev) => ({
+                    ...prev,
+                    ...(updatedBooking || {}),
+                  }));
                 } catch (err) {
                   console.error("onUpdated error:", err);
                 }
@@ -1909,8 +2616,6 @@ const OngoingLeadDetails = () => {
 };
 
 export default OngoingLeadDetails;
-
-
 
 // github copied
 

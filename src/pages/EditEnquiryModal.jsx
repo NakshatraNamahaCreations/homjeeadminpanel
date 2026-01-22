@@ -935,6 +935,16 @@ const EditEnquiryModal = ({
     const isDeepCleaning = services.some(
       (s) => s.category?.toLowerCase() === "deep cleaning",
     );
+
+    // Check if the first payment status is paid and matches the requested amount
+    const isFirstPaymentComplete =
+      enquiry?.raw?.bookingDetails?.firstPayment?.status === "paid" &&
+      enquiry?.raw?.bookingDetails?.firstPayment?.amount ===
+        enquiry?.raw?.bookingDetails?.firstPayment?.requestedAmount;
+
+    console.log("Enq", enquiry);
+    console.log("isFirstPaymentComplete", enquiry?.raw, isFirstPaymentComplete);
+
     return (
       <div
         className="mt-3 p-3"
@@ -1069,103 +1079,110 @@ const EditEnquiryModal = ({
         )}
 
         {/* LEAD MODE */}
-        {leadMode && (
-          <>
-            <div className="d-flex justify-content-between mb-1">
-              <span>Original Total Amount:</span>
-              <strong>₹{originalFinalTotal}</strong>
-            </div>
-
-            {totalChange !== 0 && (
-              <div className="d-flex justify-content-between mb-2">
-                <span>Total Change:</span>
-                <strong style={{ color: totalChange < 0 ? "red" : "green" }}>
-                  {totalChange < 0 ? "-" : "+"}₹{Math.abs(totalChange)}
-                </strong>
+        {leadMode &&
+          (isFirstPaymentComplete ? (
+            <>
+              <div className="d-flex justify-content-between mb-1">
+                <span>Original Total Amount:</span>
+                <strong>₹{originalFinalTotal}</strong>
               </div>
-            )}
 
-            <div
-              className="d-flex justify-content-between mb-2"
-              style={{ alignItems: "center" }}
-            >
-              <span>{totalChange ? "New Total Amount:" : "Total Amount:"}</span>
-
-              {editingFinal ? (
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <Form.Control
-                    type="number"
-                    size="sm"
-                    value={draftFinalTotal}
-                    onChange={(e) => setDraftFinalTotal(e.target.value)}
-                    style={{ width: 120 }}
-                  />
-                  <FaCheck
-                    style={{ cursor: "pointer", color: "green" }}
-                    onClick={applyManualFinalTotal}
-                  />
-                  <ImCancelCircle
-                    style={{ cursor: "pointer", color: "red" }}
-                    onClick={() => {
-                      setDraftFinalTotal(String(serverFinalTotal));
-                      setEditingFinal(false);
-                    }}
-                  />
-                </div>
-              ) : (
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <strong style={{ color: "#007a0a" }}>
-                    ₹{serverFinalTotal}
+              {totalChange !== 0 && (
+                <div className="d-flex justify-content-between mb-2">
+                  <span>Total Change:</span>
+                  <strong style={{ color: totalChange < 0 ? "red" : "green" }}>
+                    {totalChange < 0 ? "-" : "+"}₹{Math.abs(totalChange)}
                   </strong>
-                  {canShowFinalTotalEdit && (
-                    <FaEdit
-                      style={{ cursor: "pointer", color: "#7F6663" }}
-                      onClick={() => {
-                        setDraftFinalTotal(String(serverFinalTotal));
-                        setEditingFinal(true);
-                      }}
-                    />
-                  )}
                 </div>
               )}
-            </div>
 
-            <div className="d-flex justify-content-between mb-2">
-              <span>Amount Paid:</span>
-              <strong>₹{paidAmount}</strong>
-            </div>
+              <div
+                className="d-flex justify-content-between mb-2"
+                style={{ alignItems: "center" }}
+              >
+                <span>
+                  {totalChange ? "New Total Amount:" : "Total Amount:"}
+                </span>
 
-            {/* NEW: Stage label + note */}
-            {/* {aytpStageLabel ? (
+                {editingFinal ? (
+                  <div
+                    style={{ display: "flex", alignItems: "center", gap: 8 }}
+                  >
+                    <Form.Control
+                      type="number"
+                      size="sm"
+                      value={draftFinalTotal}
+                      onChange={(e) => setDraftFinalTotal(e.target.value)}
+                      style={{ width: 120 }}
+                    />
+                    <FaCheck
+                      style={{ cursor: "pointer", color: "green" }}
+                      onClick={applyManualFinalTotal}
+                    />
+                    <ImCancelCircle
+                      style={{ cursor: "pointer", color: "red" }}
+                      onClick={() => {
+                        setDraftFinalTotal(String(serverFinalTotal));
+                        setEditingFinal(false);
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <div
+                    style={{ display: "flex", alignItems: "center", gap: 8 }}
+                  >
+                    <strong style={{ color: "#007a0a" }}>
+                      ₹{serverFinalTotal}
+                    </strong>
+                    {canShowFinalTotalEdit && (
+                      <FaEdit
+                        style={{ cursor: "pointer", color: "#7F6663" }}
+                        onClick={() => {
+                          setDraftFinalTotal(String(serverFinalTotal));
+                          setEditingFinal(true);
+                        }}
+                      />
+                    )}
+                  </div>
+                )}
+              </div>
+
               <div className="d-flex justify-content-between mb-2">
-                <span>Installment Due:</span>
-                <strong>{aytpStageLabel}</strong>
+                <span>Amount Paid:</span>
+                <strong>₹{paidAmount}</strong>
               </div>
-            ) : null} */}
 
-            {aytpNote ? (
-              <div className="mb-2" style={{ color: "#b26b00", fontSize: 12 }}>
-                {aytpNote}
-              </div>
-            ) : null}
-
-            {refundAmount > 0 ? (
-              <div className="d-flex justify-content-between mt-2">
-                <span style={{ color: "red" }}>Refund Amount:</span>
-                <strong style={{ color: "red" }}>₹{refundAmount}</strong>
-              </div>
-            ) : (
-              <div className="d-flex justify-content-between mt-2">
-                <div>
-                  <span>Amount Yet To Pay:</span>
-                  <br />
-                  {aytpNote == "" && <small>{aytpStageLabel}</small>}
+              {aytpNote ? (
+                <div
+                  className="mb-2"
+                  style={{ color: "#b26b00", fontSize: 12 }}
+                >
+                  {aytpNote}
                 </div>
-                <strong>₹{amountYetToPay}</strong>
-              </div>
-            )}
-          </>
-        )}
+              ) : null}
+
+              {refundAmount > 0 ? (
+                <div className="d-flex justify-content-between mt-2">
+                  <span style={{ color: "red" }}>Refund Amount:</span>
+                  <strong style={{ color: "red" }}>₹{refundAmount}</strong>
+                </div>
+              ) : (
+                <div className="d-flex justify-content-between mt-2">
+                  <div>
+                    <span>Amount Yet To Pay:</span>
+                    <br />
+                    {aytpNote == "" && <small>{aytpStageLabel}</small>}
+                  </div>
+                  <strong>₹{amountYetToPay}</strong>
+                </div>
+              )}
+            </>
+          ) : isHousePaintingService && siteVisitCharges > 0 ? (
+            <div className="d-flex justify-content-between mb-1">
+              <span>Site Visit Charge:</span>
+              <strong>₹{siteVisitCharges}</strong>
+            </div>
+          ) : null)}
       </div>
     );
   };
@@ -1312,7 +1329,7 @@ const EditEnquiryModal = ({
         formName,
       };
 
-      console.log("final payload", finalPayload)
+      console.log("final payload", finalPayload);
 
       const endpoint = leadMode
         ? `${BASE_URL}/bookings/update-user-booking/${enquiry.bookingId}`

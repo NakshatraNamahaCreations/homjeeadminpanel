@@ -40,6 +40,7 @@ const CreateLeadModal = ({ onClose }) => {
     coordinates: { lat: 0, lng: 0 },
   });
 
+  const [serviceConfig, setServiceConfig] = useState(null);
   const [checkingUser, setCheckingUser] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -78,6 +79,21 @@ const CreateLeadModal = ({ onClose }) => {
       setLeadData((prev) => ({ ...prev, city: detectedCity }));
     }
   }, [leadData.googleAddress]);
+
+  useEffect(() => {
+    const fetchLatestService = async () => {
+      try {
+        const res = await axios.get(`${BASE_URL}/service/latest`);
+
+        setServiceConfig(res?.data?.data);
+        console.log("price config", res?.data?.data);
+      } catch (error) {
+        console.error("Error fetching latest service:", error);
+      }
+    };
+
+    fetchLatestService();
+  }, []);
 
   /* --------------------------------------------------
      FETCH EXISTING USER
@@ -306,6 +322,7 @@ const CreateLeadModal = ({ onClose }) => {
                   serviceName: "House Painters & Waterproofing",
                   price: leadData.bookingAmount,
                   quantity: 1,
+                  coinDeduction: serviceConfig?.vendorCoins || 0,
                 },
               ]
             : leadData.packages.map((p) => ({
@@ -363,6 +380,8 @@ const CreateLeadModal = ({ onClose }) => {
       );
       onClose();
       navigate(`${leadData.bookingAmount == 0 ? "/newleads" : "/enquiries"}`);
+window.location.reload();
+
     } catch (err) {
       console.error(err);
       toast.error(err?.response?.data?.message || "Save failed");

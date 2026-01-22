@@ -132,6 +132,8 @@ const VendorDetailsPage = () => {
     }
   }, []);
 
+ 
+
   const openEditVendorModal = (vendor) => {
     setIsEditingVendor(true);
     setEditingVendorId(vendor.id);
