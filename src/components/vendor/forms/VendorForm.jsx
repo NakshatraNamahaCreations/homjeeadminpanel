@@ -187,7 +187,7 @@ const VendorForm = ({
         </Col>
       </Row>
 
-      <h5 className="mt-4 mb-3">Address Details</h5>
+      <h5 className="mt-4 mb-3">Service Area</h5>
       <Row className="align-items-end">
         <Col md={8}>
           <Form.Group className="mb-3">

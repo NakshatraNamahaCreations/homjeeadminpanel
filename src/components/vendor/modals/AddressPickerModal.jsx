@@ -78,7 +78,6 @@ const loadGoogleMaps = () => {
       };
 
       if (existing) {
-        // If maps already loaded but places missing → inject addon
         if (window.google?.maps && !hasPlaces()) {
           injectPlacesAddon();
           return;
@@ -96,13 +95,10 @@ const loadGoogleMaps = () => {
         existing.addEventListener("load", onLoad);
         existing.addEventListener("error", reject);
 
-        // If maps already loaded earlier (load won't fire)
         if (window.google?.maps) onLoad();
-
         return;
       }
 
-      // No script at all → inject WITH places
       const s = document.createElement("script");
       s.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&v=weekly`;
       s.async = true;
@@ -154,7 +150,7 @@ const ensureAutocompleteZIndex = () => {
   try {
     const containers = document.querySelectorAll(".pac-container");
     containers.forEach((el) => {
-      el.style.zIndex = "2147483647"; // above modal/backdrop
+      el.style.zIndex = "2147483647";
       el.style.position = "fixed";
     });
   } catch (e) {}
@@ -168,17 +164,15 @@ const getCurrentPosition = () =>
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           try {
-            const p = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-            console.log("✅ GPS FOUND:", p);
-            resolve(p);
+            resolve({
+              lat: pos.coords.latitude,
+              lng: pos.coords.longitude,
+            });
           } catch (e) {
             resolve(null);
           }
         },
-        (err) => {
-          console.log("❌ GPS DENIED/BLOCKED:", err?.message);
-          resolve(null);
-        },
+        () => resolve(null),
         {
           enableHighAccuracy: true,
           timeout: 15000,
@@ -189,6 +183,49 @@ const getCurrentPosition = () =>
       resolve(null);
     }
   });
+
+/* ================= LOADER UI ================= */
+
+const LoadingDots = ({ text = "Loading current address..." }) => {
+  return (
+    <div
+      style={{
+        height: "80vh",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        flexDirection: "column",
+        background: "rgba(255,255,255,0.85)",
+        borderRadius: "12px",
+      }}
+    >
+      <div className="loader-dots">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+      <p className="mt-3 text-muted">{text}</p>
+
+      <style>{`
+        .loader-dots span {
+          width: 10px;
+          height: 10px;
+          margin: 0 4px;
+          background: #DC3545;
+          border-radius: 50%;
+          display: inline-block;
+          animation: pulse 1s infinite alternate;
+        }
+        .loader-dots span:nth-child(2) { animation-delay: 0.2s; }
+        .loader-dots span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes pulse {
+          0% { transform: scale(1); opacity: 0.5; }
+          100% { transform: scale(1.6); opacity: 1; }
+        }
+      `}</style>
+    </div>
+  );
+};
 
 /* ================= COMPONENT ================= */
 
@@ -215,13 +252,14 @@ const AddressPickerModal = ({
       : { lat: null, lng: null }
   );
 
-  // ✅ search input must stay independent and start blank
+  const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
+  // ✅ stop loader only once for initial resolve
+  const initialResolvedRef = useRef(false);
+
   useEffect(() => {
-    try {
-      if (show) setSearchQuery("");
-    } catch (e) {}
+    if (show) setSearchQuery("");
   }, [show]);
 
   useEffect(() => {
@@ -229,6 +267,14 @@ const AddressPickerModal = ({
 
     let cleanupFns = [];
     let map, marker, geocoder, autocomplete;
+    let isMounted = true;
+
+    const stopInitialLoader = () => {
+      if (!isMounted) return;
+      if (initialResolvedRef.current) return;
+      initialResolvedRef.current = true;
+      setLoading(false);
+    };
 
     const fetchPlaceName = (placeId) =>
       new Promise((resolve) => {
@@ -254,9 +300,17 @@ const AddressPickerModal = ({
         }
       });
 
-    const reverseGeocode = (pos, formattedAddrFromPlace = null, nameFromPlace = null) => {
+    const reverseGeocode = (
+      pos,
+      formattedAddrFromPlace = null,
+      nameFromPlace = null,
+      stopLoader = false
+    ) => {
       try {
-        if (!geocoderRef.current) return;
+        if (!geocoderRef.current) {
+          if (stopLoader) stopInitialLoader();
+          return;
+        }
 
         if (markerRef.current) markerRef.current.setPosition(pos);
         if (mapRef.current) {
@@ -271,35 +325,49 @@ const AddressPickerModal = ({
 
         geocoderRef.current.geocode({ location: pos }, async (results, status) => {
           try {
+            if (!isMounted) return;
+
             if (status === "OK" && results?.[0]) {
               const formatted = results[0].formatted_address || "";
               const pid = results[0].place_id;
 
               if (!formattedAddrFromPlace) setAddr(formatted);
 
-              // ✅ fetch place name if possible
               const name = await fetchPlaceName(pid);
               setPlaceName(name || nameFromPlace || "");
             }
           } catch (e) {
             console.warn("reverseGeocode callback error:", e);
+          } finally {
+            if (stopLoader) stopInitialLoader();
           }
         });
-      } catch (e) {}
+      } catch (e) {
+        if (stopLoader) stopInitialLoader();
+      }
     };
 
     const init = async () => {
       try {
-        await loadGoogleMaps();
+        initialResolvedRef.current = false;
+        setLoading(true);
 
-        // priority:
-        // 1) initialLatLng
-        // 2) GPS
-        // 3) Bangalore fallback
+        // ✅ safety: never keep loader forever
+        const safety = setTimeout(() => {
+          stopInitialLoader();
+        }, 8000);
+        cleanupFns.push(() => clearTimeout(safety));
+
+        await loadGoogleMaps();
+        if (!isMounted) return;
+
         let start = null;
 
         if (isValidLatLng(initialLatLng)) {
-          start = { lat: Number(initialLatLng.lat), lng: Number(initialLatLng.lng) };
+          start = {
+            lat: Number(initialLatLng.lat),
+            lng: Number(initialLatLng.lng),
+          };
         } else {
           start = await getCurrentPosition();
         }
@@ -317,7 +385,6 @@ const AddressPickerModal = ({
         });
         mapRef.current = map;
 
-        // ✅ needed to fetch business name
         placesServiceRef.current = new window.google.maps.places.PlacesService(map);
 
         marker = new window.google.maps.Marker({
@@ -330,10 +397,12 @@ const AddressPickerModal = ({
 
         setLatLng(start);
 
+        // ✅ STOP LOADER PROPERLY
         if (initialAddress?.trim()) {
           setAddr(initialAddress.trim());
+          stopInitialLoader();
         } else {
-          reverseGeocode(start);
+          reverseGeocode(start, null, null, true);
         }
 
         // ✅ autocomplete
@@ -356,10 +425,12 @@ const AddressPickerModal = ({
               };
 
               setSearchQuery(place.formatted_address || place.name || "");
+
               reverseGeocode(
                 newPos,
                 place.formatted_address || place.name || "",
-                place.name || ""
+                place.name || "",
+                false
               );
 
               ensureAutocompleteZIndex();
@@ -376,11 +447,8 @@ const AddressPickerModal = ({
         marker.addListener("dragend", () => {
           try {
             const pos = marker.getPosition();
-            const newPos = { lat: pos.lat(), lng: pos.lng() };
-            reverseGeocode(newPos);
-          } catch (e) {
-            console.warn("marker drag error:", e);
-          }
+            reverseGeocode({ lat: pos.lat(), lng: pos.lng() });
+          } catch (e) {}
         });
 
         map.addListener("click", (e) => {
@@ -388,9 +456,7 @@ const AddressPickerModal = ({
             const newPos = { lat: e.latLng.lat(), lng: e.latLng.lng() };
             marker.setPosition(newPos);
             reverseGeocode(newPos);
-          } catch (e) {
-            console.warn("map click error:", e);
-          }
+          } catch (e) {}
         });
 
         setTimeout(() => {
@@ -402,12 +468,14 @@ const AddressPickerModal = ({
         }, 200);
       } catch (err) {
         console.error("❌ Map init failed:", err);
+        setLoading(false);
       }
     };
 
     init();
 
     return () => {
+      isMounted = false;
       try {
         cleanupFns.forEach((fn) => fn());
         if (map) window.google.maps.event.clearInstanceListeners(map);
@@ -418,6 +486,8 @@ const AddressPickerModal = ({
 
   const handleUseLocation = () => {
     try {
+      if (loading) return;
+
       if (!latLng?.lat || !latLng?.lng) {
         alert("Please select a valid location on the map.");
         return;
@@ -448,15 +518,16 @@ const AddressPickerModal = ({
       scrollable
     >
       <Modal.Header closeButton>
-        <Modal.Title>
+        <Modal.Title style={{fontSize:"15px"}}>
           Pick Location{" "}
-          <span className="text-muted" style={{ fontWeight: 400 }}>
+          <span className="text-muted" style={{ fontWeight: 400 , }}>
             (Google Maps)
           </span>
         </Modal.Title>
       </Modal.Header>
 
-      <Modal.Body className="gmap-body">
+      {/* ✅ make body relative so loader absolute works */}
+      <Modal.Body className="gmap-body" style={{ position: "relative" }}>
         <input
           ref={inputRef}
           value={searchQuery}
@@ -493,8 +564,7 @@ const AddressPickerModal = ({
             fontSize: "13px",
           }}
         >
-          <strong>Selected:</strong>{" "}
-          {placeName ? `${placeName}, ` : ""}
+          <strong>Selected:</strong> {placeName ? `${placeName}, ` : ""}
           {addr || "Click map / drag marker / search"}
           <br />
           <span className="text-muted" style={{ fontSize: "12px" }}>
@@ -502,14 +572,31 @@ const AddressPickerModal = ({
             Lng: {latLng?.lng != null ? Number(latLng.lng).toFixed(6) : "N/A"}
           </span>
         </div>
+
+        {loading && (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              padding: "12px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 5,
+              background: "rgba(255,255,255,0.4)",
+            }}
+          >
+            <LoadingDots text="Loading current address..." />
+          </div>
+        )}
       </Modal.Body>
 
       <Modal.Footer>
-        <Button variant="secondary" onClick={onHide}>
+        <Button variant="secondary" onClick={onHide} disabled={loading}>
           Cancel
         </Button>
-        <Button variant="primary" onClick={handleUseLocation}>
-          Use this location
+        <Button variant="primary" onClick={handleUseLocation} disabled={loading}>
+          {loading ? "Please wait..." : "Use this location"}
         </Button>
       </Modal.Footer>
     </Modal>
