@@ -758,7 +758,7 @@ const ProductsDashboard = () => {
     const data = await res.json();
 
     if (res.ok) {
-      alert("Saved successfully");
+      // alert("Saved successfully");
       setSavedPricing(data.data);
       setSiteVisitCharge("");
       setVendorCoins("");

@@ -317,15 +317,20 @@ const OngoingLeadDetails = () => {
 
   // ✅ IMPORTANT: keep your old behaviour for pay via cash
   // (If you want condition stricter, uncomment the canPay + due check)
+  const isHousePainting = booking?.serviceType === "house_painting";
 
   const secondRequestAmount =
     booking?.bookingDetails?.secondPayment?.requestedAmount;
+
+  const finalRequestAmount =
+    booking?.bookingDetails?.finalPayment?.requestedAmount;
+
   const shouldShowPayViaCash =
     asNum(fullamountYetToPay) > 0 &&
     asNum(totalAmount) > 0 &&
-    secondRequestAmount > 0;
-
-  const isHousePainting = booking?.serviceType === "house_painting";
+    (isHousePainting
+      ? asNum(secondRequestAmount) > 0
+      : asNum(finalRequestAmount) > 0);
 
   // Amount Yet to Pay Logic
   const amountYetToPay =

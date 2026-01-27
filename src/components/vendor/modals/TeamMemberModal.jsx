@@ -167,7 +167,7 @@ const TeamMemberModal = ({
         headers: { "Content-Type": "multipart/form-data" },
       });
 
-      alert(`Team member ${isEditing ? "updated" : "added"} successfully!`);
+      // alert(`Team member ${isEditing ? "updated" : "added"} successfully!`);
       onSuccess();
       onHide();
     } catch (error) {

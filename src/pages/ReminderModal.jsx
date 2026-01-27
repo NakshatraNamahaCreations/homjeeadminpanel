@@ -26,7 +26,7 @@ const ReminderModal = ({ show, onClose, enquiry }) => {
       const data = await res.json();
 
       if (data.success) {
-        alert("Reminder created successfully!");
+        // alert("Reminder created successfully!");
         onClose();
       } else {
         alert(data.message || "Failed to create reminder");

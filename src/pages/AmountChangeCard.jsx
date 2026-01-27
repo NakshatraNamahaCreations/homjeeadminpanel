@@ -64,7 +64,7 @@ const AmountChangeCard = ({ booking, bookingId, fetchBooking }) => {
 
       const res = await axios.post(url, { by: "admin" });
 
-      alert(res?.data?.message || "Pricing approved successfully");
+      // alert(res?.data?.message || "Pricing approved successfully");
       await fetchBooking();
     } catch (err) {
       console.error(err);
@@ -94,7 +94,7 @@ const AmountChangeCard = ({ booking, bookingId, fetchBooking }) => {
 
       const res = await axios.post(url, { by: "admin" });
 
-      alert(res?.data?.message || "Pricing rejected successfully");
+      // alert(res?.data?.message || "Pricing rejected successfully");
       await fetchBooking();
     } catch (err) {
       console.error(err);

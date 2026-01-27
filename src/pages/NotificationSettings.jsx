@@ -21,7 +21,7 @@ const NotificationSettings = () => {
   };
 
   const handleSaveSettings = () => {
-    alert("Notification settings saved successfully!");
+    // alert("Notification settings saved successfully!");
   };
 
   return (

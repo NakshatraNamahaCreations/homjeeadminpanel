@@ -463,7 +463,7 @@ const MoneyDashboard = () => {
         return;
       }
 
-      alert("Payment marked as paid ✅");
+      // alert("Payment marked as paid ✅");
       await fetchManualPayments();
     } catch (err) {
       console.error("markManualPaid error:", err);
@@ -944,7 +944,7 @@ const MoneyDashboard = () => {
   const generatePaymentLink = async () => {
     try {
       const res = await axios.post(`${BASE_URL}/manual-payment/`, formData);
-      alert("Payment Link: " + res.data.data.payment.url);
+      // alert("Payment Link: " + res.data.data.payment.url);
       setShowModal(false);
       await fetchManualPayments();
     } catch (err) {
