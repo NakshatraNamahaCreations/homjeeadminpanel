@@ -1610,6 +1610,9 @@ const EditEnquiryModal = ({
       {showAddressModal && (
         <AddressPickerModal
           initialAddress={streetArea}
+           initialHouseFlatNumber={houseFlatNumber || ""}
+  initialLandmark={landMark || ""}
+   initialCity={city || ""}
           initialLatLng={
             location
               ? { lat: location.coordinates[1], lng: location.coordinates[0] }

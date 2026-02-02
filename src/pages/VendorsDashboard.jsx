@@ -29,10 +29,82 @@ const VendorsDashboard = () => {
   const [editingVendorId, setEditingVendorId] = useState(null);
   const [vendorFormData, setVendorFormData] = useState(null);
 
+  const [search, setSearch] = useState("");
+
   const navigate = useNavigate();
   const PAGE_SIZE = 10;
 
-  const fetchVendors = async (page = 1) => {
+  // const fetchVendors = async (page = 1) => {
+  //   setLoading(true);
+  //   setError(null);
+
+  //   try {
+  //     const response = await axios.get(`${BASE_URL}/vendor/get-all-vendor`, {
+  //       params: {
+  //         page,
+  //         limit: PAGE_SIZE,
+  //       },
+  //     });
+
+  //     const { vendor, pagination } = response.data;
+
+  //     const fetchedVendors = vendor.map((vendor) => ({
+  //       id: vendor._id,
+  //       name: vendor.vendor.vendorName,
+  //       profileImage: vendor.vendor.profileImage,
+  //       category: vendor.vendor.serviceType,
+  //       city: vendor.vendor.city,
+  //       status: vendor.activeStatus ? "Live" : "Inactive",
+  //       rating: 4.5,
+  //       phone: String(vendor.vendor.mobileNumber ?? ""),
+  //       capacity: vendor.vendor.capacity,
+  //       dob: vendor.vendor.dateOfBirth,
+  //       serviceArea: vendor.vendor?.serviceArea,
+  //       location: vendor.address?.location || "",
+  //       workingSince: parseInt(vendor.vendor?.yearOfWorking ?? "0", 10),
+  //       coins: Number(vendor.wallet?.coins ?? 0),
+  //       lat: vendor.address?.latitude,
+  //       long: vendor.address?.longitude,
+  //       aadhar: vendor.documents?.aadhaarNumber || "",
+  //       pan: vendor.documents?.panNumber || "",
+  //       account: vendor.bankDetails?.accountNumber || "",
+  //       ifsc: vendor.bankDetails?.ifscCode || "",
+  //       bank: vendor.bankDetails?.bankName || "",
+  //       holderName: vendor.bankDetails?.holderName || "",
+  //       accountType: vendor.bankDetails?.accountType || "",
+  //       gst: vendor.bankDetails?.gstNumber || "",
+  //       docs: {
+  //         aadhaarFront:
+  //           vendor.documents?.aadhaarfrontImage ||
+  //           vendor.documents?.aadhaarFrontImage ||
+  //           "",
+  //         aadhaarBack:
+  //           vendor.documents?.aadhaarbackImage ||
+  //           vendor.documents?.aadhaarBackImage ||
+  //           "",
+  //         pan: vendor.documents?.panImage || "",
+  //         other: vendor.documents?.otherPolicy || "",
+  //       },
+  //       team: (vendor.team || []).map(normalizeMember),
+  //     }));
+
+  //     setVendors(fetchedVendors);
+
+  //     if (pagination) {
+  //       setServerPagination(pagination);
+  //     }
+
+  //     return fetchedVendors;
+  //   } catch (error) {
+  //     console.error("Error fetching vendors:", error);
+  //     setError(error.response?.data?.message || error.message);
+  //     return [];
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+
+  const fetchVendors = async (page = 1, overrideFilters = {}) => {
     setLoading(true);
     setError(null);
 
@@ -41,6 +113,11 @@ const VendorsDashboard = () => {
         params: {
           page,
           limit: PAGE_SIZE,
+
+          // ✅ filters
+          city: overrideFilters.city ?? city,
+          serviceType: overrideFilters.service ?? service,
+          search: overrideFilters.search ?? search,
         },
       });
 
@@ -52,7 +129,7 @@ const VendorsDashboard = () => {
         profileImage: vendor.vendor.profileImage,
         category: vendor.vendor.serviceType,
         city: vendor.vendor.city,
-        status: vendor.activeStatus ? "Live" : "Inactive",
+        // status ignored for now
         rating: 4.5,
         phone: String(vendor.vendor.mobileNumber ?? ""),
         capacity: vendor.vendor.capacity,
@@ -88,14 +165,13 @@ const VendorsDashboard = () => {
 
       setVendors(fetchedVendors);
 
-      if (pagination) {
-        setServerPagination(pagination);
-      }
+      if (pagination) setServerPagination(pagination);
 
       return fetchedVendors;
     } catch (error) {
       console.error("Error fetching vendors:", error);
       setError(error.response?.data?.message || error.message);
+      setVendors([]);
       return [];
     } finally {
       setLoading(false);
@@ -109,7 +185,7 @@ const VendorsDashboard = () => {
   const openEditVendorModal = (vendor) => {
     setIsEditingVendor(true);
     setEditingVendorId(vendor.id);
-    
+
     setVendorFormData({
       vendorName: vendor.name || "",
       mobileNumber: vendor.phone || "",
@@ -131,7 +207,7 @@ const VendorsDashboard = () => {
       latitude: String(vendor.lat || ""),
       longitude: String(vendor.long || ""),
     });
-    
+
     setShowAddVendorModal(true);
   };
 
@@ -148,12 +224,13 @@ const VendorsDashboard = () => {
     fetchVendors(1);
   }, []);
 
-  const filteredVendors = vendors.filter((vendor) => {
-    const matchesCity = city === "All Cities" || vendor.city === city;
-    const matchesStatus = status === "All Statuses" || vendor.status === status;
-    const matchesService = service === "All Services" || vendor.category === service;
-    return matchesCity && matchesStatus && matchesService;
-  });
+  // const filteredVendors = vendors.filter((vendor) => {
+  //   const matchesCity = city === "All Cities" || vendor.city === city;
+  //   const matchesStatus = status === "All Statuses" || vendor.status === status;
+  //   const matchesService = service === "All Services" || vendor.category === service;
+  //   return matchesCity && matchesStatus && matchesService;
+  // });
+  const filteredVendors = vendors; // ✅ already filtered by backend
 
   return (
     <>
@@ -185,33 +262,54 @@ const VendorsDashboard = () => {
           <div className="d-flex gap-2">
             <Form.Select
               value={city}
-              onChange={(e) => setCity(e.target.value)}
+              onChange={(e) => {
+                const v = e.target.value;
+                setCity(v);
+                fetchVendors(1, { city: v });
+              }}
               style={{ height: "34px", fontSize: "12px" }}
             >
-              {["All Cities", "Bengaluru", "Pune", "Mumbai", "Delhi", "Hyderabad", "Chennai"].map((c) => (
-                <option key={c} value={c}>{c}</option>
+              {["All Cities", "Bengaluru", "Pune"].map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
               ))}
-            </Form.Select>
-            <Form.Select
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-              style={{ height: "34px", fontSize: "12px" }}
-            >
-              <option>All Statuses</option>
-              <option>Live</option>
-              <option>Inactive</option>
-              <option>Low Coins</option>
-              <option>Capacity Full</option>
             </Form.Select>
             <Form.Select
               value={service}
-              onChange={(e) => setService(e.target.value)}
+              onChange={(e) => {
+                const v = e.target.value;
+                setService(v);
+                fetchVendors(1, { service: v });
+              }}
               style={{ height: "34px", fontSize: "12px" }}
             >
-              {["All Services", "House Painting", "Deep Cleaning", "Plumbing", "Electrical", "Carpentry"].map((s) => (
-                <option key={s} value={s}>{s}</option>
+              {[
+                "All Services",
+                "House Painting",
+                "Deep Cleaning",
+                "House Interiors",
+                "Packers & Movers",
+              ].map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
               ))}
             </Form.Select>
+            <Form.Control
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search Vendor name"
+              style={{ height: "34px", fontSize: "12px", width: "220px" }}
+            />
+            <Button
+              variant="dark"
+              size="sm"
+              onClick={() => fetchVendors(1, { search })}
+            >
+              Search
+            </Button>
+
             <Button
               onClick={() => {
                 setIsEditingVendor(false);
@@ -263,8 +361,10 @@ const VendorsDashboard = () => {
           onHide={() => setShowAddressPicker(false)}
           initialAddress={vendorFormData?.location || ""}
           initialLatLng={
-            vendorFormData?.latitude && vendorFormData?.longitude &&
-            !isNaN(vendorFormData.latitude) && !isNaN(vendorFormData.longitude)
+            vendorFormData?.latitude &&
+            vendorFormData?.longitude &&
+            !isNaN(vendorFormData.latitude) &&
+            !isNaN(vendorFormData.longitude)
               ? {
                   lat: parseFloat(vendorFormData.latitude),
                   lng: parseFloat(vendorFormData.longitude),
@@ -273,7 +373,7 @@ const VendorsDashboard = () => {
           }
           onSelect={(sel) => {
             if (vendorFormData) {
-              setVendorFormData(prev => ({
+              setVendorFormData((prev) => ({
                 ...prev,
                 location: sel.formattedAddress,
                 serviceArea: sel.formattedAddress,
@@ -289,7 +389,6 @@ const VendorsDashboard = () => {
 };
 
 export default VendorsDashboard;
-
 
 // // full working code
 // import { useState, useEffect, useCallback, useRef } from "react";

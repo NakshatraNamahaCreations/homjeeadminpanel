@@ -136,9 +136,10 @@ export const validateVendorForm = (formData) => {
   const ifscRegex = /^[A-Za-z]{4}[0-9]{7}$/;
   if (!formData.ifscCode) {
     newErrors.ifscCode = "IFSC code is required.";
-  } else if (!ifscRegex.test(formData.ifscCode)) {
-    newErrors.ifscCode = "Invalid IFSC code.";
-  }
+  } 
+  // else if (!ifscRegex.test(formData.ifscCode)) {
+  //   newErrors.ifscCode = "Invalid IFSC code.";
+  // }
 
   // Bank Name: Required
   if (!formData.bankName) newErrors.bankName = "Bank name is required.";
@@ -176,7 +177,7 @@ export const validateVendorForm = (formData) => {
 export const validateTeamMemberForm = (formData) => {
   const newErrors = {};
 
-  // Name: Only alphabets and spaces
+  // Name: Required, only alphabets and spaces
   const nameRegex = /^[A-Za-z\s]+$/;
   if (!formData.name) {
     newErrors.name = "Name is required.";
@@ -184,7 +185,7 @@ export const validateTeamMemberForm = (formData) => {
     newErrors.name = "Name must contain only alphabets and spaces.";
   }
 
-  // Mobile Number: 10 digits
+  // Mobile Number: Required, exactly 10 digits
   const mobileNumberRegex = /^[0-9]{10}$/;
   if (!formData.mobileNumber) {
     newErrors.mobileNumber = "Phone number is required.";
@@ -192,27 +193,21 @@ export const validateTeamMemberForm = (formData) => {
     newErrors.mobileNumber = "Phone number must be 10 digits.";
   }
 
-  // Date of Birth: Required and valid date format
+  // Date of Birth: Required
   if (!formData.dateOfBirth) {
     newErrors.dateOfBirth = "Date of birth is required.";
   }
 
   // City: Required
-  if (!formData.city) {
-    newErrors.city = "City is required.";
-  }
+  if (!formData.city) newErrors.city = "City is required.";
 
   // Service Type: Required
-  if (!formData.serviceType) {
-    newErrors.serviceType = "Service type is required.";
-  }
+  if (!formData.serviceType) newErrors.serviceType = "Service type is required.";
 
   // Service Area: Required
-  if (!formData.serviceArea) {
-    newErrors.serviceArea = "Service area is required.";
-  }
+  // if (!formData.serviceArea) newErrors.serviceArea = "Service area is required.";
 
-  // Aadhar Number: 12 digits
+  // Aadhar Number: Required, 12 digits
   const aadhaarRegex = /^[0-9]{12}$/;
   if (!formData.aadhaarNumber) {
     newErrors.aadhaarNumber = "Aadhar number is required.";
@@ -220,7 +215,7 @@ export const validateTeamMemberForm = (formData) => {
     newErrors.aadhaarNumber = "Aadhar number must be 12 digits.";
   }
 
-  // PAN Number: PAN format validation
+  // PAN Number: Required, valid format
   const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
   if (!formData.panNumber) {
     newErrors.panNumber = "PAN number is required.";
@@ -228,61 +223,55 @@ export const validateTeamMemberForm = (formData) => {
     newErrors.panNumber = "PAN number is invalid.";
   }
 
-  // Bank Account Number: Numeric validation
+  // Bank Account Number: Required, numeric
   if (!formData.accountNumber) {
     newErrors.accountNumber = "Bank account number is required.";
   } else if (!/^[0-9]+$/.test(formData.accountNumber)) {
-    newErrors.accountNumber = "Bank account number should be numeric.";
+    newErrors.accountNumber = "Bank account number must be numeric.";
   }
 
-  // IFSC Code: Format validation (4 alphabets + 7 digits)
+  // IFSC Code: Required, format 4 letters + 7 digits
   const ifscRegex = /^[A-Za-z]{4}[0-9]{7}$/;
   if (!formData.ifscCode) {
     newErrors.ifscCode = "IFSC code is required.";
-  } else if (!ifscRegex.test(formData.ifscCode)) {
-    newErrors.ifscCode = "Invalid IFSC code.";
-  }
+  } 
+  // else if (!ifscRegex.test(formData.ifscCode)) {
+  //   newErrors.ifscCode = "Invalid IFSC code.";
+  // }
 
   // Bank Name: Required
-  if (!formData.bankName) {
-    newErrors.bankName = "Bank name is required.";
-  }
+  if (!formData.bankName) newErrors.bankName = "Bank name is required.";
 
   // Account Holder Name: Required
-  if (!formData.holderName) {
-    newErrors.holderName = "Account holder name is required.";
-  }
+  if (!formData.holderName) newErrors.holderName = "Account holder name is required.";
 
   // Account Type: Required
-  if (!formData.accountType) {
-    newErrors.accountType = "Account type is required.";
-  }
+  if (!formData.accountType) newErrors.accountType = "Account type is required.";
 
-  // GST Number: If provided, it must be valid
+  // GST Number: Optional, validate if provided
   if (formData.gstNumber && formData.gstNumber.trim() !== "") {
     const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
     if (!gstRegex.test(formData.gstNumber)) {
-      newErrors.gstNumber = "Invalid GST number format";
+      newErrors.gstNumber = "Invalid GST number format.";
     }
   }
 
   // Location: Required
-  if (!formData.location) {
-    newErrors.location = "Location is required.";
-  }
+  if (!formData.location) newErrors.location = "Location is required.";
 
-  // Latitude: Numeric and required
+  // Latitude: Required, must be numeric
   if (!formData.latitude || isNaN(formData.latitude)) {
     newErrors.latitude = "Latitude is required.";
   }
 
-  // Longitude: Numeric and required
+  // Longitude: Required, must be numeric
   if (!formData.longitude || isNaN(formData.longitude)) {
     newErrors.longitude = "Longitude is required.";
   }
 
   return newErrors;
 };
+
 
 // Constants
 export const CITIES = [

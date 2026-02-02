@@ -660,8 +660,20 @@ const OngoingLeadDetails = () => {
         return;
       }
 
+      // const secondPayment = booking?.bookingDetails?.secondPayment || {};
+      // const isAdditionalAmount =
+      //   asNum(secondPayment?.amount) ===
+      //     asNum(secondPayment?.requestedAmount) &&
+      //   normStatus(secondPayment?.status) === "paid";
+
       const secondPayment = booking?.bookingDetails?.secondPayment || {};
+      const paymentLink = booking?.bookingDetails?.paymentLink || {};
+
+      // ✅ consider "final not requested" only when payment link is explicitly inactive
+      const isPaymentLinkInactive = paymentLink?.isActive === false;
+      console.log("isPaymentLinkInactive:", isPaymentLinkInactive);
       const isAdditionalAmount =
+        isPaymentLinkInactive &&
         asNum(secondPayment?.amount) ===
           asNum(secondPayment?.requestedAmount) &&
         normStatus(secondPayment?.status) === "paid";
@@ -693,6 +705,8 @@ const OngoingLeadDetails = () => {
         installmentStage,
       };
 
+      console.log("Cash payment payload:", payload);
+
       const res = await fetch(
         `${BASE_URL}/bookings/update-manual-payment/cash/admin`,
         {
@@ -704,8 +718,6 @@ const OngoingLeadDetails = () => {
 
       const data = await res.json();
       if (!res.ok) throw new Error(data?.message || "Cash payment failed");
-
-      // alert("Cash payment recorded successfully");
 
       setCashPayment("");
       setCashPaymentPopup(false);
@@ -2028,6 +2040,40 @@ const OngoingLeadDetails = () => {
                           : "N/A"}
                       </strong>
                     </p>
+                    <p className="mb-1" style={{ fontSize: 13 }}>
+                      <span className="text-muted">Survey Started At:</span>{" "}
+                      <strong>
+                        {assigned?.startedDate
+                          ? `${new Date(assigned.startedDate)
+                              .toLocaleDateString("en-GB", {
+                                day: "2-digit",
+                                month: "2-digit",
+                                year: "numeric",
+                              })
+                              .replace(
+                                /,/g,
+                                "",
+                              )} ${assigned?.startedTime || ""}`.trim()
+                          : "N/A"}
+                      </strong>
+                    </p>
+                    <p className="mb-1" style={{ fontSize: 13 }}>
+                      <span className="text-muted">Survey Ended At:</span>{" "}
+                      <strong>
+                        {assigned?.endedDate
+                          ? `${new Date(assigned.endedDate)
+                              .toLocaleDateString("en-GB", {
+                                day: "2-digit",
+                                month: "2-digit",
+                                year: "numeric",
+                              })
+                              .replace(
+                                /,/g,
+                                "",
+                              )} ${assigned?.endedTime || ""}`.trim()
+                          : "N/A"}
+                      </strong>
+                    </p>
                   </div>
 
                   {isTeamMismatch && (
@@ -2084,6 +2130,7 @@ const OngoingLeadDetails = () => {
               </div>
 
               {/* ✅ Measurement Summary (House Painting only) */}
+
               {isHousePainting && (
                 <div
                   style={{
@@ -2114,114 +2161,174 @@ const OngoingLeadDetails = () => {
                     </div>
                   ) : measurements.length > 0 ? (
                     (() => {
-                      const m = measurements[measurements.length - 1] || {};
-                      const totals = m?.totals || {};
+                      try {
+                        const m = measurements[measurements.length - 1] || {};
+                        const rooms =
+                          m?.rooms && typeof m.rooms === "object"
+                            ? m.rooms
+                            : {};
 
-                      const interior =
-                        asNum(totals?.interior) ||
-                        asNum(totals?.wallsArea) +
-                          asNum(totals?.ceilingsArea) ||
-                        0;
+                        // ✅ Section-wise totals based on room.sectionType
+                        const sumArr = (arr) => {
+                          try {
+                            if (!Array.isArray(arr)) return 0;
+                            return arr.reduce(
+                              (acc, it) =>
+                                acc + asNum(it?.totalSqt ?? it?.area ?? 0),
+                              0,
+                            );
+                          } catch (e) {
+                            console.error("sumArr error:", e);
+                            return 0;
+                          }
+                        };
 
-                      const exterior = asNum(totals?.exterior) || 0;
-                      const others =
-                        asNum(totals?.others) ||
-                        asNum(totals?.measurementsArea) ||
-                        0;
+                        const calcRoomTotal = (room) => {
+                          try {
+                            if (!room) return 0;
+                            const walls = sumArr(room?.walls);
+                            const ceilings = sumArr(room?.ceilings);
+                            const others = sumArr(room?.measurements);
+                            return walls + ceilings + others;
+                          } catch (e) {
+                            console.error("calcRoomTotal error:", e);
+                            return 0;
+                          }
+                        };
 
-                      const totalMeasurement = interior + exterior + others;
+                        let interior = 0;
+                        let exterior = 0;
+                        let others = 0;
+                        let roomsCount = 0;
 
-                      const rowStyle = {
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        padding: "10px 0",
-                        fontSize: 13,
-                      };
+                        for (const roomName of Object.keys(rooms)) {
+                          const room = rooms[roomName];
+                          const sectionType = String(
+                            room?.sectionType || "",
+                          ).trim(); // Interior/Exterior/Others
+                          const roomTotal = calcRoomTotal(room);
 
-                      return (
-                        <>
-                          <div
-                            style={{
-                              display: "flex",
-                              justifyContent: "space-between",
-                              alignItems: "center",
-                              marginBottom: 10,
-                            }}
-                          >
-                            <h6
-                              className="fw-bold mb-0"
-                              style={{ fontSize: 14 }}
-                            >
-                              Measurement Summary
-                            </h6>
+                          roomsCount += 1;
 
-                            <span
+                          if (sectionType === "Interior") interior += roomTotal;
+                          else if (sectionType === "Exterior")
+                            exterior += roomTotal;
+                          else if (sectionType === "Others")
+                            others += roomTotal;
+                          else others += roomTotal; // fallback when sectionType missing
+                        }
+
+                        const totalMeasurement =
+                          asNum(interior) + asNum(exterior) + asNum(others);
+
+                        const rowStyle = {
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          padding: "10px 0",
+                          fontSize: 13,
+                        };
+
+                        return (
+                          <>
+                            <div
                               style={{
-                                fontSize: 11,
-                                fontWeight: 800,
-                                padding: "4px 10px",
-                                borderRadius: 999,
-                                border: "1px solid #e9ecef",
-                                background: "#f8f9fa",
-                                color: "#6c757d",
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                                marginBottom: 10,
                               }}
                             >
-                              {Object.keys(m?.rooms || {}).length || 0} Rooms
-                            </span>
-                          </div>
+                              <h6
+                                className="fw-bold mb-0"
+                                style={{ fontSize: 14 }}
+                              >
+                                Measurement Summary
+                              </h6>
 
+                              <span
+                                style={{
+                                  fontSize: 11,
+                                  fontWeight: 800,
+                                  padding: "4px 10px",
+                                  borderRadius: 999,
+                                  border: "1px solid #e9ecef",
+                                  background: "#f8f9fa",
+                                  color: "#6c757d",
+                                }}
+                              >
+                                {roomsCount} Rooms
+                              </span>
+                            </div>
+
+                            <div
+                              style={{
+                                borderTop: "1px dashed #cfd4da",
+                                marginBottom: 8,
+                              }}
+                            />
+
+                            <div style={rowStyle}>
+                              <span style={{ fontWeight: 600 }}>Interior</span>
+                              <span style={{ fontWeight: 800 }}>
+                                {asNum(interior)} sq ft
+                              </span>
+                            </div>
+
+                            <div style={rowStyle}>
+                              <span style={{ fontWeight: 600 }}>Exterior</span>
+                              <span style={{ fontWeight: 800 }}>
+                                {asNum(exterior)} sq ft
+                              </span>
+                            </div>
+
+                            <div style={rowStyle}>
+                              <span style={{ fontWeight: 600 }}>Others</span>
+                              <span style={{ fontWeight: 800 }}>
+                                {asNum(others)} sq ft
+                              </span>
+                            </div>
+
+                            <div
+                              style={{
+                                borderTop: "1px dashed #cfd4da",
+                                marginTop: 8,
+                              }}
+                            />
+
+                            <div
+                              style={{
+                                ...rowStyle,
+                                paddingTop: 14,
+                                fontSize: 14,
+                              }}
+                            >
+                              <span style={{ fontWeight: 900 }}>
+                                Total Measurement
+                              </span>
+                              <span style={{ fontWeight: 900, color: "#111" }}>
+                                {asNum(totalMeasurement)} sq ft
+                              </span>
+                            </div>
+                          </>
+                        );
+                      } catch (err) {
+                        console.error("measurement summary render error:", err);
+                        return (
                           <div
                             style={{
-                              borderTop: "1px dashed #cfd4da",
-                              marginBottom: 8,
-                            }}
-                          />
-
-                          <div style={rowStyle}>
-                            <span style={{ fontWeight: 600 }}>Interior</span>
-                            <span style={{ fontWeight: 800 }}>
-                              {asNum(interior)} sq ft
-                            </span>
-                          </div>
-
-                          <div style={rowStyle}>
-                            <span style={{ fontWeight: 600 }}>Exterior</span>
-                            <span style={{ fontWeight: 800 }}>
-                              {asNum(exterior)} sq ft
-                            </span>
-                          </div>
-
-                          <div style={rowStyle}>
-                            <span style={{ fontWeight: 600 }}>Others</span>
-                            <span style={{ fontWeight: 800 }}>
-                              {asNum(others)} sq ft
-                            </span>
-                          </div>
-
-                          <div
-                            style={{
-                              borderTop: "1px dashed #cfd4da",
-                              marginTop: 8,
-                            }}
-                          />
-
-                          <div
-                            style={{
-                              ...rowStyle,
-                              paddingTop: 14,
-                              fontSize: 14,
+                              fontSize: 12,
+                              color: "#dc3545",
+                              background: "#fdecea",
+                              border: "1px solid #f5c2c7",
+                              padding: "10px 12px",
+                              borderRadius: 10,
                             }}
                           >
-                            <span style={{ fontWeight: 900 }}>
-                              Total Measurement
-                            </span>
-                            <span style={{ fontWeight: 900, color: "#111" }}>
-                              {asNum(totalMeasurement)} sq ft
-                            </span>
+                            Unable to compute measurement summary.
                           </div>
-                        </>
-                      );
+                        );
+                      }
                     })()
                   ) : (
                     <div

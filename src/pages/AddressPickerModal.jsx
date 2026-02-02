@@ -143,6 +143,9 @@ const loadGoogleMaps = () => {
 const AddressPickerModal = ({
   initialLatLng,
   initialAddress = "",
+    initialHouseFlatNumber = "",
+    initialCity="",
+  initialLandmark = "",
   onClose,
   onSelect,
   bookingId,
@@ -161,13 +164,17 @@ const AddressPickerModal = ({
   const [houseFlatError, setHouseFlatError] = useState("");
 
   // keep address synced when opening modal with prefilled address
+ // ✅ preload when modal opens / props change
   useEffect(() => {
     try {
-      if (initialAddress) setAddr(initialAddress);
+      setAddr(initialAddress || "");
+      setHouseFlat(initialHouseFlatNumber || "");
+      setLandmark(initialLandmark || "");
+      setCity(initialCity || "");
     } catch (err) {
-      console.warn("initialAddress sync error:", err);
+      console.warn("Prefill sync error:", err);
     }
-  }, [initialAddress]);
+  }, [initialAddress, initialHouseFlatNumber, initialLandmark, initialCity]);
 
   const getMissingFields = () => {
     const missing = [];

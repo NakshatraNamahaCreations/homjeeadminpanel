@@ -154,7 +154,7 @@ const VendorList = ({
           {Array.from({ length: totalPages })
             .slice(
               Math.max(0, safePage - 3),
-              Math.min(totalPages, safePage + 2)
+              Math.min(totalPages, safePage + 2),
             )
             .map((_, i, arr) => {
               const pageNum = Math.max(1, safePage - 2) + i;

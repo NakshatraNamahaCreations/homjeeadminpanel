@@ -60,22 +60,6 @@ const TeamMemberForm = ({
               onChange={onFileChange}
             />
           </Form.Group>
-          <Form.Group className="mb-3">
-            <Form.Label>Upload Aadhaar (Front)</Form.Label>
-            <Form.Control
-              type="file"
-              name="aadhaarfrontImage"
-              onChange={onFileChange}
-            />
-          </Form.Group>
-          <Form.Group className="mb-3">
-            <Form.Label>Upload Aadhaar (Back)</Form.Label>
-            <Form.Control
-              type="file"
-              name="aadhaarbackImage"
-              onChange={onFileChange}
-            />
-          </Form.Group>
         </Col>
         <Col md={6}>
           <Form.Group className="mb-3">
@@ -91,6 +75,27 @@ const TeamMemberForm = ({
             <Form.Control.Feedback type="invalid">
               {errors.dateOfBirth}
             </Form.Control.Feedback>
+          </Form.Group>
+        </Col>
+        <Col md={6}>
+          <Form.Group className="mb-3">
+            <Form.Label>Upload Aadhaar (Front)</Form.Label>
+            <Form.Control
+              type="file"
+              name="aadhaarfrontImage"
+              onChange={onFileChange}
+            />
+          </Form.Group>
+        </Col>
+
+        <Col md={6}>
+          <Form.Group className="mb-3">
+            <Form.Label>Upload Aadhaar (Back)</Form.Label>
+            <Form.Control
+              type="file"
+              name="aadhaarbackImage"
+              onChange={onFileChange}
+            />
           </Form.Group>
         </Col>
       </Row>
@@ -131,12 +136,8 @@ const TeamMemberForm = ({
               <option value="">Select Service</option>
               <option value="House Painting">House Painting</option>
               <option value="Deep Cleaning">Deep Cleaning</option>
-              <option value="Plumbing">Plumbing</option>
-              <option value="Electrical">Electrical</option>
-              <option value="Carpentry">Carpentry</option>
-              <option value="Pest Control">Pest Control</option>
-              <option value="AC Service">AC Service</option>
-              <option value="Car Wash">Car Wash</option>
+              <option value="House Interior">House Interior</option>
+              <option value="Packers & Movers">Packers & Movers</option>
             </Form.Select>
             <Form.Control.Feedback type="invalid">
               {errors.serviceType}
@@ -144,7 +145,7 @@ const TeamMemberForm = ({
           </Form.Group>
         </Col>
       </Row>
-      <Row>
+      {/* <Row>
         <Col md={6}>
           <Form.Group className="mb-3">
             <Form.Label>Service Area</Form.Label>
@@ -162,7 +163,7 @@ const TeamMemberForm = ({
             </Form.Control.Feedback>
           </Form.Group>
         </Col>
-      </Row>
+      </Row> */}
 
       <h5 className="mt-4 mb-3">Address Details</h5>
       <Row className="align-items-end">
@@ -255,25 +256,26 @@ const TeamMemberForm = ({
               {errors.panNumber}
             </Form.Control.Feedback>
           </Form.Group>
+        </Col>
+      </Row>
+      <Row>
+        <Col md={6}>
           <Form.Group className="mb-3">
             <Form.Label>Upload PAN Card</Form.Label>
+            <Form.Control type="file" name="panImage" onChange={onFileChange} />
+          </Form.Group>
+        </Col>
+        <Col md={6}>
+          <Form.Group className="mb-3">
+            <Form.Label>Others / Police Verification</Form.Label>
             <Form.Control
               type="file"
-              name="panImage"
+              name="otherPolicy"
               onChange={onFileChange}
             />
           </Form.Group>
         </Col>
       </Row>
-      <Form.Group className="mb-3">
-        <Form.Label>Others / Police Verification</Form.Label>
-        <Form.Control
-          type="file"
-          name="otherPolicy"
-          onChange={onFileChange}
-        />
-      </Form.Group>
-
       <h5 className="mt-4 mb-3">Financial Details</h5>
       <Row>
         <Col md={6}>
@@ -303,7 +305,7 @@ const TeamMemberForm = ({
               onChange={onInputChange}
               placeholder="Enter IFSC Code"
               required
-              isInvalid={!!errors.ifscCode}
+              // isInvalid={!!errors.ifscCode}
             />
             <Form.Control.Feedback type="invalid">
               {errors.ifscCode}
@@ -381,9 +383,7 @@ const TeamMemberForm = ({
               placeholder="Enter GST No."
             />
             {errors.gstNumber && (
-              <Form.Text className="text-danger">
-                {errors.gstNumber}
-              </Form.Text>
+              <Form.Text className="text-danger">{errors.gstNumber}</Form.Text>
             )}
           </Form.Group>
         </Col>
