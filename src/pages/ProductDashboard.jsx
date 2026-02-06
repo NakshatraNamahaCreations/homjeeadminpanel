@@ -1,10 +1,27 @@
-import React, { useEffect, useState } from "react";
-import { Table, Container, Row, Col, Form, Modal, Button } from "react-bootstrap";
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  Table,
+  Container,
+  Row,
+  Col,
+  Form,
+  Modal,
+  Button,
+} from "react-bootstrap";
 import { FaPlus, FaEdit, FaTrash, FaStar, FaGripVertical } from "react-icons/fa";
-import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
 import { useNavigate } from "react-router-dom";
 import { BASE_URL } from "../utils/config";
 import axios from "axios";
+
+/* ✅ DND-KIT imports (already in your package.json) */
+import { DndContext, closestCenter } from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 const productTypes = [
   "Paints",
@@ -25,6 +42,86 @@ const finishingTypes = [
   "POP",
   "Wood Polish",
 ];
+
+/* ---------------------------
+   Sortable Row
+---------------------------- */
+function SortableRow({
+  id,
+  type,
+  product,
+  index,
+  showPaintTypeColumn,
+  getPkgPaintName,
+  onEdit,
+  onDelete,
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    backgroundColor: isDragging ? "#e9ecef" : "inherit",
+  };
+
+  return (
+    <tr ref={setNodeRef} style={style}>
+      <td
+        {...attributes}
+        {...listeners}
+        style={{
+          cursor: "grab",
+          textAlign: "center",
+          verticalAlign: "middle",
+          width: "50px",
+        }}
+      >
+        <FaGripVertical />
+      </td>
+
+      <td>
+        {product.type === "Special" && type === "Paints" && (
+          <FaStar className="text-warning me-2" />
+        )}
+        {type === "Packages"
+          ? product.packageName
+          : product.paintName || product.name}
+      </td>
+
+      {type === "Packages" ? (
+        <>
+          <td>{getPkgPaintName(product, "Interior", "Ceiling")}</td>
+          <td>{getPkgPaintName(product, "Interior", "Walls")}</td>
+          <td>{getPkgPaintName(product, "Exterior", "Ceiling")}</td>
+          <td>{getPkgPaintName(product, "Exterior", "Walls")}</td>
+          <td>{getPkgPaintName(product, "Others", "Others")}</td>
+        </>
+      ) : (
+        <>
+          <td>₹{product.paintPrice || product.price}</td>
+          <td>{product.description}</td>
+          {showPaintTypeColumn(type) && <td>{product.paintType || product.type}</td>}
+        </>
+      )}
+
+      <td style={{ whiteSpace: "nowrap" }}>
+        <Button variant="" className="me-1" onClick={() => onEdit(type, index)}>
+          <FaEdit />
+        </Button>
+        <Button variant="" onClick={() => onDelete(type, index)}>
+          <FaTrash />
+        </Button>
+      </td>
+    </tr>
+  );
+}
 
 const ProductsDashboard = () => {
   const [city, setCity] = useState("");
@@ -74,11 +171,9 @@ const ProductsDashboard = () => {
   const fetchData = async () => {
     try {
       const productsData = {};
-      
-      // Initialize empty arrays for each product type
       productTypes.forEach((t) => (productsData[t] = []));
 
-      // 1) Paints by city (should return sorted by order)
+      // 1) Paints by city
       const paintsRes = await fetch(
         `${BASE_URL}/products/get-products-by-type?productType=${encodeURIComponent(
           "Paints"
@@ -87,7 +182,7 @@ const ProductsDashboard = () => {
       const paintsResult = await paintsRes.json();
       if (paintsRes.ok) productsData["Paints"] = paintsResult.data || [];
 
-      // 2) Packages by city (should return sorted by order)
+      // 2) Packages by city
       const packagesRes = await fetch(
         `${BASE_URL}/products/get-products-by-type?productType=${encodeURIComponent(
           "Packages"
@@ -96,23 +191,23 @@ const ProductsDashboard = () => {
       const packagesResult = await packagesRes.json();
       if (packagesRes.ok) productsData["Packages"] = packagesResult.data || [];
 
-      // 3) Finishing types by city (fetch all finishing then split by type)
+      // 3) Finishing types by city
       const finishingRes = await fetch(
-        `${BASE_URL}/products/get-all-finishing-paints?city=${encodeURIComponent(city)}`
+        `${BASE_URL}/products/get-all-finishing-paints?city=${encodeURIComponent(
+          city
+        )}`
       );
       const finishingResult = await finishingRes.json();
       if (finishingRes.ok && Array.isArray(finishingResult.data)) {
-        // Group finishing paints by their productType
         finishingResult.data.forEach((p) => {
           if (productTypes.includes(p.productType)) {
             productsData[p.productType].push(p);
           }
         });
-        
-        // Sort each finishing type by order
-        finishingTypes.forEach(type => {
+
+        finishingTypes.forEach((type) => {
           if (productsData[type]) {
-            productsData[type].sort((a, b) => a.order - b.order);
+            productsData[type].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
           }
         });
       }
@@ -126,6 +221,7 @@ const ProductsDashboard = () => {
   useEffect(() => {
     if (!city) return;
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [city]);
 
   const handlePricingSave = async () => {
@@ -262,7 +358,6 @@ const ProductsDashboard = () => {
         return;
       }
 
-      // Update local state
       setProductsByType((prev) => {
         const updated = [...(prev[type] || [])];
         updated.splice(index, 1);
@@ -284,7 +379,8 @@ const ProductsDashboard = () => {
       setEditingProduct({
         ...prod,
         productType: type,
-        name: type === "Packages" ? prod.packageName : prod.paintName || prod.name,
+        name:
+          type === "Packages" ? prod.packageName : prod.paintName || prod.name,
         price: prod.paintPrice || prod.price,
         type: prod.paintType || prod.type || "Normal",
         city: pkgCity || city || "",
@@ -299,68 +395,39 @@ const ProductsDashboard = () => {
     }
   };
 
-  // ✅ Drag and Drop Functions
-  const handleDragEnd = async (result) => {
-    const { source, destination, draggableId } = result;
-
-    // If dropped outside the list or in the same position
-    if (!destination || 
-        (source.droppableId === destination.droppableId && 
-         source.index === destination.index)) {
-      return;
-    }
-
-    const sourceType = source.droppableId;
-    const destType = destination.droppableId;
-
-    // Only allow reordering within the same category
-    if (sourceType !== destType) {
-      console.log("Cannot move between different categories");
-      return;
-    }
-
-    // Create a copy of the current items
-    const currentItems = [...(productsByType[sourceType] || [])];
-    
-    // Remove the dragged item
-    const [removed] = currentItems.splice(source.index, 1);
-    
-    // Insert it at the new position
-    currentItems.splice(destination.index, 0, removed);
-
-    // Update state immediately (optimistic update)
-    setProductsByType(prev => ({
-      ...prev,
-      [sourceType]: currentItems
-    }));
-
-    // Send update to backend
+  /* ✅ DND-KIT reorder for a single table/type */
+  const reorderInType = async ({ type, activeId, overId }) => {
     try {
-      const orderedIds = currentItems.map(item => item._id);
-      
+      if (!overId || activeId === overId) return;
+
+      const current = [...(productsByType[type] || [])];
+      const oldIndex = current.findIndex((p) => `${type}-${p._id}` === activeId);
+      const newIndex = current.findIndex((p) => `${type}-${p._id}` === overId);
+
+      if (oldIndex < 0 || newIndex < 0) return;
+
+      const newItems = arrayMove(current, oldIndex, newIndex);
+
+      // optimistic update
+      setProductsByType((prev) => ({ ...prev, [type]: newItems }));
+
+      // save to backend
+      const orderedIds = newItems.map((item) => item._id);
+
       const response = await fetch(`${BASE_URL}/products/reorder`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          city: city,
-          productType: sourceType,
-          orderedIds: orderedIds
+          city,
+          productType: type,
+          orderedIds,
         }),
       });
 
       const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.message || "Failed to save order");
-      }
-
-      console.log("Order saved successfully:", result);
+      if (!response.ok) throw new Error(result.message || "Failed to save order");
     } catch (error) {
       console.error("Error saving order:", error);
-      
-      // Revert to original order if backend update fails
       await fetchData();
       alert("Failed to save the new order. Please try again.");
     }
@@ -397,9 +464,14 @@ const ProductsDashboard = () => {
           <Form.Select
             value={category}
             onChange={(e) => {
-              const selected = e.target.value;
-              setCategory(selected);
-              if (selected === "Deep Cleaning") navigate("/deep-cleaning-dashboard");
+              try {
+                const selected = e.target.value;
+                setCategory(selected);
+                if (selected === "Deep Cleaning")
+                  navigate("/deep-cleaning-dashboard");
+              } catch (err) {
+                console.error(err);
+              }
             }}
             style={{ height: "36px", fontSize: "12px" }}
           >
@@ -478,18 +550,24 @@ const ProductsDashboard = () => {
         </Row>
       )}
 
-      {/* Drag and Drop Context */}
-      <DragDropContext onDragEnd={handleDragEnd}>
-        {productTypes.map((type) => (
+      {productTypes.map((type) => {
+        const items = productsByType[type] || [];
+        const itemIds = useMemo(() => items.map((p) => `${type}-${p._id}`), [items, type]);
+
+        return (
           <div key={type}>
             <div className="d-flex justify-content-between align-items-center mt-4 mb-2">
               <h6 className="fw-bold">{type} Products</h6>
               <Button
                 variant=""
                 onClick={() => {
-                  setEditingProduct(null);
-                  setSelectedProductType(type);
-                  setShowModal(true);
+                  try {
+                    setEditingProduct(null);
+                    setSelectedProductType(type);
+                    setShowModal(true);
+                  } catch (err) {
+                    console.error(err);
+                  }
                 }}
                 style={{
                   height: "30px",
@@ -502,118 +580,70 @@ const ProductsDashboard = () => {
               </Button>
             </div>
 
-            <Table striped bordered hover responsive>
-              <thead style={{ fontSize: "14px", textAlign: "center" }}>
-                <tr>
-                  <th style={{ width: "50px" }}>Drag</th>
-                  <th>Product Name</th>
+            {/* ✅ One DndContext per table (prevents cross-table moves) */}
+            <DndContext
+              collisionDetection={closestCenter}
+              onDragEnd={(event) => {
+                try {
+                  const { active, over } = event;
+                  reorderInType({
+                    type,
+                    activeId: active?.id,
+                    overId: over?.id,
+                  });
+                } catch (err) {
+                  console.error(err);
+                }
+              }}
+            >
+              <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
+                <Table striped bordered hover responsive>
+                  <thead style={{ fontSize: "14px", textAlign: "center" }}>
+                    <tr>
+                      <th style={{ width: "50px" }}>Drag</th>
+                      <th>Product Name</th>
 
-                  {type === "Packages" ? (
-                    <>
-                      <th>Interior Ceiling Paint</th>
-                      <th>Interior Walls Paint</th>
-                      <th>Exterior Ceiling Paint</th>
-                      <th>Exterior Walls Paint</th>
-                      <th>Others Paint</th>
-                    </>
-                  ) : (
-                    <>
-                      <th>Price</th>
-                      <th>Description</th>
-                      {showPaintTypeColumn(type) && <th>Paint</th>}
-                    </>
-                  )}
+                      {type === "Packages" ? (
+                        <>
+                          <th>Interior Ceiling Paint</th>
+                          <th>Interior Walls Paint</th>
+                          <th>Exterior Ceiling Paint</th>
+                          <th>Exterior Walls Paint</th>
+                          <th>Others Paint</th>
+                        </>
+                      ) : (
+                        <>
+                          <th>Price</th>
+                          <th>Description</th>
+                          {showPaintTypeColumn(type) && <th>Paint</th>}
+                        </>
+                      )}
 
-                  <th>Actions</th>
-                </tr>
-              </thead>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
 
-              <Droppable droppableId={type}>
-                {(provided, snapshot) => (
-                  <tbody
-                    ref={provided.innerRef}
-                    {...provided.droppableProps}
-                    style={{
-                      backgroundColor: snapshot.isDraggingOver ? '#f8f9fa' : 'inherit',
-                    }}
-                  >
-                    {(productsByType[type] || []).map((product, index) => (
-                      <Draggable
+                  <tbody>
+                    {items.map((product, index) => (
+                      <SortableRow
                         key={`${type}-${product._id}`}
-                        draggableId={`${type}-${product._id}`}
+                        id={`${type}-${product._id}`}
+                        type={type}
+                        product={product}
                         index={index}
-                      >
-                        {(provided, snapshot) => (
-                          <tr
-                            ref={provided.innerRef}
-                            {...provided.draggableProps}
-                            style={{
-                              ...provided.draggableProps.style,
-                              backgroundColor: snapshot.isDragging ? '#e9ecef' : 'inherit',
-                              transition: 'background-color 0.2s ease',
-                            }}
-                          >
-                            <td
-                              {...provided.dragHandleProps}
-                              style={{
-                                cursor: 'grab',
-                                textAlign: 'center',
-                                verticalAlign: 'middle'
-                              }}
-                            >
-                              <FaGripVertical />
-                            </td>
-                            <td>
-                              {product.type === "Special" && type === "Paints" && (
-                                <FaStar className="text-warning me-2" />
-                              )}
-                              {type === "Packages"
-                                ? product.packageName
-                                : product.paintName || product.name}
-                            </td>
-
-                            {type === "Packages" ? (
-                              <>
-                                <td>{getPkgPaintName(product, "Interior", "Ceiling")}</td>
-                                <td>{getPkgPaintName(product, "Interior", "Walls")}</td>
-                                <td>{getPkgPaintName(product, "Exterior", "Ceiling")}</td>
-                                <td>{getPkgPaintName(product, "Exterior", "Walls")}</td>
-                                <td>{getPkgPaintName(product, "Others", "Others")}</td>
-                              </>
-                            ) : (
-                              <>
-                                <td>₹{product.paintPrice || product.price}</td>
-                                <td>{product.description}</td>
-                                {showPaintTypeColumn(type) && (
-                                  <td>{product.paintType || product.type}</td>
-                                )}
-                              </>
-                            )}
-
-                            <td>
-                              <Button
-                                variant=""
-                                className="me-1"
-                                onClick={() => handleEdit(type, index)}
-                              >
-                                <FaEdit />
-                              </Button>
-                              <Button variant="" onClick={() => handleDelete(type, index)}>
-                                <FaTrash />
-                              </Button>
-                            </td>
-                          </tr>
-                        )}
-                      </Draggable>
+                        showPaintTypeColumn={showPaintTypeColumn}
+                        getPkgPaintName={getPkgPaintName}
+                        onEdit={handleEdit}
+                        onDelete={handleDelete}
+                      />
                     ))}
-                    {provided.placeholder}
                   </tbody>
-                )}
-              </Droppable>
-            </Table>
+                </Table>
+              </SortableContext>
+            </DndContext>
           </div>
-        ))}
-      </DragDropContext>
+        );
+      })}
 
       <ProductModal
         show={showModal}
@@ -647,11 +677,46 @@ const ProductModal = ({
     type: "Normal",
     productType: selectedProductType || "",
     details: [
-      { itemName: "Ceiling", paintName: "", paintPrice: 0, category: "Interior", includePuttyOnFresh: true, includePuttyOnRepaint: false },
-      { itemName: "Walls", paintName: "", paintPrice: 0, category: "Interior", includePuttyOnFresh: true, includePuttyOnRepaint: false },
-      { itemName: "Ceiling", paintName: "", paintPrice: 0, category: "Exterior", includePuttyOnFresh: true, includePuttyOnRepaint: false },
-      { itemName: "Walls", paintName: "", paintPrice: 0, category: "Exterior", includePuttyOnFresh: true, includePuttyOnRepaint: false },
-      { itemName: "Others", paintName: "", paintPrice: 0, category: "Others", includePuttyOnFresh: true, includePuttyOnRepaint: false },
+      {
+        itemName: "Ceiling",
+        paintName: "",
+        paintPrice: 0,
+        category: "Interior",
+        includePuttyOnFresh: true,
+        includePuttyOnRepaint: false,
+      },
+      {
+        itemName: "Walls",
+        paintName: "",
+        paintPrice: 0,
+        category: "Interior",
+        includePuttyOnFresh: true,
+        includePuttyOnRepaint: false,
+      },
+      {
+        itemName: "Ceiling",
+        paintName: "",
+        paintPrice: 0,
+        category: "Exterior",
+        includePuttyOnFresh: true,
+        includePuttyOnRepaint: false,
+      },
+      {
+        itemName: "Walls",
+        paintName: "",
+        paintPrice: 0,
+        category: "Exterior",
+        includePuttyOnFresh: true,
+        includePuttyOnRepaint: false,
+      },
+      {
+        itemName: "Others",
+        paintName: "",
+        paintPrice: 0,
+        category: "Others",
+        includePuttyOnFresh: true,
+        includePuttyOnRepaint: false,
+      },
     ],
   });
 
@@ -702,7 +767,9 @@ const ProductModal = ({
     try {
       if (editingProduct) {
         const isPackage = editingProduct.productType === "Packages";
-        const pkgCity = isPackage ? editingProduct?.details?.[0]?.city : editingProduct.city;
+        const pkgCity = isPackage
+          ? editingProduct?.details?.[0]?.city
+          : editingProduct.city;
 
         setProduct((prev) => ({
           ...prev,
@@ -714,7 +781,9 @@ const ProductModal = ({
           price: isPackage ? "" : editingProduct.paintPrice || editingProduct.price || "",
           type: editingProduct.paintType || editingProduct.type || "Normal",
           productType: editingProduct.productType || selectedProductType || "",
-          details: editingProduct.details ? editingProduct.details.map((d) => ({ ...d })) : prev.details,
+          details: editingProduct.details
+            ? editingProduct.details.map((d) => ({ ...d }))
+            : prev.details,
         }));
       } else {
         setProduct((prev) => ({
@@ -771,7 +840,8 @@ const ProductModal = ({
         updated[index] = {
           ...updated[index],
           paintName: value,
-          paintPrice: Number(selectedPaint?.price ?? selectedPaint?.paintPrice ?? 0) || 0,
+          paintPrice:
+            Number(selectedPaint?.price ?? selectedPaint?.paintPrice ?? 0) || 0,
           includePuttyOnFresh:
             typeof selectedPaint?.includePuttyOnFresh === "boolean"
               ? selectedPaint.includePuttyOnFresh
@@ -799,7 +869,12 @@ const ProductModal = ({
       </Modal.Header>
 
       <Modal.Body>
-        <Form.Select className="mb-2" name="city" value={product.city || ""} onChange={handleChange}>
+        <Form.Select
+          className="mb-2"
+          name="city"
+          value={product.city || ""}
+          onChange={handleChange}
+        >
           <option value="">Select City</option>
           {Array.isArray(cities) &&
             cities.map((c) => (
@@ -899,10 +974,6 @@ const ProductModal = ({
 };
 
 export default ProductsDashboard;
-
-
-
-
 
 // import React, { useEffect, useMemo, useState } from "react";
 // import {
@@ -1770,5 +1841,3 @@ export default ProductsDashboard;
 // };
 
 // export default ProductsDashboard;
-
-
