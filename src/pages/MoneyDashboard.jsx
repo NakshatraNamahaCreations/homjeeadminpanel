@@ -26,6 +26,9 @@ const MoneyDashboard = () => {
 
   const [payingId, setPayingId] = useState(""); // ✅ track pay now loading
   const [errors, setErrors] = useState({ phone: "" });
+// ✅ Cities (API)
+const [cities, setCities] = useState([]);
+const [citiesLoading, setCitiesLoading] = useState(false);
 
   const [filters, setFilters] = useState({
     service: "All Services",
@@ -53,6 +56,31 @@ const MoneyDashboard = () => {
         HELPERS
   ====================================================== */
 
+  const fetchCities = async () => {
+  try {
+    setCitiesLoading(true);
+
+    // ✅ your endpoint (based on what you shared)
+    const res = await axios.get(`${BASE_URL}/city/city-list`);
+
+    const list = Array.isArray(res?.data?.data) ? res.data.data : [];
+
+    // normalize to string array
+    const names = list
+      .map((x) => String(x?.city || "").trim())
+      .filter(Boolean);
+
+    // remove duplicates
+    const unique = Array.from(new Set(names));
+
+    setCities(unique);
+  } catch (err) {
+    console.error("fetchCities error:", err);
+    setCities([]);
+  } finally {
+    setCitiesLoading(false);
+  }
+};
   const isHousePainting = (serviceType) => {
     try {
       return String(serviceType || "").toLowerCase() === "house_painting";
@@ -484,7 +512,8 @@ const MoneyDashboard = () => {
           fetchManualPayments(),
           fetchPayments(),
           fetchOverallIncomfromcoins(),
-          fetchOverallCoinsSold()
+          fetchOverallCoinsSold(),
+           fetchCities(), 
         ]);
       } catch (e) {
         console.error("Initial load error", e);
@@ -972,21 +1001,31 @@ const MoneyDashboard = () => {
       {/* FILTER BAR */}
       <div className="mb-3 d-flex justify-content-end gap-2">
         <Form.Select
-          className="w-auto"
-          style={{ height: 38, fontSize: 12 }}
-          value={filters.city}
-          onChange={(e) => {
-            try {
-              setFilters({ ...filters, city: e.target.value });
-            } catch (err) {
-              console.error("set city filter error:", err);
-            }
-          }}
-        >
-          <option>All Cities</option>
-          <option>Bengaluru</option>
-          <option>Pune</option>
-        </Form.Select>
+  className="w-auto"
+  style={{ height: 38, fontSize: 12 }}
+  value={filters.city}
+  onChange={(e) => {
+    try {
+      setFilters({ ...filters, city: e.target.value });
+    } catch (err) {
+      console.error("set city filter error:", err);
+    }
+  }}
+>
+  <option value="All Cities">All Cities</option>
+
+  {citiesLoading ? (
+    <option disabled>Loading cities...</option>
+  ) : cities.length === 0 ? (
+    <option disabled>No cities found</option>
+  ) : (
+    cities.map((c) => (
+      <option key={c} value={c}>
+        {c}
+      </option>
+    ))
+  )}
+</Form.Select>
 
         <Form.Select
           className="w-auto"
@@ -1439,11 +1478,22 @@ const MoneyDashboard = () => {
 
             <Form.Group className="mt-3">
               <Form.Label>City *</Form.Label>
-              <Form.Select name="city" required onChange={handleInputChange}>
-                <option value="">Select City</option>
-                <option>Bengaluru</option>
-                <option>Pune</option>
-              </Form.Select>
+            <Form.Select name="city" required onChange={handleInputChange}>
+  <option value="">Select City</option>
+
+  {citiesLoading ? (
+    <option disabled>Loading cities...</option>
+  ) : cities.length === 0 ? (
+    <option disabled>No cities found</option>
+  ) : (
+    cities.map((c) => (
+      <option key={c} value={c}>
+        {c}
+      </option>
+    ))
+  )}
+</Form.Select>
+
             </Form.Group>
 
             {formData.type === "vendor" && (

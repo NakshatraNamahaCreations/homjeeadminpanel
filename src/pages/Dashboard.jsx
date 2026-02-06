@@ -10,6 +10,9 @@ const ENQUIRIES_API = `${BASE_URL}/bookings/get-all-enquiries`;
 const LEADS_API = `${BASE_URL}/bookings/get-all-leads`;
 const MANUAL_PAYMENTS_API = `${BASE_URL}/manual-payment/`;
 
+// ✅ City list API (your working endpoint)
+const CITY_LIST_API = `${BASE_URL}/city/city-list`;
+
 /** ---- Helpers ---- */
 const monthShort = [
   "Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec",
@@ -50,16 +53,22 @@ const fmtDateLabel = (isoLike) => {
 
 const fmtTime = (str) => str || "";
 
+// ✅ use dynamic city options
 const inferCity = (street = "", options = []) => {
-  const lower = street.toLowerCase();
-  const found = options
-    .filter((c) => c !== "All Cities")
-    .find((city) => lower.includes(city.toLowerCase()));
+  const lower = String(street || "").toLowerCase();
+
+  const found = (options || [])
+    .filter((c) => c && c !== "All Cities")
+    .find((city) => lower.includes(String(city).toLowerCase()));
+
   return found || "Bengaluru";
 };
 
-const pickDateForCard = (it) => it?.selectedSlot?.slotDate || it?.bookingDetails?.bookingDate;
-const pickTimeForCard = (it) => it?.selectedSlot?.slotTime || it?.bookingDetails?.bookingTime || "";
+const pickDateForCard = (it) =>
+  it?.selectedSlot?.slotDate || it?.bookingDetails?.bookingDate;
+
+const pickTimeForCard = (it) =>
+  it?.selectedSlot?.slotTime || it?.bookingDetails?.bookingTime || "";
 
 const toCardRowEnquiry = (raw, cities) => {
   const street = raw?.address?.streetArea || raw?.address?.houseFlatNumber || "";
@@ -275,21 +284,35 @@ const computeBookingTotals = (p) => {
     const finalTarget = getInstallmentTarget(b, "finalPayment");
     const installmentTarget = firstTarget + secondTarget + finalTarget;
 
-    const paidFirst = sumTx(txs, (tx) => String(tx?.installment || "").toLowerCase() === "first");
-    const paidSecond = sumTx(txs, (tx) => String(tx?.installment || "").toLowerCase() === "second");
-    const paidFinal = sumTx(txs, (tx) => String(tx?.installment || "").toLowerCase() === "final");
+    const paidFirst = sumTx(
+      txs,
+      (tx) => String(tx?.installment || "").toLowerCase() === "first"
+    );
+    const paidSecond = sumTx(
+      txs,
+      (tx) => String(tx?.installment || "").toLowerCase() === "second"
+    );
+    const paidFinal = sumTx(
+      txs,
+      (tx) => String(tx?.installment || "").toLowerCase() === "final"
+    );
 
     const installmentPaid = paidFirst + paidSecond + paidFinal;
     const installmentPending = Math.max(installmentTarget - installmentPaid, 0);
 
     const rawSiteVisitPaid = sumTx(txs, (tx) => isSiteVisitTx(p, tx));
-    const paidSiteVisit = siteVisitCharges > 0 ? Math.min(rawSiteVisitPaid, siteVisitCharges) : 0;
+    const paidSiteVisit =
+      siteVisitCharges > 0 ? Math.min(rawSiteVisitPaid, siteVisitCharges) : 0;
     const siteVisitPending = Math.max(siteVisitCharges - paidSiteVisit, 0);
 
     const overallPaid = installmentPaid + paidSiteVisit;
     const overallPending = installmentPending + siteVisitPending;
 
-    const splitBooking = sumByMethod(txs, (tx) => isBookingMoneyTx(p, tx), (tx) => tx?.method);
+    const splitBooking = sumByMethod(
+      txs,
+      (tx) => isBookingMoneyTx(p, tx),
+      (tx) => tx?.method
+    );
 
     return {
       paid: { overallPaid },
@@ -314,6 +337,10 @@ const Dashboard = () => {
   /** Filters */
   const [service, setService] = useState("All Services");
   const [city, setCity] = useState("All Cities");
+
+  /** ✅ dynamic city dropdown options */
+  const [cityOptions, setCityOptions] = useState(["All Cities"]);
+  const [citiesLoading, setCitiesLoading] = useState(false);
 
   /** Default this month */
   const thisMonthPeriod = calculatePeriod("thisMonth");
@@ -344,8 +371,6 @@ const Dashboard = () => {
     "Packers & Movers",
   ];
 
-  const cityOptions = ["All Cities", "Bengaluru", "Pune"];
-
   const [enquiriesRaw, setEnquiriesRaw] = useState([]);
   const [leadsRaw, setLeadsRaw] = useState([]);
   const [manualPayments, setManualPayments] = useState([]);
@@ -356,6 +381,46 @@ const Dashboard = () => {
 
   /** Active tab */
   const [activeTab, setActiveTab] = useState("enquiries");
+
+  /** ✅ Fetch Cities for dropdown (NEW) */
+  const fetchCitiesDropdown = async () => {
+    try {
+      setCitiesLoading(true);
+      const res = await axios.get(CITY_LIST_API);
+      const list = Array.isArray(res.data?.data) ? res.data.data : [];
+
+      const names = list
+        .map((x) => String(x?.city || "").trim())
+        .filter(Boolean);
+
+      // remove duplicates (case-insensitive)
+      const uniq = [];
+      const seen = new Set();
+      names.forEach((n) => {
+        const k = n.toLowerCase();
+        if (!seen.has(k)) {
+          seen.add(k);
+          uniq.push(n);
+        }
+      });
+
+      setCityOptions(["All Cities", ...uniq]);
+
+      // ✅ if user selected city not available anymore, reset
+      setCity((prev) => (prev !== "All Cities" && !uniq.includes(prev) ? "All Cities" : prev));
+    } catch (e) {
+      console.error("fetchCitiesDropdown error:", e);
+      // fallback to old default
+      setCityOptions(["All Cities", "Bengaluru", "Pune"]);
+    } finally {
+      setCitiesLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCitiesDropdown();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /** When period changes, auto calculate dates */
   useEffect(() => {
@@ -406,18 +471,15 @@ const Dashboard = () => {
       // ✅ Filter manual payments by the same period + service + city
       const manualFiltered = (manualAll || []).filter((m) => {
         try {
-          // service/city filters
           if (service !== "All Services" && String(m?.service || "") !== String(service)) return false;
           if (city !== "All Cities" && String(m?.city || "") !== String(city)) return false;
 
-          if (!startDate || !endDate) return true; // all-time / missing range
+          if (!startDate || !endDate) return true;
           const created = new Date(m?.createdAt || m?.updatedAt || null);
           if (isNaN(created)) return true;
 
           const s = new Date(startDate);
           const e = new Date(endDate);
-
-          // include full end day
           e.setHours(23, 59, 59, 999);
 
           return created >= s && created <= e;
@@ -428,7 +490,6 @@ const Dashboard = () => {
 
       setManualPayments(manualFiltered);
 
-      // ✅ Totals EXACTLY like MoneyDashboard (booking installment/siteVisit + manual)
       let bookingPaidTotal = 0;
       let bookingPendingTotal = 0;
       let cash = 0;
@@ -447,15 +508,24 @@ const Dashboard = () => {
         online += Number(t?.bookingOnline || 0);
       });
 
-      const manualPaidList = (manualFiltered || []).filter((m) => m.payment?.status === "Paid");
+      const manualPaidList = (manualFiltered || []).filter(
+        (m) => m.payment?.status === "Paid"
+      );
 
       const manualPending = (manualFiltered || [])
         .filter((m) => m.payment?.status === "Pending")
         .reduce((sum, m) => sum + Number(m.amount || 0), 0);
 
-      const manualPaid = manualPaidList.reduce((sum, m) => sum + Number(m.amount || 0), 0);
+      const manualPaid = manualPaidList.reduce(
+        (sum, m) => sum + Number(m.amount || 0),
+        0
+      );
 
-      const manualSplit = sumByMethod(manualPaidList, () => true, (m) => getManualMethod(m));
+      const manualSplit = sumByMethod(
+        manualPaidList,
+        () => true,
+        (m) => getManualMethod(m)
+      );
       cash += Number(manualSplit.cash || 0);
       online += Number(manualSplit.online || 0);
 
@@ -483,15 +553,11 @@ const Dashboard = () => {
       }).length;
 
       setUpdatedKeyMetrics([
-        { title: "Total Sales", value: totalSales, },
-        { title: "Amount Yet to Be Collected", value: totalPending, },
-        { title: "Total Leads", value: leads.length,  },
-        { title: "Ongoing Projects", value: ongoing, },
-        { title: "Upcoming Projects", value: upcoming,  },
-
-        // ✅ Optional: if you want these 2 extra cards, uncomment
-        // { title: "Online Payments", value: online, trend: "+1%" },
-        // { title: "Cash Payments", value: cash, trend: "+1%" },
+        { title: "Total Sales", value: totalSales },
+        { title: "Amount Yet to Be Collected", value: totalPending },
+        { title: "Total Leads", value: leads.length },
+        { title: "Ongoing Projects", value: ongoing },
+        { title: "Upcoming Projects", value: upcoming },
       ]);
     } catch (e) {
       console.error("Dashboard handleSearch error:", e);
@@ -508,7 +574,7 @@ const Dashboard = () => {
 
   const enquiries = useMemo(
     () => enquiriesRaw.map((r) => toCardRowEnquiry(r, cityOptions)),
-    [enquiriesRaw]
+    [enquiriesRaw, cityOptions]
   );
 
   const newLeads = useMemo(
@@ -516,7 +582,7 @@ const Dashboard = () => {
       leadsRaw
         .filter((l) => String(l?.bookingDetails?.status || "") === "Pending")
         .map((r) => toCardRowLead(r, cityOptions)),
-    [leadsRaw]
+    [leadsRaw, cityOptions]
   );
 
   const last4Enquiries = enquiries.slice(-4);
@@ -532,7 +598,14 @@ const Dashboard = () => {
       {/* ---------- Filters ---------- */}
       <div style={styles.filters}>
         <Dropdown value={service} onChange={setService} options={serviceOptions} />
-        <Dropdown value={city} onChange={setCity} options={cityOptions} />
+
+        {/* ✅ City dropdown from API */}
+        <Dropdown
+          value={city}
+          onChange={setCity}
+          options={cityOptions}
+          disabled={citiesLoading}
+        />
 
         {/* PERIOD DROPDOWN */}
         <select
@@ -554,13 +627,17 @@ const Dashboard = () => {
               type="date"
               style={styles.dateInput}
               value={customDate.start}
-              onChange={(e) => setCustomDate({ ...customDate, start: e.target.value })}
+              onChange={(e) =>
+                setCustomDate({ ...customDate, start: e.target.value })
+              }
             />
             <input
               type="date"
               style={styles.dateInput}
               value={customDate.end}
-              onChange={(e) => setCustomDate({ ...customDate, end: e.target.value })}
+              onChange={(e) =>
+                setCustomDate({ ...customDate, end: e.target.value })
+              }
             />
           </>
         )}
@@ -653,21 +730,25 @@ const Dashboard = () => {
 };
 
 /** Reusable Dropdown */
-const Dropdown = ({ value, onChange, options }) => (
+const Dropdown = ({ value, onChange, options, disabled = false }) => (
   <select
     value={value}
     onChange={(e) => onChange(e.target.value)}
     style={styles.dropdown}
+    disabled={disabled}
   >
     {options.map((o) => (
-      <option key={o}>{o}</option>
+      <option key={o} value={o}>
+        {o}
+      </option>
     ))}
   </select>
 );
 
 /** Cards */
 const MetricCard = ({ title, value }) => {
-  const isRupee = title === "Total Sales" || title === "Amount Yet to Be Collected";
+  const isRupee =
+    title === "Total Sales" || title === "Amount Yet to Be Collected";
 
   return (
     <div style={styles.metricCard}>
@@ -675,7 +756,6 @@ const MetricCard = ({ title, value }) => {
       <p style={styles.metricValue}>
         {isRupee ? `₹ ${value?.toLocaleString?.()}` : value}
       </p>
-     
     </div>
   );
 };
@@ -750,7 +830,6 @@ export const styles = {
     display: "flex",
     gap: 20,
     flexWrap: "wrap",
-    // justifyContent: "center",
   },
   card: {
     padding: 16,
@@ -776,7 +855,6 @@ export const styles = {
 
 export default Dashboard;
 
-// working
 // import React, { useState, useEffect, useMemo } from "react";
 // import { Container } from "react-bootstrap";
 // import { FaMapMarkerAlt } from "react-icons/fa";
@@ -787,22 +865,11 @@ export default Dashboard;
 // /** ---- API endpoints ---- */
 // const ENQUIRIES_API = `${BASE_URL}/bookings/get-all-enquiries`;
 // const LEADS_API = `${BASE_URL}/bookings/get-all-leads`;
-// const BOOKINGS_API = `${BASE_URL}/bookings/get-all-bookings`;
+// const MANUAL_PAYMENTS_API = `${BASE_URL}/manual-payment/`;
 
 // /** ---- Helpers ---- */
 // const monthShort = [
-//   "Jan",
-//   "Feb",
-//   "Mar",
-//   "Apr",
-//   "May",
-//   "Jun",
-//   "Jul",
-//   "Aug",
-//   "Sep",
-//   "Oct",
-//   "Nov",
-//   "Dec",
+//   "Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec",
 // ];
 
 // const NON_ONGOING_STATUSES = [
@@ -812,8 +879,7 @@ export default Dashboard;
 //   "Admin Cancelled",
 //   "Customer Cancelled",
 //   "Customer Unreachable",
-//   "Cancelled Rescheduled"
-//   // "rescheduled",
+//   "Cancelled Rescheduled",
 // ];
 
 // const NON_UPCOMING_STATUSES = [
@@ -822,7 +888,6 @@ export default Dashboard;
 //   "admin cancelled",
 //   "customer cancelled",
 //   "customer unreachable",
-//   // "rescheduled",
 // ];
 
 // const fmtDateLabel = (isoLike) => {
@@ -830,9 +895,10 @@ export default Dashboard;
 //   const today = new Date();
 //   const d = new Date(isoLike);
 //   if (isNaN(d)) return isoLike;
-//   const startOf = (dt) =>
-//     new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
+
+//   const startOf = (dt) => new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
 //   const diff = (startOf(d) - startOf(today)) / (1000 * 60 * 60 * 24);
+
 //   if (diff === 0) return "Today";
 //   if (diff === -1) return "Yesterday";
 //   if (diff === 1) return "Tomorrow";
@@ -849,15 +915,11 @@ export default Dashboard;
 //   return found || "Bengaluru";
 // };
 
-// const pickDateForCard = (it) =>
-//   it?.selectedSlot?.slotDate || it?.bookingDetails?.bookingDate;
-
-// const pickTimeForCard = (it) =>
-//   it?.selectedSlot?.slotTime || it?.bookingDetails?.bookingTime || "";
+// const pickDateForCard = (it) => it?.selectedSlot?.slotDate || it?.bookingDetails?.bookingDate;
+// const pickTimeForCard = (it) => it?.selectedSlot?.slotTime || it?.bookingDetails?.bookingTime || "";
 
 // const toCardRowEnquiry = (raw, cities) => {
-//   const street =
-//     raw?.address?.streetArea || raw?.address?.houseFlatNumber || "";
+//   const street = raw?.address?.streetArea || raw?.address?.houseFlatNumber || "";
 //   return {
 //     _id: raw?._id,
 //     name: raw?.customer?.name || "—",
@@ -870,8 +932,7 @@ export default Dashboard;
 // };
 
 // const toCardRowLead = (raw, cities) => {
-//   const street =
-//     raw?.address?.streetArea || raw?.address?.houseFlatNumber || "";
+//   const street = raw?.address?.streetArea || raw?.address?.houseFlatNumber || "";
 //   return {
 //     _id: raw?._id,
 //     name: raw?.customer?.name || "—",
@@ -880,39 +941,6 @@ export default Dashboard;
 //     service: raw?.service?.[0]?.category || "—",
 //     address: street,
 //     city: inferCity(street, cities),
-//   };
-// };
-
-// const formatDateInput = (d) => {
-//   if (!d) return "";
-//   const yyyy = d.getFullYear();
-//   const mm = String(d.getMonth() + 1).padStart(2, "0");
-//   const dd = String(d.getDate()).padStart(2, "0");
-//   return `${yyyy}-${mm}-${dd}`;
-// };
-
-// const calculateBookingFinance = (booking) => {
-//   const b = booking.bookingDetails || {};
-
-//   const finalTotal = Number(b.finalTotal || b.totalAmount || 0);
-//   const paidAmount = Number(b.paidAmount || 0);
-//   const refundAmount = Number(b.refundAmount || 0);
-
-//   const netPaid = Math.max(paidAmount - refundAmount, 0);
-
-//   const status = String(b.status || "").toLowerCase();
-//   const isCancelled = status.includes("cancelled");
-
-//   if (isCancelled) {
-//     return {
-//       sales: netPaid,
-//       pending: 0,
-//     };
-//   }
-
-//   return {
-//     sales: netPaid,
-//     pending: Math.max(finalTotal - netPaid, 0),
 //   };
 // };
 
@@ -979,28 +1007,173 @@ export default Dashboard;
 //       return null;
 //   }
 
-//   return {
-//     start: toYMD(start),
-//     end: toYMD(end),
-//   };
+//   return { start: toYMD(start), end: toYMD(end) };
 // };
 
 // const isOngoingLead = (lead) => {
 //   const status = String(lead?.bookingDetails?.status || "").toLowerCase();
-//   return !NON_ONGOING_STATUSES.includes(status);
+//   return !NON_ONGOING_STATUSES.map((s) => String(s).toLowerCase()).includes(status);
+// };
+
+// /** --------------------------
+//  * ✅ MONEY DASHBOARD STYLE FINANCE (Booking + Manual)
+//  * -------------------------- */
+// const isHousePainting = (serviceType) => {
+//   try {
+//     return String(serviceType || "").toLowerCase() === "house_painting";
+//   } catch {
+//     return false;
+//   }
+// };
+
+// const isCancelled = (status = "") => {
+//   try {
+//     return String(status || "").toLowerCase().includes("cancelled");
+//   } catch {
+//     return false;
+//   }
+// };
+
+// const isInstallmentTx = (tx) => {
+//   try {
+//     const inst = String(tx?.installment || "").toLowerCase();
+//     return ["first", "second", "final"].includes(inst);
+//   } catch {
+//     return false;
+//   }
+// };
+
+// const isSiteVisitTx = (p, tx) => {
+//   try {
+//     if (!isHousePainting(p?.serviceType)) return false;
+//     const purpose = String(tx?.purpose || "").toLowerCase();
+//     return purpose === "site_visit";
+//   } catch {
+//     return false;
+//   }
+// };
+
+// const isBookingMoneyTx = (p, tx) => {
+//   try {
+//     return isInstallmentTx(tx) || isSiteVisitTx(p, tx);
+//   } catch {
+//     return false;
+//   }
+// };
+
+// const getInstallmentTarget = (b, key) => {
+//   try {
+//     const node = b?.[key] || {};
+//     return Number(node?.requestedAmount ?? node?.amount ?? 0);
+//   } catch {
+//     return 0;
+//   }
+// };
+
+// const sumTx = (txs, predicate) => {
+//   try {
+//     return (txs || []).reduce((sum, tx) => {
+//       if (!predicate(tx)) return sum;
+//       const amt = Number(tx?.amount || 0);
+//       return sum + (amt > 0 ? amt : 0);
+//     }, 0);
+//   } catch {
+//     return 0;
+//   }
+// };
+
+// const sumByMethod = (items, predicate, getMethodFn = (x) => x?.method) => {
+//   try {
+//     let cash = 0;
+//     let online = 0;
+
+//     (items || []).forEach((item) => {
+//       if (!predicate(item)) return;
+//       const amt = Number(item?.amount || 0);
+//       if (!(amt > 0)) return;
+
+//       const m = String(getMethodFn(item) || "").toLowerCase().trim();
+//       if (m === "cash") cash += amt;
+//       else online += amt;
+//     });
+
+//     return { cash, online };
+//   } catch {
+//     return { cash: 0, online: 0 };
+//   }
+// };
+
+// const getManualMethod = (m) => {
+//   try {
+//     return (
+//       m?.payment?.method ||
+//       m?.payment?.paymentMethod ||
+//       m?.paymentMethod ||
+//       m?.method ||
+//       m?.mode ||
+//       ""
+//     );
+//   } catch {
+//     return "";
+//   }
+// };
+
+// const computeBookingTotals = (p) => {
+//   try {
+//     const b = p?.bookingDetails || {};
+//     const txs = Array.isArray(p?.payments) ? p.payments : [];
+
+//     const siteVisitCharges = isHousePainting(p?.serviceType)
+//       ? Number(b.siteVisitCharges || 0)
+//       : 0;
+
+//     const firstTarget = getInstallmentTarget(b, "firstPayment");
+//     const secondTarget = getInstallmentTarget(b, "secondPayment");
+//     const finalTarget = getInstallmentTarget(b, "finalPayment");
+//     const installmentTarget = firstTarget + secondTarget + finalTarget;
+
+//     const paidFirst = sumTx(txs, (tx) => String(tx?.installment || "").toLowerCase() === "first");
+//     const paidSecond = sumTx(txs, (tx) => String(tx?.installment || "").toLowerCase() === "second");
+//     const paidFinal = sumTx(txs, (tx) => String(tx?.installment || "").toLowerCase() === "final");
+
+//     const installmentPaid = paidFirst + paidSecond + paidFinal;
+//     const installmentPending = Math.max(installmentTarget - installmentPaid, 0);
+
+//     const rawSiteVisitPaid = sumTx(txs, (tx) => isSiteVisitTx(p, tx));
+//     const paidSiteVisit = siteVisitCharges > 0 ? Math.min(rawSiteVisitPaid, siteVisitCharges) : 0;
+//     const siteVisitPending = Math.max(siteVisitCharges - paidSiteVisit, 0);
+
+//     const overallPaid = installmentPaid + paidSiteVisit;
+//     const overallPending = installmentPending + siteVisitPending;
+
+//     const splitBooking = sumByMethod(txs, (tx) => isBookingMoneyTx(p, tx), (tx) => tx?.method);
+
+//     return {
+//       paid: { overallPaid },
+//       remaining: { overallPending },
+//       bookingCash: splitBooking.cash,
+//       bookingOnline: splitBooking.online,
+//     };
+//   } catch {
+//     return {
+//       paid: { overallPaid: 0 },
+//       remaining: { overallPending: 0 },
+//       bookingCash: 0,
+//       bookingOnline: 0,
+//     };
+//   }
 // };
 
 // const Dashboard = () => {
-//   /** NEW: Period state */
+//   /** Period */
 //   const [period, setPeriod] = useState("thisMonth");
 
-//   /** Old filters */
+//   /** Filters */
 //   const [service, setService] = useState("All Services");
 //   const [city, setCity] = useState("All Cities");
 
 //   /** Default this month */
 //   const thisMonthPeriod = calculatePeriod("thisMonth");
-
 //   const [customDate, setCustomDate] = useState({
 //     start: thisMonthPeriod.start,
 //     end: thisMonthPeriod.end,
@@ -1032,14 +1205,16 @@ export default Dashboard;
 
 //   const [enquiriesRaw, setEnquiriesRaw] = useState([]);
 //   const [leadsRaw, setLeadsRaw] = useState([]);
+//   const [manualPayments, setManualPayments] = useState([]);
+
 //   const [updatedKeyMetrics, setUpdatedKeyMetrics] = useState([]);
 //   const [isLoading, setIsLoading] = useState(false);
 //   const [hasSearched, setHasSearched] = useState(false);
 
-//   /** 🆕 Active tab */
+//   /** Active tab */
 //   const [activeTab, setActiveTab] = useState("enquiries");
 
-//   /** 🆕 When period changes, auto calculate dates */
+//   /** When period changes, auto calculate dates */
 //   useEffect(() => {
 //     if (period !== "custom") {
 //       const range = calculatePeriod(period);
@@ -1058,7 +1233,7 @@ export default Dashboard;
 //     const endDate = period === "all" ? "" : customDate.end;
 
 //     try {
-//       const [enqRes, leadsRes, bookingsRes] = await Promise.all([
+//       const [enqRes, leadsRes, manualRes] = await Promise.all([
 //         axios.get(ENQUIRIES_API, {
 //           params: {
 //             service: service === "All Services" ? "" : service,
@@ -1075,33 +1250,75 @@ export default Dashboard;
 //             endDate,
 //           },
 //         }),
-//         axios.get(BOOKINGS_API, {
-//           params: {
-//             service: service === "All Services" ? "" : service,
-//             city: city === "All Cities" ? "" : city,
-//             startDate,
-//             endDate,
-//           },
-//         }),
+//         axios.get(MANUAL_PAYMENTS_API),
 //       ]);
 
 //       const enqs = enqRes.data?.allEnquies || [];
 //       const leads = leadsRes.data?.allLeads || [];
-//       const bookings = bookingsRes.data?.bookings || [];
+//       const manualAll = manualRes.data?.data || [];
 
 //       setEnquiriesRaw(enqs);
 //       setLeadsRaw(leads);
 
-//       let totalSales = 0;
-//       let totalPending = 0;
+//       // ✅ Filter manual payments by the same period + service + city
+//       const manualFiltered = (manualAll || []).filter((m) => {
+//         try {
+//           // service/city filters
+//           if (service !== "All Services" && String(m?.service || "") !== String(service)) return false;
+//           if (city !== "All Cities" && String(m?.city || "") !== String(city)) return false;
 
-//       leads.forEach((lead) => {
-//         const { sales, pending } = calculateBookingFinance(lead);
-//         totalSales += sales;
-//         totalPending += pending;
+//           if (!startDate || !endDate) return true; // all-time / missing range
+//           const created = new Date(m?.createdAt || m?.updatedAt || null);
+//           if (isNaN(created)) return true;
+
+//           const s = new Date(startDate);
+//           const e = new Date(endDate);
+
+//           // include full end day
+//           e.setHours(23, 59, 59, 999);
+
+//           return created >= s && created <= e;
+//         } catch {
+//           return true;
+//         }
 //       });
 
-//       // const statuses = ["Ongoing", "Pending", "Job Ongoing", "Job Ended"];
+//       setManualPayments(manualFiltered);
+
+//       // ✅ Totals EXACTLY like MoneyDashboard (booking installment/siteVisit + manual)
+//       let bookingPaidTotal = 0;
+//       let bookingPendingTotal = 0;
+//       let cash = 0;
+//       let online = 0;
+
+//       (leads || []).forEach((p) => {
+//         const b = p?.bookingDetails || {};
+//         if (isCancelled(b.status)) return;
+
+//         const t = computeBookingTotals(p);
+
+//         bookingPaidTotal += Number(t?.paid?.overallPaid || 0);
+//         bookingPendingTotal += Number(t?.remaining?.overallPending || 0);
+
+//         cash += Number(t?.bookingCash || 0);
+//         online += Number(t?.bookingOnline || 0);
+//       });
+
+//       const manualPaidList = (manualFiltered || []).filter((m) => m.payment?.status === "Paid");
+
+//       const manualPending = (manualFiltered || [])
+//         .filter((m) => m.payment?.status === "Pending")
+//         .reduce((sum, m) => sum + Number(m.amount || 0), 0);
+
+//       const manualPaid = manualPaidList.reduce((sum, m) => sum + Number(m.amount || 0), 0);
+
+//       const manualSplit = sumByMethod(manualPaidList, () => true, (m) => getManualMethod(m));
+//       cash += Number(manualSplit.cash || 0);
+//       online += Number(manualSplit.online || 0);
+
+//       const totalSales = bookingPaidTotal + manualPaid;
+//       const totalPending = bookingPendingTotal + manualPending;
+
 //       const ongoing = leads.filter(isOngoingLead).length;
 
 //       const upcoming = leads.filter((l) => {
@@ -1123,17 +1340,18 @@ export default Dashboard;
 //       }).length;
 
 //       setUpdatedKeyMetrics([
-//         { title: "Total Sales", value: totalSales, trend: "+10%" },
-//         {
-//           title: "Amount Yet to Be Collected",
-//           value: totalPending,
-//           trend: "-5%",
-//         },
-//         { title: "Total Leads", value: leads.length, trend: "+8%" },
-//         { title: "Ongoing Projects", value: ongoing, trend: "+2%" },
-//         { title: "Upcoming Projects", value: upcoming, trend: "-3%" },
+//         { title: "Total Sales", value: totalSales, },
+//         { title: "Amount Yet to Be Collected", value: totalPending, },
+//         { title: "Total Leads", value: leads.length,  },
+//         { title: "Ongoing Projects", value: ongoing, },
+//         { title: "Upcoming Projects", value: upcoming,  },
+
+//         // ✅ Optional: if you want these 2 extra cards, uncomment
+//         // { title: "Online Payments", value: online, trend: "+1%" },
+//         // { title: "Cash Payments", value: cash, trend: "+1%" },
 //       ]);
 //     } catch (e) {
+//       console.error("Dashboard handleSearch error:", e);
 //       alert("Failed to fetch data");
 //     } finally {
 //       setIsLoading(false);
@@ -1142,6 +1360,7 @@ export default Dashboard;
 
 //   useEffect(() => {
 //     handleSearch();
+//     // eslint-disable-next-line react-hooks/exhaustive-deps
 //   }, []);
 
 //   const enquiries = useMemo(
@@ -1169,11 +1388,7 @@ export default Dashboard;
 //     <Container fluid style={styles.container}>
 //       {/* ---------- Filters ---------- */}
 //       <div style={styles.filters}>
-//         <Dropdown
-//           value={service}
-//           onChange={setService}
-//           options={serviceOptions}
-//         />
+//         <Dropdown value={service} onChange={setService} options={serviceOptions} />
 //         <Dropdown value={city} onChange={setCity} options={cityOptions} />
 
 //         {/* PERIOD DROPDOWN */}
@@ -1196,18 +1411,13 @@ export default Dashboard;
 //               type="date"
 //               style={styles.dateInput}
 //               value={customDate.start}
-//               onChange={(e) =>
-//                 setCustomDate({ ...customDate, start: e.target.value })
-//               }
+//               onChange={(e) => setCustomDate({ ...customDate, start: e.target.value })}
 //             />
-
 //             <input
 //               type="date"
 //               style={styles.dateInput}
 //               value={customDate.end}
-//               onChange={(e) =>
-//                 setCustomDate({ ...customDate, end: e.target.value })
-//               }
+//               onChange={(e) => setCustomDate({ ...customDate, end: e.target.value })}
 //             />
 //           </>
 //         )}
@@ -1231,9 +1441,7 @@ export default Dashboard;
 //       {/* ---------- Tabs ---------- */}
 //       <div style={styles.tabContainer}>
 //         <div
-//           style={
-//             activeTab === "enquiries" ? styles.activeTab : styles.inactiveTab
-//           }
+//           style={activeTab === "enquiries" ? styles.activeTab : styles.inactiveTab}
 //           onClick={() => setActiveTab("enquiries")}
 //         >
 //           Enquiries ({enquiries.length})
@@ -1315,9 +1523,8 @@ export default Dashboard;
 // );
 
 // /** Cards */
-// const MetricCard = ({ title, value, trend }) => {
-//   const isRupee =
-//     title === "Total Sales" || title === "Amount Yet to Be Collected";
+// const MetricCard = ({ title, value }) => {
+//   const isRupee = title === "Total Sales" || title === "Amount Yet to Be Collected";
 
 //   return (
 //     <div style={styles.metricCard}>
@@ -1325,15 +1532,7 @@ export default Dashboard;
 //       <p style={styles.metricValue}>
 //         {isRupee ? `₹ ${value?.toLocaleString?.()}` : value}
 //       </p>
-//       <p
-//         style={{
-//           color: trend.includes("+") ? "green" : "red",
-//           fontSize: 12,
-//           fontWeight: "bold",
-//         }}
-//       >
-//         {trend}
-//       </p>
+     
 //     </div>
 //   );
 // };
@@ -1406,13 +1605,13 @@ export default Dashboard;
 //   cardContainer: {
 //     marginTop: 20,
 //     display: "flex",
-//     gap: 10,
+//     gap: 20,
 //     flexWrap: "wrap",
-//     justifyContent: "center",
+//     // justifyContent: "center",
 //   },
 //   card: {
-//     padding: 15,
-//     width: 220,
+//     padding: 16,
+//     width: 240,
 //     borderRadius: 8,
 //     background: "#fff",
 //     boxShadow: "0 3px 10px rgba(0,0,0,0.1)",

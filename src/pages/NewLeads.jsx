@@ -358,8 +358,7 @@
 // export default NewLeads;
 
 // NewLeads.jsx
-
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { FaMapMarkerAlt } from "react-icons/fa";
 import { toast } from "react-toastify";
@@ -393,12 +392,51 @@ const NewLeads = () => {
 
   const [showModal, setShowModal] = useState(false);
   const [showAll, setShowAll] = useState(false);
-  const [city, setCity] = useState("");
-  const [service, setService] = useState("");
-  const [completedLeads, setCompletedLeads] = useState([]);
 
-  // ✅ loader state
+  // ✅ filters
+  const [city, setCity] = useState(""); // empty => all
+  const [service, setService] = useState(""); // empty => all
+
+  // ✅ dynamic city dropdown options
+  const [cityOptions, setCityOptions] = useState(["All Cities"]);
+  const [cityLoading, setCityLoading] = useState(false);
+
+  const [completedLeads, setCompletedLeads] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // ✅ fetch cities from API (your response: /city/city-list)
+  useEffect(() => {
+    const fetchCities = async () => {
+      try {
+        setCityLoading(true);
+
+        // try your current working endpoint first
+        let res = await fetch(`${BASE_URL}/city/city-list`);
+        let json = await res.json().catch(() => ({}));
+
+        // fallback if your backend uses /city/list
+        if (!res.ok) {
+          res = await fetch(`${BASE_URL}/city/list`);
+          json = await res.json().catch(() => ({}));
+        }
+
+        const rows = Array.isArray(json?.data) ? json.data : [];
+
+        const uniqueCities = [
+          ...new Set(rows.map((r) => String(r?.city || "").trim()).filter(Boolean)),
+        ];
+
+        setCityOptions(["All Cities", ...uniqueCities]);
+      } catch (err) {
+        console.error("fetchCities error:", err);
+        setCityOptions(["All Cities"]); // safe fallback
+      } finally {
+        setCityLoading(false);
+      }
+    };
+
+    fetchCities();
+  }, []);
 
   useEffect(() => {
     if (location.state?.cancelled) {
@@ -467,9 +505,7 @@ const NewLeads = () => {
             Array.isArray(coords) && coords.length === 2 ? coords : [0, 0];
 
           const createdAtISO =
-            booking?.createdDate ||
-            booking?.bookingDetails?.bookingDate ||
-            null;
+            booking?.createdDate || booking?.bookingDetails?.bookingDate || null;
 
           const { d: createdAtLocalDate, t: createdAtLocalTime } =
             toISTParts(createdAtISO);
@@ -482,9 +518,7 @@ const NewLeads = () => {
             date,
             time,
             name: booking?.customer?.name || "Unknown Customer",
-            contact: booking?.customer?.phone
-              ? `+91 ${booking.customer.phone}`
-              : "N/A",
+            contact: booking?.customer?.phone ? `+91 ${booking.customer.phone}` : "N/A",
             formName: derivedFormName,
             serviceCategory: serviceCategories,
             serviceType: serviceNames,
@@ -527,20 +561,26 @@ const NewLeads = () => {
     fetchAllLeads();
   }, []);
 
-  const filteredLeads = completedLeads.filter((lead) => {
-    const addr = (
-      lead.location ||
-      lead.filledData?.location?.name ||
-      ""
-    ).toLowerCase();
-    const category = (lead.serviceCategory || "").toLowerCase();
-    const cityMatch = city === "" || addr.includes(city.toLowerCase());
-    const serviceMatch =
-      service === "" || category.includes(service.toLowerCase());
-    return cityMatch && serviceMatch;
-  });
+  // ✅ filtering using dynamic cities list
+  const filteredLeads = useMemo(() => {
+    return completedLeads.filter((lead) => {
+      const addr = (
+        lead.location ||
+        lead.filledData?.location?.name ||
+        ""
+      ).toLowerCase();
 
+      const category = (lead.serviceCategory || "").toLowerCase();
 
+      const cityMatch =
+        city === "" || city === "All Cities" || addr.includes(city.toLowerCase());
+
+      const serviceMatch =
+        service === "" || category.includes(service.toLowerCase());
+
+      return cityMatch && serviceMatch;
+    });
+  }, [completedLeads, city, service]);
 
   return (
     <div style={styles.container}>
@@ -552,10 +592,13 @@ const NewLeads = () => {
             style={styles.dropdown}
             value={city}
             onChange={(e) => setCity(e.target.value)}
+            disabled={cityLoading}
           >
-            <option value="">All Cities</option>
-            <option value="Bengaluru">Bengaluru</option>
-            <option value="Pune">Pune</option>
+            {(cityOptions || []).map((c) => (
+              <option key={c} value={c === "All Cities" ? "" : c}>
+                {cityLoading ? "Loading..." : c}
+              </option>
+            ))}
           </select>
 
           <select
@@ -568,10 +611,7 @@ const NewLeads = () => {
             <option value="Deep Cleaning">Deep Cleaning</option>
           </select>
 
-          <button
-            style={styles.buttonPrimary}
-            onClick={() => setShowModal(true)}
-          >
+          <button style={styles.buttonPrimary} onClick={() => setShowModal(true)}>
             + Create New Lead/Enquiry
           </button>
         </div>
@@ -595,99 +635,76 @@ const NewLeads = () => {
           <p className="mt-3 text-muted">Loading booking details...</p>
 
           <style>{`
-          .loader-dots span {
-            width: 10px;
-            height: 10px;
-            margin: 0 4px;
-            background: #DC3545;
-            border-radius: 50%;
-            display: inline-block;
-            animation: pulse 1s infinite alternate;
-          }
-          .loader-dots span:nth-child(2) { animation-delay: 0.2s; }
-          .loader-dots span:nth-child(3) { animation-delay: 0.4s; }
-          @keyframes pulse {
-            0% { transform: scale(1); opacity: 0.5; }
-            100% { transform: scale(1.6); opacity: 1; }
-          }
-        `}</style>
+            .loader-dots span {
+              width: 10px;
+              height: 10px;
+              margin: 0 4px;
+              background: #DC3545;
+              border-radius: 50%;
+              display: inline-block;
+              animation: pulse 1s infinite alternate;
+            }
+            .loader-dots span:nth-child(2) { animation-delay: 0.2s; }
+            .loader-dots span:nth-child(3) { animation-delay: 0.4s; }
+            @keyframes pulse {
+              0% { transform: scale(1); opacity: 0.5; }
+              100% { transform: scale(1.6); opacity: 1; }
+            }
+          `}</style>
         </div>
       ) : (
         <>
           <div style={styles.leadList}>
-            {(showAll ? filteredLeads : filteredLeads.slice(0, 3)).map(
-              (lead) => (
-                <div key={lead.id} style={styles.leadCard}>
-                  <div style={styles.leadDetails}>
-                    <p
-                      style={{
-                        fontSize: 14,
-                        fontWeight: "bold",
-                        color: (
-                          lead.filledData?.serviceCategory || ""
-                        ).includes("Deep Cleaning")
-                          ? "red"
-                          : "#008E00",
-                        margin: 0,
-                      }}
-                    >
-                      {lead.filledData?.serviceCategory || "N/A"}
-                    </p>
+            {(showAll ? filteredLeads : filteredLeads.slice(0, 3)).map((lead) => (
+              <div key={lead.id} style={styles.leadCard}>
+                <div style={styles.leadDetails}>
+                  <p
+                    style={{
+                      fontSize: 14,
+                      fontWeight: "bold",
+                      color: (lead.filledData?.serviceCategory || "").includes("Deep Cleaning")
+                        ? "red"
+                        : "#008E00",
+                      margin: 0,
+                    }}
+                  >
+                    {lead.filledData?.serviceCategory || "N/A"}
+                  </p>
 
-                    <p style={styles.leadName}>{lead.name}</p>
+                  <p style={styles.leadName}>{lead.name}</p>
 
-                    <p style={styles.leadInfo}>
-                      <FaMapMarkerAlt style={{ marginRight: "5px" }} />
-                      {lead.filledData?.location?.name ||
-                        lead.location ||
-                        "No Location"}
-                    </p>
-                  </div>
-
-                  <div style={styles.leadTime}>
-                    <p
-                      style={{
-                        marginBottom: "1%",
-                        fontSize: "12px",
-                        fontWeight: "600",
-                      }}
-                    >
-                      {lead.date}
-                    </p>
-                    <p style={{ fontSize: "12px", fontWeight: "600" }}>
-                      {lead.time}
-                    </p>
-
-                    <button
-                      style={styles.buttonView}
-                      onClick={() =>
-                        navigate(`/lead-details/${lead.id}`, {
-                          state: { lead },
-                        })
-                      }
-                    >
-                      View Details
-                    </button>
-                  </div>
+                  <p style={styles.leadInfo}>
+                    <FaMapMarkerAlt style={{ marginRight: "5px" }} />
+                    {lead.filledData?.location?.name || lead.location || "No Location"}
+                  </p>
                 </div>
-              )
-            )}
+
+                <div style={styles.leadTime}>
+                  <p style={{ marginBottom: "1%", fontSize: "12px", fontWeight: "600" }}>
+                    {lead.date}
+                  </p>
+                  <p style={{ fontSize: "12px", fontWeight: "600" }}>{lead.time}</p>
+
+                  <button
+                    style={styles.buttonView}
+                    onClick={() => navigate(`/lead-details/${lead.id}`, { state: { lead } })}
+                  >
+                    View Details
+                  </button>
+                </div>
+              </div>
+            ))}
 
             {filteredLeads.length === 0 && (
               <div style={styles.noLeadsWrap}>
                 <h2 style={styles.noLeadsText}>Lead not found</h2>
-                <p style={{ color: "#666" }}>
-                  Try changing filters or create a new lead.
-                </p>
+                <p style={{ color: "#666" }}>Try changing filters or create a new lead.</p>
               </div>
             )}
           </div>
 
           {!showAll && filteredLeads.length > 3 && (
-            <button
-              style={styles.buttonLoadMore}
-              onClick={() => setShowAll(true)}
-            >
+            <button style={styles.buttonLoadMore} onClick={() => setShowAll(true)}>
               Load More
             </button>
           )}

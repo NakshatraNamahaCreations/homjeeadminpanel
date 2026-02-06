@@ -21,9 +21,9 @@ const Sidebar = ({ isOpen }) => {
   const navigate = useNavigate();
 
   const handleLogout = () => {
-    if (window.confirm("Are you sure you want to logout?")) {
+   
       logout(); // Clear all auth data and redirect to login
-    }
+   
   };
 
   const menuItems = [

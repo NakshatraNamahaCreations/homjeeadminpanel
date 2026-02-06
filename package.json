@@ -19,7 +19,6 @@
     "bootstrap": "^5.3.3",
     "dayjs": "^1.11.18",
     "react": "^19.0.0",
-    "react-beautiful-dnd": "^13.1.1",
     "react-bootstrap": "^2.10.9",
     "react-calendar": "^5.1.0",
     "react-csv": "^2.2.2",

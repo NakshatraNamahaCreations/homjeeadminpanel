@@ -435,7 +435,6 @@
 // };
 
 // export default OngoingLeads;
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaMapMarkerAlt } from "react-icons/fa";
@@ -458,11 +457,55 @@ const OngoingLeads = () => {
   // ✅ loader
   const [loading, setLoading] = useState(true);
 
+  // ✅ NEW: cities from API
+  const [cities, setCities] = useState(["All Cities"]);
+  const [citiesLoading, setCitiesLoading] = useState(false);
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
   const tomorrow = new Date(today);
   tomorrow.setDate(today.getDate() + 1);
+
+  // ----------------------------
+  // ✅ NEW: Fetch Cities
+  // ----------------------------
+  useEffect(() => {
+    const fetchCities = async () => {
+      try {
+        setCitiesLoading(true);
+
+        // Your API: /api/city/city-list
+        const res = await fetch(`${BASE_URL}/city/city-list`);
+        const data = await res.json();
+
+        const list = Array.isArray(data?.data) ? data.data : [];
+
+        const cityNames = list
+          .map((c) => String(c?.city || "").trim())
+          .filter(Boolean);
+
+        // remove duplicates
+        const unique = Array.from(new Set(cityNames));
+
+        setCities(["All Cities", ...unique]);
+
+        // if currently selected city is not in new list, reset safely
+        setCityFilter((prev) => {
+          if (prev === "All Cities") return prev;
+          return unique.includes(prev) ? prev : "All Cities";
+        });
+      } catch (err) {
+        console.error("City fetch error:", err);
+        // keep fallback
+        setCities(["All Cities"]);
+      } finally {
+        setCitiesLoading(false);
+      }
+    };
+
+    fetchCities();
+  }, []);
 
   // ----------------------------
   // Fetch Vendors
@@ -655,10 +698,6 @@ const OngoingLeads = () => {
   });
 
   // ----------------------------
-  // LOADER
-  // ----------------------------
-
-  // ----------------------------
   // JSX RETURN
   // ----------------------------
   return (
@@ -690,10 +729,13 @@ const OngoingLeads = () => {
           style={styles.dropdown}
           value={cityFilter}
           onChange={(e) => setCityFilter(e.target.value)}
+          disabled={citiesLoading}
         >
-          <option>All Cities</option>
-          <option>Bengaluru</option>
-          <option>Pune</option>
+          {(cities || ["All Cities"]).map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
         </select>
 
         <select
@@ -745,6 +787,7 @@ const OngoingLeads = () => {
           ))}
         </select> */}
       </div>
+
       {loading ? (
         <div
           style={{
