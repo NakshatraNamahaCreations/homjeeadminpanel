@@ -1,11 +1,30 @@
-// // components/modals/TeamMemberModal.jsx
-// import React, { useState, useEffect } from "react";
-// import { Modal, Form, Row, Col, Button } from "react-bootstrap";
-// import { FaMapMarkerAlt } from "react-icons/fa";
+// import React, { useState, useEffect, useMemo } from "react";
+// import { Modal, Form, Button } from "react-bootstrap";
 // import TeamMemberForm from "../forms/TeamMemberForm";
 // import { validateTeamMemberForm } from "../../../utils/helpers";
 // import axios from "axios";
 // import { BASE_URL } from "../../../utils/config";
+// import AddressPickerModal from "../modals/AddressPickerModal"; // ✅ adjust path
+
+// const emptyForm = {
+//   name: "",
+//   mobileNumber: "",
+//   dateOfBirth: "",
+//   city: "",
+//   serviceType: "",
+//   serviceArea: "",
+//   aadhaarNumber: "",
+//   panNumber: "",
+//   accountNumber: "",
+//   ifscCode: "",
+//   bankName: "",
+//   holderName: "",
+//   accountType: "",
+//   gstNumber: "",
+//   location: "",
+//   latitude: "",
+//   longitude: "",
+// };
 
 // const TeamMemberModal = ({
 //   show,
@@ -15,28 +34,8 @@
 //   vendorId = null,
 //   formData: initialFormData = null,
 //   onSuccess,
-//   onAddressPickerOpen,
 // }) => {
-//   const [formData, setFormData] = useState({
-//     name: "",
-//     mobileNumber: "",
-//     dateOfBirth: "",
-//     city: "",
-//     serviceType: "",
-//     serviceArea: "",
-//     aadhaarNumber: "",
-//     panNumber: "",
-//     accountNumber: "",
-//     ifscCode: "",
-//     bankName: "",
-//     holderName: "",
-//     accountType: "",
-//     gstNumber: "",
-//     location: "",
-//     latitude: "",
-//     longitude: "",
-//   });
-
+//   const [formData, setFormData] = useState(emptyForm);
 //   const [errors, setErrors] = useState({});
 //   const [files, setFiles] = useState({
 //     profileImage: null,
@@ -47,30 +46,40 @@
 //   });
 //   const [loading, setLoading] = useState(false);
 
+//   // ✅ Address Picker Modal State
+//   const [showAddressPicker, setShowAddressPicker] = useState(false);
+
+//   // ✅ stable initialLatLng for modal
+//   const initialLatLngForPicker = useMemo(() => {
+//     const lat = Number(formData.latitude);
+//     const lng = Number(formData.longitude);
+//     if (!Number.isNaN(lat) && !Number.isNaN(lng) && lat && lng) return { lat, lng };
+//     return undefined;
+//   }, [formData.latitude, formData.longitude]);
+
 //   useEffect(() => {
+//     if (!show) return;
+
 //     if (isEditing && initialFormData) {
-//       setFormData(initialFormData);
-//     } else if (!isEditing) {
-//       // Reset form for new member
+//       // ✅ IMPORTANT: clone (avoid shared reference / mutation issues)
 //       setFormData({
-//         name: "",
-//         mobileNumber: "",
-//         dateOfBirth: "",
-//         city: "",
-//         serviceType: "",
-//         serviceArea: "",
-//         aadhaarNumber: "",
-//         panNumber: "",
-//         accountNumber: "",
-//         ifscCode: "",
-//         bankName: "",
-//         holderName: "",
-//         accountType: "",
-//         gstNumber: "",
-//         location: "",
-//         latitude: "",
-//         longitude: "",
+//         ...emptyForm,
+//         ...initialFormData,
+//         latitude:
+//           initialFormData.latitude ??
+//           initialFormData?.address?.latitude ??
+//           "",
+//         longitude:
+//           initialFormData.longitude ??
+//           initialFormData?.address?.longitude ??
+//           "",
+//         location:
+//           initialFormData.location ??
+//           initialFormData?.address?.location ??
+//           "",
 //       });
+//     } else {
+//       setFormData(emptyForm);
 //       setFiles({
 //         profileImage: null,
 //         aadhaarfrontImage: null,
@@ -78,8 +87,9 @@
 //         panImage: null,
 //         otherPolicy: null,
 //       });
+//       setErrors({});
 //     }
-//   }, [isEditing, initialFormData, show]);
+//   }, [show, isEditing, initialFormData]);
 
 //   const handleInputChange = (e) => {
 //     const { name, value } = e.target;
@@ -88,12 +98,31 @@
 
 //   const handleFileChange = (e) => {
 //     const { name, files: fileList } = e.target;
-//     setFiles((prev) => ({ ...prev, [name]: fileList[0] }));
+//     setFiles((prev) => ({ ...prev, [name]: fileList?.[0] || null }));
+//   };
+
+//   // ✅ This is the key fix
+//   const handleAddressSelect = ({ placeName, formattedAddress, lat, lng }) => {
+//     setFormData((prev) => ({
+//       ...prev,
+//       location: formattedAddress || placeName || "",
+//       latitude: lat != null ? String(lat) : "",
+//       longitude: lng != null ? String(lng) : "",
+//     }));
+
+//     // optional: clear related errors instantly
+//     setErrors((prev) => {
+//       const next = { ...prev };
+//       delete next.location;
+//       delete next.latitude;
+//       delete next.longitude;
+//       return next;
+//     });
 //   };
 
 //   const handleSubmit = async (e) => {
 //     e.preventDefault();
-    
+
 //     const validationErrors = validateTeamMemberForm(formData);
 //     if (Object.keys(validationErrors).length > 0) {
 //       setErrors(validationErrors);
@@ -101,7 +130,14 @@
 //     }
 //     setErrors({});
 
-//     if (!formData.latitude || !formData.longitude || isNaN(formData.latitude) || isNaN(formData.longitude)) {
+//     const lat = Number(formData.latitude);
+//     const lng = Number(formData.longitude);
+//     if (
+//       !formData.latitude ||
+//       !formData.longitude ||
+//       Number.isNaN(lat) ||
+//       Number.isNaN(lng)
+//     ) {
 //       alert("Please select a valid location using the map picker.");
 //       return;
 //     }
@@ -138,8 +174,8 @@
 
 //       const address = {
 //         location: formData.location,
-//         latitude: parseFloat(formData.latitude),
-//         longitude: parseFloat(formData.longitude),
+//         latitude: lat,
+//         longitude: lng,
 //       };
 
 //       fd.append("member", JSON.stringify(member));
@@ -157,7 +193,7 @@
 //       appendIfFile("panImage", files.panImage);
 //       appendIfFile("otherPolicy", files.otherPolicy);
 
-//       const url = isEditing 
+//       const url = isEditing
 //         ? `${BASE_URL}/vendor/team/update`
 //         : `${BASE_URL}/vendor/team/add`;
 
@@ -167,9 +203,8 @@
 //         headers: { "Content-Type": "multipart/form-data" },
 //       });
 
-//       // alert(`Team member ${isEditing ? "updated" : "added"} successfully!`);
-//       onSuccess();
-//       onHide();
+//       onSuccess?.();
+//       onHide?.();
 //     } catch (error) {
 //       console.error("Error saving team member:", error);
 //       alert(
@@ -182,38 +217,50 @@
 //   };
 
 //   return (
-//     <Modal show={show} onHide={onHide} size="lg">
-//       <Modal.Header closeButton>
-//         <Modal.Title style={{ fontSize: "16px" }}>
-//           {isEditing ? "Edit Team Member" : "Add Team Member"}
-//         </Modal.Title>
-//       </Modal.Header>
-//       <Modal.Body>
-//         <Form onSubmit={handleSubmit}>
-//           <TeamMemberForm
-//             formData={formData}
-//             errors={errors}
-//             files={files}
-//             onInputChange={handleInputChange}
-//             onFileChange={handleFileChange}
-//             onAddressPickerOpen={onAddressPickerOpen}
-//           />
-//           <Modal.Footer>
-//             <Button variant="primary" type="submit" disabled={loading}>
-//               {loading ? "Saving..." : isEditing ? "Update Member" : "Add Member"}
-//             </Button>
-//             <Button variant="secondary" onClick={onHide} disabled={loading}>
-//               Cancel
-//             </Button>
-//           </Modal.Footer>
-//         </Form>
-//       </Modal.Body>
-//     </Modal>
+//     <>
+//       <Modal show={show} onHide={onHide} size="lg">
+//         <Modal.Header closeButton>
+//           <Modal.Title style={{ fontSize: "16px" }}>
+//             {isEditing ? "Edit Team Member" : "Add Team Member"}
+//           </Modal.Title>
+//         </Modal.Header>
+
+//         <Modal.Body>
+//           <Form onSubmit={handleSubmit}>
+//             <TeamMemberForm
+//               formData={formData}
+//               errors={errors}
+//               files={files}
+//               onInputChange={handleInputChange}
+//               onFileChange={handleFileChange}
+//               onAddressPickerOpen={() => setShowAddressPicker(true)} // ✅
+//             />
+
+//             <Modal.Footer>
+//               <Button variant="primary" type="submit" disabled={loading}>
+//                 {loading ? "Saving..." : isEditing ? "Update Member" : "Add Member"}
+//               </Button>
+//               <Button variant="secondary" onClick={onHide} disabled={loading}>
+//                 Cancel
+//               </Button>
+//             </Modal.Footer>
+//           </Form>
+//         </Modal.Body>
+//       </Modal>
+
+//       {/* ✅ Address Picker Modal should live here */}
+//       <AddressPickerModal
+//         show={showAddressPicker}
+//         onHide={() => setShowAddressPicker(false)}
+//         onSelect={handleAddressSelect} // ✅ updates TeamMemberModal state
+//         initialAddress={formData.location}
+//         initialLatLng={initialLatLngForPicker}
+//       />
+//     </>
 //   );
 // };
 
 // export default TeamMemberModal;
-
 
 import React, { useState, useEffect, useMemo } from "react";
 import { Modal, Form, Button } from "react-bootstrap";
@@ -221,7 +268,6 @@ import TeamMemberForm from "../forms/TeamMemberForm";
 import { validateTeamMemberForm } from "../../../utils/helpers";
 import axios from "axios";
 import { BASE_URL } from "../../../utils/config";
-import AddressPickerModal from "../modals/AddressPickerModal"; // ✅ adjust path
 
 const emptyForm = {
   name: "",
@@ -239,8 +285,8 @@ const emptyForm = {
   accountType: "",
   gstNumber: "",
   location: "",
-  latitude: "",
-  longitude: "",
+  // latitude: "",
+  // longitude: "",
 };
 
 const TeamMemberModal = ({
@@ -262,6 +308,7 @@ const TeamMemberModal = ({
     otherPolicy: null,
   });
   const [loading, setLoading] = useState(false);
+  const [submitError, setSubmitError] = useState("");
 
   // ✅ Address Picker Modal State
   const [showAddressPicker, setShowAddressPicker] = useState(false);
@@ -270,30 +317,30 @@ const TeamMemberModal = ({
   const initialLatLngForPicker = useMemo(() => {
     const lat = Number(formData.latitude);
     const lng = Number(formData.longitude);
-    if (!Number.isNaN(lat) && !Number.isNaN(lng) && lat && lng) return { lat, lng };
+    if (!Number.isNaN(lat) && !Number.isNaN(lng) && lat && lng)
+      return { lat, lng };
     return undefined;
   }, [formData.latitude, formData.longitude]);
 
   useEffect(() => {
     if (!show) return;
+    setSubmitError("");
 
     if (isEditing && initialFormData) {
       // ✅ IMPORTANT: clone (avoid shared reference / mutation issues)
       setFormData({
         ...emptyForm,
         ...initialFormData,
-        latitude:
-          initialFormData.latitude ??
-          initialFormData?.address?.latitude ??
-          "",
-        longitude:
-          initialFormData.longitude ??
-          initialFormData?.address?.longitude ??
-          "",
+        // latitude:
+        //   initialFormData.latitude ??
+        //   initialFormData?.address?.latitude ??
+        //   "",
+        // longitude:
+        //   initialFormData.longitude ??
+        //   initialFormData?.address?.longitude ??
+        //   "",
         location:
-          initialFormData.location ??
-          initialFormData?.address?.location ??
-          "",
+          initialFormData.location ?? initialFormData?.address?.location ?? "",
       });
     } else {
       setFormData(emptyForm);
@@ -347,18 +394,6 @@ const TeamMemberModal = ({
     }
     setErrors({});
 
-    const lat = Number(formData.latitude);
-    const lng = Number(formData.longitude);
-    if (
-      !formData.latitude ||
-      !formData.longitude ||
-      Number.isNaN(lat) ||
-      Number.isNaN(lng)
-    ) {
-      alert("Please select a valid location using the map picker.");
-      return;
-    }
-
     try {
       setLoading(true);
 
@@ -391,8 +426,6 @@ const TeamMemberModal = ({
 
       const address = {
         location: formData.location,
-        latitude: lat,
-        longitude: lng,
       };
 
       fd.append("member", JSON.stringify(member));
@@ -424,10 +457,14 @@ const TeamMemberModal = ({
       onHide?.();
     } catch (error) {
       console.error("Error saving team member:", error);
-      alert(
-        "Failed to save team member: " +
-          (error.response?.data?.message || error.message)
-      );
+
+      const msg =
+        error?.response?.data?.error || // ✅ show actual backend error first
+        error?.response?.data?.message ||
+        error?.message ||
+        "Failed to save team member";
+
+      setSubmitError(msg); // ✅ show in red banner
     } finally {
       setLoading(false);
     }
@@ -443,6 +480,12 @@ const TeamMemberModal = ({
         </Modal.Header>
 
         <Modal.Body>
+          {submitError ? (
+            <div className="alert alert-danger" style={{ marginBottom: 12 }}>
+              {submitError}
+            </div>
+          ) : null}
+
           <Form onSubmit={handleSubmit}>
             <TeamMemberForm
               formData={formData}
@@ -455,7 +498,11 @@ const TeamMemberModal = ({
 
             <Modal.Footer>
               <Button variant="primary" type="submit" disabled={loading}>
-                {loading ? "Saving..." : isEditing ? "Update Member" : "Add Member"}
+                {loading
+                  ? "Saving..."
+                  : isEditing
+                    ? "Update Member"
+                    : "Add Member"}
               </Button>
               <Button variant="secondary" onClick={onHide} disabled={loading}>
                 Cancel
@@ -464,15 +511,6 @@ const TeamMemberModal = ({
           </Form>
         </Modal.Body>
       </Modal>
-
-      {/* ✅ Address Picker Modal should live here */}
-      <AddressPickerModal
-        show={showAddressPicker}
-        onHide={() => setShowAddressPicker(false)}
-        onSelect={handleAddressSelect} // ✅ updates TeamMemberModal state
-        initialAddress={formData.location}
-        initialLatLng={initialLatLngForPicker}
-      />
     </>
   );
 };

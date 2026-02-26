@@ -1,7 +1,11 @@
 // components/forms/VendorForm.jsx
-import React from "react";
-import { Row, Col, Form } from "react-bootstrap";
+import React, {useState, useEffect } from "react";
+import { Row, Col, Form , Spinner} from "react-bootstrap";
 import { FaMapMarkerAlt } from "react-icons/fa";
+import { BASE_URL } from "../../../utils/config";
+import axios from "axios";
+
+const CITY_API = `${BASE_URL}/city/city-list`;
 
 const VendorForm = ({
   formData,
@@ -12,6 +16,32 @@ const VendorForm = ({
   onAddressPickerOpen,
   geocodingError,
 }) => {
+  const [cities, setCities] = useState([]);
+  const [cityLoading, setCityLoading] = useState(false);
+  const [cityError, setCityError] = useState("");
+  useEffect(() => {
+    const fetchCities = async () => {
+      setCityLoading(true);
+      setCityError("");
+      try {
+        const res = await axios.get(CITY_API);
+        const list = Array.isArray(res?.data?.data) ? res.data.data : [];
+        setCities(list);
+      } catch (err) {
+        const msg =
+          err?.response?.data?.message ||
+          err?.message ||
+          "Failed to load cities";
+        setCityError(msg);
+        setCities([]);
+      } finally {
+        setCityLoading(false);
+      }
+    };
+
+    fetchCities();
+  }, []);
+
   return (
     <>
       <h5 className="mb-3">Basic Information</h5>
@@ -97,27 +127,44 @@ const VendorForm = ({
             </Form.Control.Feedback>
           </Form.Group>
         </Col>
+        {/* ✅ City from API */}
         <Col md={6}>
           <Form.Group className="mb-3">
-            <Form.Label>City</Form.Label>
+            <Form.Label className="d-flex align-items-center gap-2">
+              City
+              {cityLoading && (
+                <span className="text-muted" style={{ fontSize: 12 }}>
+                  <Spinner animation="border" size="sm" /> Loading...
+                </span>
+              )}
+            </Form.Label>
+
             <Form.Select
               name="city"
               value={formData.city}
               onChange={onInputChange}
               required
               isInvalid={!!errors.city}
+              disabled={cityLoading}
             >
-              <option value="">Select City</option>
-              <option value="Bengaluru">Bengaluru</option>
-              <option value="Pune">Pune</option>
-              <option value="Mumbai">Mumbai</option>
-              <option value="Delhi">Delhi</option>
-              <option value="Hyderabad">Hyderabad</option>
-              <option value="Chennai">Chennai</option>
+              <option value="">
+                {cityLoading ? "Loading cities..." : "Select City"}
+              </option>
+
+              {cities.map((c) => (
+                <option key={c?._id} value={c?.city || ""}>
+                  {c?.city}
+                </option>
+              ))}
             </Form.Select>
+
             <Form.Control.Feedback type="invalid">
               {errors.city}
             </Form.Control.Feedback>
+
+            {cityError && (
+              <Form.Text className="text-danger">{cityError}</Form.Text>
+            )}
           </Form.Group>
         </Col>
       </Row>
@@ -137,13 +184,6 @@ const VendorForm = ({
               <option value="Deep Cleaning">Deep Cleaning</option>
               <option value="House Interior">House Interior</option>
               <option value="Packers & Movers">Packers & Movers</option>
-
-              {/* <option value="Plumbing">Plumbing</option>
-              <option value="Electrical">Electrical</option>
-              <option value="Carpentry">Carpentry</option>
-              <option value="Pest Control">Pest Control</option>
-              <option value="AC Service">AC Service</option>
-              <option value="Car Wash">Car Wash</option> */}
             </Form.Select>
             <Form.Control.Feedback type="invalid">
               {errors.serviceType}
@@ -291,11 +331,7 @@ const VendorForm = ({
           </Form.Group>
           <Form.Group className="mb-3">
             <Form.Label>Upload PAN Card</Form.Label>
-            <Form.Control
-              type="file"
-              name="panImage"
-              onChange={onFileChange}
-            />
+            <Form.Control type="file" name="panImage" onChange={onFileChange} />
           </Form.Group>
         </Col>
       </Row>
@@ -410,7 +446,6 @@ const VendorForm = ({
               <option value="Savings">Savings</option>
               <option value="Current">Current</option>
               <option value="Salary">Salary</option>
-     
             </Form.Select>
             <Form.Control.Feedback type="invalid">
               {errors.accountType}
@@ -428,9 +463,7 @@ const VendorForm = ({
               placeholder="Enter GST No."
             />
             {errors.gstNumber && (
-              <Form.Text className="text-danger">
-                {errors.gstNumber}
-              </Form.Text>
+              <Form.Text className="text-danger">{errors.gstNumber}</Form.Text>
             )}
           </Form.Group>
         </Col>

@@ -1,3 +1,11 @@
+// Settings.jsx (FULL UPDATED - AXIOS)
+// ✅ Uses axios for all API calls
+// ✅ Keeps cities order "as-is" (no sorting)
+// ✅ City edit integrated (PUT /city/:id)
+// ✅ City create (POST /city/city-create)
+// ✅ City delete (DELETE /city/:id)
+// ✅ Admin mobile number enforced to exactly 10 digits
+
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
   Container,
@@ -11,8 +19,9 @@ import {
   Row,
   Col,
 } from "react-bootstrap";
-import { FaTrash, FaPlus, FaCity } from "react-icons/fa";
+import { FaTrash, FaPlus, FaCity, FaEdit } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
 import { BASE_URL } from "../utils/config";
 import { getToken, logoutLocal } from "../utils/auth";
 
@@ -42,6 +51,10 @@ const Settings = () => {
     city: "",
     feedbackLink: "",
   });
+
+  // ✅ EDIT CITY STATE
+  const [isCityEditing, setIsCityEditing] = useState(false);
+  const [editingCityId, setEditingCityId] = useState(null);
 
   /* =========================
    * Common UI State
@@ -74,6 +87,15 @@ const Settings = () => {
     navigate("/login", { replace: true });
   }, [navigate]);
 
+  const apiErrorMessage = useCallback((err, fallback) => {
+    return (
+      err?.response?.data?.message ||
+      err?.response?.data?.error ||
+      err?.message ||
+      fallback
+    );
+  }, []);
+
   /* =========================
    * API Endpoints
    * ========================= */
@@ -81,9 +103,10 @@ const Settings = () => {
     () => ({
       LIST: `${BASE_URL}/city/city-list`,
       CREATE: `${BASE_URL}/city/city-create`,
+      UPDATE: (id) => `${BASE_URL}/city/${id}`,
       DELETE: (id) => `${BASE_URL}/city/${id}`,
     }),
-    []
+    [],
   );
 
   /* =========================
@@ -98,28 +121,21 @@ const Settings = () => {
       const token = getToken();
       if (!token) return handle401();
 
-      const res = await fetch(`${BASE_URL}/admin/auth/list`, {
-        method: "GET",
+      const res = await axios.get(`${BASE_URL}/admin/auth/list`, {
         headers: authHeaders(),
       });
 
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        if (res.status === 401) return handle401();
-        throw new Error(data?.message || "Failed to fetch admins");
-      }
-
-      setAdmins(Array.isArray(data?.data) ? data.data : []);
+      setAdmins(Array.isArray(res?.data?.data) ? res.data.data : []);
     } catch (e) {
-      setError(e?.message || "Failed to load admins");
+      if (e?.response?.status === 401) return handle401();
+      setError(apiErrorMessage(e, "Failed to load admins"));
     } finally {
       setAdminsLoading(false);
     }
-  }, [authHeaders, handle401]);
+  }, [authHeaders, handle401, apiErrorMessage]);
 
   /* =========================
-   * Fetch Cities
+   * Fetch Cities (NO SORTING)
    * ========================= */
   const fetchCities = useCallback(async () => {
     try {
@@ -130,25 +146,19 @@ const Settings = () => {
       const token = getToken();
       if (!token) return handle401();
 
-      const res = await fetch(CITY_API.LIST, {
-        method: "GET",
+      const res = await axios.get(CITY_API.LIST, {
         headers: authHeaders(),
       });
 
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        if (res.status === 401) return handle401();
-        throw new Error(data?.message || "Failed to fetch cities");
-      }
-
-      setCities(Array.isArray(data?.data) ? data.data : []);
+      // ✅ keep as-is order from backend
+      setCities(Array.isArray(res?.data?.data) ? res.data.data : []);
     } catch (e) {
-      setError(e?.message || "Failed to load cities");
+      if (e?.response?.status === 401) return handle401();
+      setError(apiErrorMessage(e, "Failed to load cities"));
     } finally {
       setCitiesLoading(false);
     }
-  }, [authHeaders, handle401, CITY_API.LIST]);
+  }, [authHeaders, handle401, apiErrorMessage, CITY_API.LIST]);
 
   useEffect(() => {
     fetchAdmins();
@@ -172,6 +182,14 @@ const Settings = () => {
 
   const handleAdminFormChange = (e) => {
     const { name, value } = e.target;
+
+    // ✅ enforce exactly 10 digits (input side)
+    if (name === "mobileNumber") {
+      const digits = String(value || "").replace(/\D/g, "").slice(0, 10);
+      setAdminForm((p) => ({ ...p, mobileNumber: digits }));
+      return;
+    }
+
     setAdminForm((p) => ({ ...p, [name]: value }));
   };
 
@@ -184,45 +202,33 @@ const Settings = () => {
       setSuccess("");
 
       const name = String(adminForm.name || "").trim();
-      const mobileNumber = String(adminForm.mobileNumber || "").replace(
-        /\D/g,
-        ""
-      );
+      const mobileNumber = String(adminForm.mobileNumber || "").replace(/\D/g, "");
 
       if (name.length < 2) {
         setError("Admin name must be at least 2 characters");
         return;
       }
 
-      if (!/^\d{10,15}$/.test(mobileNumber)) {
-        setError("Mobile number must be 10-15 digits");
+      if (!/^\d{10}$/.test(mobileNumber)) {
+        setError("Mobile number must be exactly 10 digits");
         return;
       }
 
       const token = getToken();
       if (!token) return handle401();
 
-      // ✅ canBeDeleted removed from UI; defaulting to true
       const payload = { name, mobileNumber, canBeDeleted: true };
 
-      const res = await fetch(`${BASE_URL}/admin/auth/create`, {
-        method: "POST",
+      await axios.post(`${BASE_URL}/admin/auth/create`, payload, {
         headers: authHeaders(),
-        body: JSON.stringify(payload),
       });
-
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        if (res.status === 401) return handle401();
-        throw new Error(data?.message || "Failed to create admin");
-      }
 
       setSuccess("Admin created successfully");
       closeAdminModal();
       fetchAdmins();
     } catch (e) {
-      setError(e?.message || "Failed to create admin");
+      if (e?.response?.status === 401) return handle401();
+      setError(apiErrorMessage(e, "Failed to create admin"));
     } finally {
       setBtnLoading(false);
     }
@@ -249,21 +255,12 @@ const Settings = () => {
       const token = getToken();
       if (!token) return handle401();
 
-      const res = await fetch(`${BASE_URL}/admin/auth/${id}`, {
-        method: "DELETE",
+      await axios.delete(`${BASE_URL}/admin/auth/${id}`, {
         headers: authHeaders(),
       });
 
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        if (res.status === 401) return handle401();
-        throw new Error(data?.message || "Failed to delete admin");
-      }
-
       setSuccess("Admin deleted successfully");
 
-      // ✅ self-delete => force logout
       if (loggedInAdminId && String(loggedInAdminId) === String(id)) {
         localStorage.removeItem("adminToken");
         localStorage.removeItem("adminData");
@@ -274,7 +271,8 @@ const Settings = () => {
 
       fetchAdmins();
     } catch (e) {
-      setError(e?.message || "Failed to delete admin");
+      if (e?.response?.status === 401) return handle401();
+      setError(apiErrorMessage(e, "Failed to delete admin"));
     } finally {
       setBtnLoading(false);
     }
@@ -286,12 +284,28 @@ const Settings = () => {
   const openCityModal = () => {
     setError("");
     setSuccess("");
+    setIsCityEditing(false);
+    setEditingCityId(null);
     setCityForm({ city: "", feedbackLink: "" });
+    setShowCityModal(true);
+  };
+
+  const openEditCityModal = (c) => {
+    setError("");
+    setSuccess("");
+    setIsCityEditing(true);
+    setEditingCityId(c?._id || c?.id || null);
+    setCityForm({
+      city: c?.city || "",
+      feedbackLink: c?.feedbackLink || "",
+    });
     setShowCityModal(true);
   };
 
   const closeCityModal = () => {
     setShowCityModal(false);
+    setIsCityEditing(false);
+    setEditingCityId(null);
     setCityForm({ city: "", feedbackLink: "" });
   };
 
@@ -300,7 +314,8 @@ const Settings = () => {
     setCityForm((p) => ({ ...p, [name]: value }));
   };
 
-  const handleCreateCity = async (e) => {
+  // ✅ Create OR Update city (same modal)
+  const handleSaveCity = async (e) => {
     e.preventDefault();
 
     try {
@@ -329,24 +344,23 @@ const Settings = () => {
 
       const payload = { city, feedbackLink };
 
-      const res = await fetch(CITY_API.CREATE, {
-        method: "POST",
-        headers: authHeaders(),
-        body: JSON.stringify(payload),
-      });
-
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        if (res.status === 401) return handle401();
-        throw new Error(data?.message || "Failed to create city");
+      if (isCityEditing) {
+        await axios.put(CITY_API.UPDATE(editingCityId), payload, {
+          headers: authHeaders(),
+        });
+        setSuccess("City updated successfully");
+      } else {
+        await axios.post(CITY_API.CREATE, payload, {
+          headers: authHeaders(),
+        });
+        setSuccess("City added successfully");
       }
 
-      setSuccess("City added successfully");
       closeCityModal();
       fetchCities();
     } catch (e) {
-      setError(e?.message || "Failed to create city");
+      if (e?.response?.status === 401) return handle401();
+      setError(apiErrorMessage(e, "Failed to save city"));
     } finally {
       setBtnLoading(false);
     }
@@ -364,22 +378,15 @@ const Settings = () => {
       const token = getToken();
       if (!token) return handle401();
 
-      const res = await fetch(CITY_API.DELETE(id), {
-        method: "DELETE",
+      await axios.delete(CITY_API.DELETE(id), {
         headers: authHeaders(),
       });
-
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        if (res.status === 401) return handle401();
-        throw new Error(data?.message || "Failed to delete city");
-      }
 
       setSuccess("City deleted successfully");
       fetchCities();
     } catch (e) {
-      setError(e?.message || "Failed to delete city");
+      if (e?.response?.status === 401) return handle401();
+      setError(apiErrorMessage(e, "Failed to delete city"));
     } finally {
       setBtnLoading(false);
     }
@@ -407,9 +414,7 @@ const Settings = () => {
             <div className="d-flex justify-content-between align-items-center mb-3">
               <div>
                 <h6 className="mb-0">Admin Management</h6>
-                <small className="text-muted">
-                  Create and delete admin users
-                </small>
+                <small className="text-muted">Create and delete admin users</small>
               </div>
 
               <Button
@@ -474,9 +479,7 @@ const Settings = () => {
             <div className="d-flex justify-content-between align-items-center mb-3">
               <div>
                 <h6 className="mb-0">City Management</h6>
-                <small className="text-muted">
-                  Add cities with feedback links
-                </small>
+                <small className="text-muted">Add cities with feedback links</small>
               </div>
 
               <Button
@@ -506,7 +509,7 @@ const Settings = () => {
                     <th style={{ width: 70 }}>Sl.no</th>
                     <th>City</th>
                     <th>Feedback Link</th>
-                    <th style={{ width: 120 }}>Actions</th>
+                    <th style={{ width: 140 }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody style={{ textAlign: "center" }}>
@@ -516,11 +519,7 @@ const Settings = () => {
                       <td>{c.city || "-"}</td>
                       <td style={{ textAlign: "left" }}>
                         {c.feedbackLink ? (
-                          <a
-                            href={c.feedbackLink}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
+                          <a href={c.feedbackLink} target="_blank" rel="noreferrer">
                             {c.feedbackLink}
                           </a>
                         ) : (
@@ -528,6 +527,17 @@ const Settings = () => {
                         )}
                       </td>
                       <td>
+                        <Button
+                          variant="outline-dark"
+                          size="sm"
+                          className="me-1"
+                          style={{ borderColor: "black" }}
+                          onClick={() => openEditCityModal(c)}
+                          disabled={btnLoading}
+                        >
+                          <FaEdit />
+                        </Button>
+
                         <Button
                           variant="outline-dark"
                           size="sm"
@@ -575,40 +585,34 @@ const Settings = () => {
                 name="mobileNumber"
                 value={adminForm.mobileNumber}
                 onChange={handleAdminFormChange}
-                placeholder="Enter 10-15 digit mobile number"
+                placeholder="Enter 10 digit mobile number"
                 required
                 disabled={btnLoading}
+                inputMode="numeric"
+                pattern="[0-9]{10}"
+                maxLength={10}
               />
             </Form.Group>
           </Modal.Body>
 
           <Modal.Footer>
-            <Button
-              variant="secondary"
-              onClick={closeAdminModal}
-              disabled={btnLoading}
-            >
+            <Button variant="secondary" onClick={closeAdminModal} disabled={btnLoading}>
               Cancel
             </Button>
-            <Button
-              type="submit"
-              variant=""
-              style={{ borderColor: "black" }}
-              disabled={btnLoading}
-            >
+            <Button type="submit" variant="" style={{ borderColor: "black" }} disabled={btnLoading}>
               {btnLoading ? "Please wait..." : "Add"}
             </Button>
           </Modal.Footer>
         </Form>
       </Modal>
 
-      {/* ===================== Add City Modal ===================== */}
+      {/* ===================== Add/Edit City Modal ===================== */}
       <Modal show={showCityModal} onHide={closeCityModal} centered>
         <Modal.Header closeButton>
-          <Modal.Title>Add City</Modal.Title>
+          <Modal.Title>{isCityEditing ? "Edit City" : "Add City"}</Modal.Title>
         </Modal.Header>
 
-        <Form onSubmit={handleCreateCity}>
+        <Form onSubmit={handleSaveCity}>
           <Modal.Body>
             <Form.Group className="mb-3">
               <Form.Label>City *</Form.Label>
@@ -642,20 +646,11 @@ const Settings = () => {
           </Modal.Body>
 
           <Modal.Footer>
-            <Button
-              variant="secondary"
-              onClick={closeCityModal}
-              disabled={btnLoading}
-            >
+            <Button variant="secondary" onClick={closeCityModal} disabled={btnLoading}>
               Cancel
             </Button>
-            <Button
-              type="submit"
-              variant=""
-              style={{ borderColor: "black" }}
-              disabled={btnLoading}
-            >
-              {btnLoading ? "Please wait..." : "Add"}
+            <Button type="submit" variant="" style={{ borderColor: "black" }} disabled={btnLoading}>
+              {btnLoading ? "Please wait..." : isCityEditing ? "Update" : "Add"}
             </Button>
           </Modal.Footer>
         </Form>
@@ -665,6 +660,8 @@ const Settings = () => {
 };
 
 export default Settings;
+
+
 
 // import React, { useEffect, useState, useCallback } from "react";
 // import {

@@ -259,15 +259,15 @@ export const validateTeamMemberForm = (formData) => {
   // Location: Required
   if (!formData.location) newErrors.location = "Location is required.";
 
-  // Latitude: Required, must be numeric
-  if (!formData.latitude || isNaN(formData.latitude)) {
-    newErrors.latitude = "Latitude is required.";
-  }
+  // // Latitude: Required, must be numeric
+  // if (!formData.latitude || isNaN(formData.latitude)) {
+  //   newErrors.latitude = "Latitude is required.";
+  // }
 
-  // Longitude: Required, must be numeric
-  if (!formData.longitude || isNaN(formData.longitude)) {
-    newErrors.longitude = "Longitude is required.";
-  }
+  // // Longitude: Required, must be numeric
+  // if (!formData.longitude || isNaN(formData.longitude)) {
+  //   newErrors.longitude = "Longitude is required.";
+  // }
 
   return newErrors;
 };

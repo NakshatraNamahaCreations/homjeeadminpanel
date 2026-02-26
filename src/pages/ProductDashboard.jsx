@@ -614,7 +614,7 @@ const ProductsDashboard = () => {
                       ) : (
                         <>
                           <th>Price</th>
-                          <th>Description</th>
+                          <th style={{width:"45%"}}>Description</th>
                           {showPaintTypeColumn(type) && <th>Paint</th>}
                         </>
                       )}

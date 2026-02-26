@@ -50,6 +50,7 @@ const VendorModal = ({
   const [loading, setLoading] = useState(false);
   const [geocodingError, setGeocodingError] = useState(null);
   const [showAddressPicker, setShowAddressPicker] = useState(false);
+  const [submitError, setSubmitError] = useState("");
 
   useEffect(() => {
     if (isEditing && initialFormData) {
@@ -194,11 +195,15 @@ const VendorModal = ({
       onSuccess();
       onHide();
     } catch (error) {
-      console.error("Error saving vendor:", error);
-      alert(
-        "Failed to save vendor: " +
-          (error.response?.data?.message || error.message),
-      );
+       console.error("Error saving team member:", error);
+
+      const msg =
+        error?.response?.data?.error || // ✅ show actual backend error first
+        error?.response?.data?.message ||
+        error?.message ||
+        "Failed to save team member";
+
+      setSubmitError(msg);
     } finally {
       setLoading(false);
     }
@@ -212,6 +217,11 @@ const VendorModal = ({
         </Modal.Title>
       </Modal.Header>
       <Modal.Body>
+          {submitError ? (
+            <div className="alert alert-danger" style={{ marginBottom: 12 }}>
+              {submitError}
+            </div>
+          ) : null}
         <Form onSubmit={handleSubmit}>
           <VendorForm
             formData={formData}
