@@ -1023,8 +1023,8 @@
 // };
 
 // export default CreateLeadModal;
-
-import { useEffect, useState } from "react";
+/* ===== FILE: CreateLeadModal.jsx (FINAL UPDATED — FIXED CALCULATIONS) ===== */
+import { useEffect, useMemo, useRef, useState } from "react";
 import { FaTimes } from "react-icons/fa";
 import axios from "axios";
 import { ToastContainer, toast } from "react-toastify";
@@ -1035,19 +1035,54 @@ import TimePickerModal from "./TimePickerModal";
 import { useNavigate } from "react-router-dom";
 import { MdCancel } from "react-icons/md";
 
+/* ---------------------------
+   ✅ SAFE NUMBER HELPERS
+   (Fixes "6199" + 4899 => "61994899")
+---------------------------- */
+const toNum = (v) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+};
+
+const clamp0 = (n) => Math.max(0, toNum(n));
+
+const calcTotalsFromPackages = (pkgs, pct = 0.2) => {
+  const total = pkgs.reduce((sum, p) => sum + toNum(p?.totalAmount), 0);
+  const booking = Math.round(total * pct);
+  const yet = Math.max(0, total - booking);
+  return { total, booking, yet };
+};
+
+const normalizePkg = (p) => ({
+  ...p,
+  totalAmount: toNum(p?.totalAmount),
+  coinsForVendor: toNum(p?.coinsForVendor),
+  teamMembers: toNum(p?.teamMembers),
+  durationMinutes: toNum(p?.durationMinutes),
+});
+
 const CreateLeadModal = ({ onClose }) => {
   const navigate = useNavigate();
+
   const [existingUser, setExistingUser] = useState(null);
-  const [typingTimeout, setTypingTimeout] = useState(null);
   const [showAddress, setShowAddress] = useState(false);
   const [showTime, setShowTime] = useState(false);
 
   const [categories, setCategories] = useState([]);
   const [selectedSubCategory, setSelectedSubCategory] = useState("");
+
+  // discount helpers
   const [originalTotal, setOriginalTotal] = useState(0);
-  const [discountMode, setDiscountMode] = useState("percent");
+  const [discountMode, setDiscountMode] = useState("percent"); // percent | amount
   const [discountValue, setDiscountValue] = useState("");
   const [discountApplied, setDiscountApplied] = useState(false);
+
+  const [serviceConfig, setServiceConfig] = useState(null);
+  const [checkingUser, setCheckingUser] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const typingTimeoutRef = useRef(null);
+
   const [leadData, setLeadData] = useState({
     name: "",
     contact: "",
@@ -1066,9 +1101,15 @@ const CreateLeadModal = ({ onClose }) => {
     coordinates: { lat: 0, lng: 0 },
   });
 
-  const [serviceConfig, setServiceConfig] = useState(null);
-  const [checkingUser, setCheckingUser] = useState(false);
-  const [saving, setSaving] = useState(false);
+  /* --------------------------------------------------
+     SLOT ENABLE RULES (UNCHANGED)
+  -------------------------------------------------- */
+  const isTimeSelectionEnabled =
+    !!leadData.googleAddress &&
+    !!leadData.city &&
+    (leadData.serviceType === "House Painting" ||
+      (leadData.serviceType === "Deep Cleaning" &&
+        leadData.packages.length > 0));
 
   const invalidateSlot = () => {
     setLeadData((p) => ({
@@ -1078,13 +1119,9 @@ const CreateLeadModal = ({ onClose }) => {
     }));
   };
 
-  const isTimeSelectionEnabled =
-    !!leadData.googleAddress &&
-    !!leadData.city &&
-    (leadData.serviceType === "House Painting" ||
-      (leadData.serviceType === "Deep Cleaning" &&
-        leadData.packages.length > 0));
-
+  /* -----------------------------------------------------------
+     Detect City From Address (UNCHANGED)
+  ------------------------------------------------------------ */
   useEffect(() => {
     if (!leadData.googleAddress) return;
 
@@ -1098,8 +1135,11 @@ const CreateLeadModal = ({ onClose }) => {
     if (detectedCity && leadData.city !== detectedCity) {
       setLeadData((prev) => ({ ...prev, city: detectedCity }));
     }
-  }, [leadData.googleAddress]);
+  }, [leadData.googleAddress, leadData.city]);
 
+  /* -----------------------------------------------------------
+     Load Latest Service Config (UNCHANGED)
+  ------------------------------------------------------------ */
   useEffect(() => {
     const fetchLatestService = async () => {
       try {
@@ -1109,10 +1149,12 @@ const CreateLeadModal = ({ onClose }) => {
         console.error("Error fetching latest service:", error);
       }
     };
-
     fetchLatestService();
   }, []);
 
+  /* -----------------------------------------------------------
+     Fetch Existing User (UNCHANGED)
+  ------------------------------------------------------------ */
   const fetchExistingUser = async (mobile) => {
     try {
       setCheckingUser(true);
@@ -1135,8 +1177,8 @@ const CreateLeadModal = ({ onClose }) => {
           landmark: addr.landmark || "",
           city: addr.city || "",
           coordinates: {
-            lat: addr.latitude || 0,
-            lng: addr.longitude || 0,
+            lat: toNum(addr.latitude),
+            lng: toNum(addr.longitude),
           },
         }));
 
@@ -1152,26 +1194,32 @@ const CreateLeadModal = ({ onClose }) => {
     }
   };
 
+  /* -----------------------------------------------------------
+     Input Handler (FIXED numbers + safe timeout)
+  ------------------------------------------------------------ */
   const handleChange = (e) => {
     const { name, value } = e.target;
 
     if (name === "contact") {
-      const v = value.replace(/\D/g, "").slice(0, 10);
+      const v = String(value || "")
+        .replace(/\D/g, "")
+        .slice(0, 10);
+
       setLeadData((p) => ({ ...p, contact: v }));
 
-      if (typingTimeout) clearTimeout(typingTimeout);
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
       if (v.length === 10) {
-        setTypingTimeout(setTimeout(() => fetchExistingUser(v), 700));
+        typingTimeoutRef.current = setTimeout(() => fetchExistingUser(v), 700);
       }
       return;
     }
 
     if (name === "bookingAmount") {
-      const booking = Number(value || 0);
+      const booking = clamp0(value);
       setLeadData((p) => ({
         ...p,
         bookingAmount: booking,
-        amountYetToPay: p.totalAmount - booking,
+        amountYetToPay: Math.max(0, clamp0(p.totalAmount) - booking),
       }));
       return;
     }
@@ -1180,20 +1228,60 @@ const CreateLeadModal = ({ onClose }) => {
     setLeadData((p) => ({ ...p, [name]: value }));
   };
 
+  /* -----------------------------------------------------------
+     Deep Cleaning Categories UI
+  ------------------------------------------------------------ */
   const uniqueDeepCategories = () => {
     return [...new Set(categories.map((c) => c.category))];
   };
 
+  /* -----------------------------------------------------------
+     Fetch Deep Cleaning Packages by city (FIXED: normalize numbers)
+  ------------------------------------------------------------ */
+  const fetchDeepCleaningPackagesByCity = async (cityName) => {
+    try {
+      if (!cityName) {
+        setCategories([]);
+        return;
+      }
+      const encoded = encodeURIComponent(String(cityName).trim());
+      const res = await axios.get(
+        `${BASE_URL}/deeppackage/deep-cleaning-packages/by-city-name/${encoded}`,
+      );
+
+      const rows = (res.data?.data || []).map(normalizePkg);
+      setCategories(rows);
+    } catch (err) {
+      console.error("Failed to fetch deep cleaning packages by city:", err);
+      setCategories([]);
+    }
+  };
+
+  // Load packages when serviceType=Deep Cleaning and city is present
+  useEffect(() => {
+    if (leadData.serviceType === "Deep Cleaning") {
+      if (leadData.city) fetchDeepCleaningPackagesByCity(leadData.city);
+      else setCategories([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leadData.serviceType, leadData.city]);
+
+  /* -----------------------------------------------------------
+     Add / Remove Packages (FIXED: numeric sum + reset discount)
+  ------------------------------------------------------------ */
   const addPackage = () => {
     const pkg = categories.find((p) => p._id === leadData.selectedPackage);
     if (!pkg) return;
 
+    // prevent duplicates
+    if (leadData.packages.some((x) => x._id === pkg._id)) return;
+
     const updated = [...leadData.packages, pkg];
-    const total = updated.reduce((s, p) => s + p.totalAmount, 0);
-    const booking = Math.round(total * 0.2);
+    const { total, booking, yet } = calcTotalsFromPackages(updated);
 
     setOriginalTotal(total);
     setDiscountApplied(false);
+    setDiscountValue("");
 
     setLeadData((p) => ({
       ...p,
@@ -1201,72 +1289,79 @@ const CreateLeadModal = ({ onClose }) => {
       selectedPackage: "",
       totalAmount: total,
       bookingAmount: booking,
-      amountYetToPay: total - booking,
+      amountYetToPay: yet,
       slotDate: "",
       slotTime: "",
     }));
   };
+
   const removePackage = (pkg) => {
     const updated = leadData.packages.filter((p) => p._id !== pkg._id);
-    const total = updated.reduce((s, p) => s + p.totalAmount, 0);
-    const booking = Math.round(total * 0.2);
+    const { total, booking, yet } = calcTotalsFromPackages(updated);
 
     setOriginalTotal(total);
     setDiscountApplied(false);
+    setDiscountValue("");
 
     setLeadData((p) => ({
       ...p,
       packages: updated,
       totalAmount: total,
       bookingAmount: booking,
-      amountYetToPay: total - booking,
+      amountYetToPay: yet,
       slotDate: "",
       slotTime: "",
     }));
   };
 
+  /* -----------------------------------------------------------
+     Discount Apply / Clear (FIXED: NaN, negative, rounding)
+  ------------------------------------------------------------ */
   const applyDiscount = () => {
-    const base = originalTotal;
+    const base = clamp0(originalTotal);
     if (!base) return;
 
+    const val = clamp0(discountValue);
+
     let discounted = base;
-    const val = Number(discountValue);
+    if (discountMode === "percent") discounted = base - (base * val) / 100;
+    else discounted = base - val;
 
-    if (discountMode === "percent") {
-      discounted = base - (base * val) / 100;
-    } else {
-      discounted = base - val;
-    }
+    discounted = Math.max(0, discounted);
 
-    if (discounted < 0) discounted = 0;
-
-    const booking = Math.round(discounted * 0.2);
+    const finalTotal = Math.round(discounted);
+    const booking = Math.round(finalTotal * 0.2);
+    const yet = Math.max(0, finalTotal - booking);
 
     setLeadData((prev) => ({
       ...prev,
-      totalAmount: Math.round(discounted),
+      totalAmount: finalTotal,
       bookingAmount: booking,
-      amountYetToPay: discounted - booking,
+      amountYetToPay: yet,
     }));
 
     setDiscountApplied(true);
   };
 
   const clearDiscount = () => {
-    const total = originalTotal;
+    const total = clamp0(originalTotal);
     const booking = Math.round(total * 0.2);
+    const yet = Math.max(0, total - booking);
 
     setLeadData((prev) => ({
       ...prev,
       totalAmount: total,
       bookingAmount: booking,
-      amountYetToPay: total - booking,
+      amountYetToPay: yet,
     }));
 
     setDiscountApplied(false);
     setDiscountValue("");
   };
 
+  /* -----------------------------------------------------------
+     Validation (UNCHANGED)
+  ------------------------------------------------------------ */
   const isFormValid = () => {
     if (!leadData.contact || leadData.contact.length !== 10) return false;
     if (!existingUser && !leadData.name) return false;
@@ -1283,6 +1378,9 @@ const CreateLeadModal = ({ onClose }) => {
     return true;
   };
 
+  /* -----------------------------------------------------------
+     Save (FIXED: ensure numbers in payload)
+  ------------------------------------------------------------ */
   const handleSave = async () => {
     if (checkingUser || saving) return;
 
@@ -1296,6 +1394,9 @@ const CreateLeadModal = ({ onClose }) => {
         toast.error("Please complete service & slot selection");
         return;
       }
+
+      setSaving(true);
+
       const payload = {
         customer: existingUser
           ? {
@@ -1314,26 +1415,26 @@ const CreateLeadModal = ({ onClose }) => {
                 {
                   category: "House Painting",
                   serviceName: "House Painters & Waterproofing",
-                  price: leadData.bookingAmount,
+                  price: clamp0(leadData.bookingAmount),
                   quantity: 1,
-                  coinDeduction: serviceConfig?.vendorCoins || 0,
+                  coinDeduction: clamp0(serviceConfig?.vendorCoins),
                 },
               ]
             : leadData.packages.map((p) => ({
                 category: "Deep Cleaning",
                 subCategory: p.category,
                 serviceName: p.name,
-                price: p.totalAmount,
+                price: clamp0(p.totalAmount),
                 quantity: 1,
-                teamMembersRequired: p.teamMembers,
-                coinDeduction: p.coinsForVendor || 0,
+                teamMembersRequired: clamp0(p.teamMembers),
+                coinDeduction: clamp0(p.coinsForVendor),
                 packageId: p._id,
-                duration: p.durationMinutes || p.duration || 0,
+                duration: clamp0(p.durationMinutes || p.duration),
               })),
 
         bookingDetails: {
-          bookingAmount: leadData.bookingAmount,
-          finalTotal: leadData.totalAmount,
+          bookingAmount: clamp0(leadData.bookingAmount),
+          finalTotal: clamp0(leadData.totalAmount),
           paidAmount: 0,
           paymentMethod: "None",
         },
@@ -1345,7 +1446,7 @@ const CreateLeadModal = ({ onClose }) => {
           city: leadData.city,
           location: {
             type: "Point",
-            coordinates: [leadData.coordinates.lng, leadData.coordinates.lat],
+            coordinates: [toNum(leadData.coordinates.lng), toNum(leadData.coordinates.lat)],
           },
         },
 
@@ -1355,21 +1456,19 @@ const CreateLeadModal = ({ onClose }) => {
         },
 
         formName: "admin panel",
-        isEnquiry: leadData.bookingAmount > 0,
+        isEnquiry: clamp0(leadData.bookingAmount) > 0,
       };
 
-      setSaving(true);
       await axios.post(`${BASE_URL}/bookings/create-admin-booking`, payload);
 
       toast.success(
-        `${
-          leadData.bookingAmount == 0
-            ? "Lead created successfully!"
-            : " Enquiry created successfully!"
-        }`,
+        clamp0(leadData.bookingAmount) === 0
+          ? "Lead created successfully!"
+          : "Enquiry created successfully!",
       );
+
       onClose();
-      navigate(`${leadData.bookingAmount == 0 ? "/newleads" : "/enquiries"}`);
+      navigate(`${clamp0(leadData.bookingAmount) === 0 ? "/newleads" : "/enquiries"}`);
       window.location.reload();
     } catch (err) {
       console.error(err);
@@ -1379,35 +1478,78 @@ const CreateLeadModal = ({ onClose }) => {
     }
   };
 
-  // -----------------------------
-  // New: fetch deep-cleaning packages by city name
-  // -----------------------------
-  const fetchDeepCleaningPackagesByCity = async (cityName) => {
-    try {
-      if (!cityName) {
-        setCategories([]);
-        return;
-      }
-      const encoded = encodeURIComponent(String(cityName).trim());
-      const res = await axios.get(
-        `${BASE_URL}/deeppackage/deep-cleaning-packages/by-city-name/${encoded}`,
-      );
-      setCategories(res.data?.data || []);
-    } catch (err) {
-      console.error("Failed to fetch deep cleaning packages by city:", err);
-      setCategories([]);
-    }
-  };
+  /* -----------------------------------------------------------
+     SERVICE TYPE CHANGE (FIXED: disabled until address picked + city fetch)
+  ------------------------------------------------------------ */
+  const onServiceTypeChange = async (e) => {
+    const val = e.target.value;
 
-  // When the selected service type or city changes, load categories appropriately
-  useEffect(() => {
-    if (leadData.serviceType === "Deep Cleaning") {
-      // fetch only when city known
-      if (leadData.city) fetchDeepCleaningPackagesByCity(leadData.city);
-      else setCategories([]);
+    invalidateSlot();
+
+    if (val === "House Painting") {
+      try {
+        const resp = await axios.get(`${BASE_URL}/service/latest`);
+        const siteVisit = clamp0(resp?.data?.data?.siteVisitCharge);
+
+        setLeadData((prev) => ({
+          ...prev,
+          serviceType: val,
+          packages: [],
+          selectedPackage: "",
+          totalAmount: 0,
+          bookingAmount: siteVisit,
+          amountYetToPay: 0,
+        }));
+
+        // discount reset
+        setOriginalTotal(0);
+        setDiscountApplied(false);
+        setDiscountValue("");
+        setSelectedSubCategory("");
+        setCategories([]);
+      } catch (err) {
+        console.error(err);
+        toast.error("Failed to load service config");
+      }
+      return;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leadData.serviceType, leadData.city]);
+
+    if (val === "Deep Cleaning") {
+      // categories are fetched via effect (serviceType + city)
+      setLeadData((prev) => ({
+        ...prev,
+        serviceType: val,
+        packages: [],
+        selectedPackage: "",
+        totalAmount: 0,
+        bookingAmount: 0,
+        amountYetToPay: 0,
+      }));
+
+      // discount reset
+      setOriginalTotal(0);
+      setDiscountApplied(false);
+      setDiscountValue("");
+      setSelectedSubCategory("");
+      return;
+    }
+
+    // reset all if cleared
+    setLeadData((prev) => ({
+      ...prev,
+      serviceType: "",
+      packages: [],
+      selectedPackage: "",
+      totalAmount: 0,
+      bookingAmount: 0,
+      amountYetToPay: 0,
+    }));
+    setOriginalTotal(0);
+    setDiscountApplied(false);
+    setDiscountValue("");
+    setSelectedSubCategory("");
+    setCategories([]);
+  };
 
   return (
     <div style={styles.overlay}>
@@ -1418,6 +1560,7 @@ const CreateLeadModal = ({ onClose }) => {
         </div>
 
         <div style={styles.content}>
+          {/* PHONE */}
           <input
             type="text"
             name="contact"
@@ -1433,6 +1576,7 @@ const CreateLeadModal = ({ onClose }) => {
             </div>
           )}
 
+          {/* NAME */}
           <input
             type="text"
             name="name"
@@ -1443,6 +1587,7 @@ const CreateLeadModal = ({ onClose }) => {
             value={leadData.name}
           />
 
+          {/* ADDRESS */}
           <input
             type="text"
             placeholder="Google Address (click to pick)"
@@ -1452,6 +1597,7 @@ const CreateLeadModal = ({ onClose }) => {
             value={leadData.googleAddress}
           />
 
+          {/* HOUSE NO */}
           <input
             type="text"
             name="houseNo"
@@ -1461,6 +1607,7 @@ const CreateLeadModal = ({ onClose }) => {
             value={leadData.houseNo}
           />
 
+          {/* LANDMARK */}
           <input
             type="text"
             name="landmark"
@@ -1470,6 +1617,7 @@ const CreateLeadModal = ({ onClose }) => {
             value={leadData.landmark}
           />
 
+          {/* CITY */}
           <input
             type="text"
             placeholder="Detected City"
@@ -1478,6 +1626,7 @@ const CreateLeadModal = ({ onClose }) => {
             value={leadData.city}
           />
 
+          {/* SLOT SELECTION */}
           {isTimeSelectionEnabled ? (
             <>
               <label style={styles.label}>Select Date & Time</label>
@@ -1551,109 +1700,23 @@ const CreateLeadModal = ({ onClose }) => {
                 textAlign: "center",
               }}
             >
-              Please select an service first to enable slot selection
+              Please select a service to enable slot selection
             </div>
           )}
-{/* 
+
+          {/* SERVICE TYPE */}
           <select
             name="serviceType"
             style={styles.input}
-            onChange={async (e) => {
-              const val = e.target.value;
-
-              invalidateSlot();
-
-              if (val === "House Painting") {
-                const resp = await axios.get(`${BASE_URL}/service/latest`);
-                const siteVisit = resp.data.data.siteVisitCharge || 0;
-
-                setLeadData((prev) => ({
-                  ...prev,
-                  serviceType: val,
-                  packages: [],
-                  selectedPackage: "",
-                  totalAmount: 0,
-                  bookingAmount: siteVisit,
-                  amountYetToPay: 0,
-                }));
-                return;
-              }
-
-              if (val === "Deep Cleaning") {
-                // fetch packages only if city exists; use effect will handle when city changes
-                if (leadData.city) {
-                  await fetchDeepCleaningPackagesByCity(leadData.city);
-                } else {
-                  setCategories([]);
-                }
-              }
-
-              setLeadData((prev) => ({
-                ...prev,
-                serviceType: val,
-                packages: [],
-                selectedPackage: "",
-                totalAmount: 0,
-                bookingAmount: 0,
-                amountYetToPay: 0,
-              }));
-            }}
-            value={leadData.serviceType}
-          >
-            <option value="">Select Service</option>
-            <option value="House Painting">House Painting</option>
-            <option value="Deep Cleaning">Deep Cleaning</option>
-          </select> */}
-
-    <select
-            name="serviceType"
-            style={styles.input}
             disabled={!leadData.googleAddress}
-            onChange={async (e) => {
-              const val = e.target.value;
-
-              invalidateSlot();
-
-              if (val === "House Painting") {
-                const resp = await axios.get(`${BASE_URL}/service/latest`);
-                const siteVisit = resp.data.data.siteVisitCharge || 0;
-
-                setLeadData((prev) => ({
-                  ...prev,
-                  serviceType: val,
-                  packages: [],
-                  selectedPackage: "",
-                  totalAmount: 0,
-                  bookingAmount: siteVisit,
-                  amountYetToPay: 0,
-                }));
-                return;
-              }
-
-              if (val === "Deep Cleaning") {
-                if (leadData.city) {
-                  await fetchDeepCleaningPackagesByCity(leadData.city);
-                } else {
-                  setCategories([]);
-                }
-              }
-
-              setLeadData((prev) => ({
-                ...prev,
-                serviceType: val,
-                packages: [],
-                selectedPackage: "",
-                totalAmount: 0,
-                bookingAmount: 0,
-                amountYetToPay: 0,
-              }));
-            }}
+            onChange={onServiceTypeChange}
             value={leadData.serviceType}
           >
             <option value="">Select Service</option>
             <option value="House Painting">House Painting</option>
             <option value="Deep Cleaning">Deep Cleaning</option>
           </select>
+
           {leadData.serviceType === "House Painting" && (
             <>
               <label style={styles.label}>Booking Amount</label>
@@ -1705,7 +1768,7 @@ const CreateLeadModal = ({ onClose }) => {
                     .filter((p) => p.category === selectedSubCategory)
                     .map((p) => (
                       <option key={p._id} value={p._id}>
-                        {p.name} – ₹{p.totalAmount}
+                        {p.name} – ₹{toNum(p.totalAmount)}
                       </option>
                     ))}
                 </select>
@@ -1718,7 +1781,7 @@ const CreateLeadModal = ({ onClose }) => {
               <ul style={styles.pkgList}>
                 {leadData.packages.map((pkg) => (
                   <li key={pkg._id} style={styles.pkgItem}>
-                    {pkg.name} – ₹{pkg.totalAmount}
+                    {pkg.name} – ₹{toNum(pkg.totalAmount)}
                     <FaTimes
                       style={styles.remove}
                       onClick={() => removePackage(pkg)}
@@ -1815,51 +1878,59 @@ const CreateLeadModal = ({ onClose }) => {
         </div>
       </div>
 
-    {showAddress && (
-            <AddressPickerModal
-              onClose={() => setShowAddress(false)}
-              initialAddress={leadData.googleAddress || ""}
-              initialHouseFlatNumber={leadData.houseNo || ""}
-              initialCity={leadData.city || ""}
-              initialLandmark={leadData.landmark || ""}
-              initialLatLng={
-                leadData.coordinates?.lat && leadData.coordinates?.lng
-                  ? leadData.coordinates
-                  : null
-              }
-              onSelect={(sel) => {
-                const newCity = sel.city || leadData.city;
-                const cityChanged = newCity !== leadData.city;
+      {/* ADDRESS PICKER */}
+      {showAddress && (
+        <AddressPickerModal
+          onClose={() => setShowAddress(false)}
+          initialAddress={leadData.googleAddress || ""}
+          initialHouseFlatNumber={leadData.houseNo || ""}
+          initialCity={leadData.city || ""}
+          initialLandmark={leadData.landmark || ""}
+          initialLatLng={
+            leadData.coordinates?.lat && leadData.coordinates?.lng
+              ? leadData.coordinates
+              : null
+          }
+          onSelect={(sel) => {
+            const newCity = sel.city || leadData.city;
+            const cityChanged = newCity !== leadData.city;
 
-                if (cityChanged) {
-                  setCategories([]);
-                  setSelectedSubCategory("");
-                }
+            if (cityChanged) {
+              setCategories([]);
+              setSelectedSubCategory("");
 
-                setLeadData((p) => ({
-                  ...p,
-                  googleAddress: sel.streetArea,
-                  houseNo: sel.houseFlatNumber || p.houseNo,
-                  landmark: sel.landMark || p.landmark,
-                  coordinates: {
-                    lat: sel.latLng?.lat || 0,
-                    lng: sel.latLng?.lng || 0,
-                  },
-                  city: newCity,
-                  slotDate: "",
-                  slotTime: "",
-                  ...(cityChanged && {
-                    serviceType: "",
-                    packages: [],
-                    selectedPackage: "",
-                    totalAmount: 0,
-                    bookingAmount: 0,
-                    amountYetToPay: 0,
-                  }),
-                }));
-              }}
-            />
-          )}
+              // reset discount when city changes
+              setOriginalTotal(0);
+              setDiscountApplied(false);
+              setDiscountValue("");
+            }
+
+            setLeadData((p) => ({
+              ...p,
+              googleAddress: sel.streetArea,
+              houseNo: sel.houseFlatNumber || p.houseNo,
+              landmark: sel.landMark || p.landmark,
+              coordinates: {
+                lat: toNum(sel.latLng?.lat),
+                lng: toNum(sel.latLng?.lng),
+              },
+              city: newCity,
+              slotDate: "",
+              slotTime: "",
+              ...(cityChanged && {
+                serviceType: "",
+                packages: [],
+                selectedPackage: "",
+                totalAmount: 0,
+                bookingAmount: 0,
+                amountYetToPay: 0,
+              }),
+            }));
+          }}
+        />
+      )}
+
+      {/* TIME PICKER */}
       {showTime && (
         <TimePickerModal
           onClose={() => setShowTime(false)}
@@ -1884,12 +1955,15 @@ const CreateLeadModal = ({ onClose }) => {
           coordinates={leadData.coordinates}
         />
       )}
+
       <ToastContainer />
     </div>
   );
 };
 
-/* Styles (unchanged) */
+/* -----------------------------------------------------------
+   Styles (UNCHANGED)
+------------------------------------------------------------ */
 const styles = {
   overlay: {
     position: "fixed",
@@ -1927,9 +2001,6 @@ const styles = {
     color: "#666",
     transition: "color 0.2s",
   },
-  closeHover: {
-    color: "#333",
-  },
   content: {
     maxHeight: "70vh",
     overflowY: "auto",
@@ -1948,11 +2019,6 @@ const styles = {
     fontFamily: "'Poppins', sans-serif",
     boxSizing: "border-box",
     transition: "border 0.2s, box-shadow 0.2s",
-  },
-  inputFocus: {
-    border: "1px solid #03942fff",
-    boxShadow: "0 0 0 2px rgba(3, 148, 47, 0.1)",
-    outline: "none",
   },
   select: {
     flex: 1,
@@ -1973,9 +2039,6 @@ const styles = {
     fontSize: "14px",
     fontWeight: "600",
     transition: "background 0.2s",
-  },
-  addBtnHover: {
-    background: "#027a3b",
   },
   pkgList: {
     listStyle: "none",
@@ -1998,9 +2061,6 @@ const styles = {
     color: "#dc3545",
     fontSize: "14px",
     transition: "color 0.2s",
-  },
-  removeHover: {
-    color: "#bd2130",
   },
   label: {
     fontSize: 13,
@@ -2044,9 +2104,6 @@ const styles = {
     transition: "background 0.2s",
     whiteSpace: "nowrap",
   },
-  applyBtnHover: {
-    backgroundColor: "#8a0909",
-  },
   discountApplied: {
     display: "flex",
     alignItems: "center",
@@ -2066,9 +2123,6 @@ const styles = {
     fontSize: "18px",
     transition: "color 0.2s",
   },
-  cancelDiscountHover: {
-    color: "#bd2130",
-  },
   saveBtn: {
     padding: "10px 35px",
     background: "#03942fff",
@@ -2079,11 +2133,6 @@ const styles = {
     fontSize: "14px",
     fontWeight: "600",
     transition: "all 0.2s",
-  },
-  saveBtnHover: {
-    background: "#027a3b",
-    transform: "translateY(-1px)",
-    boxShadow: "0 4px 8px rgba(3, 148, 47, 0.2)",
   },
 };
 
