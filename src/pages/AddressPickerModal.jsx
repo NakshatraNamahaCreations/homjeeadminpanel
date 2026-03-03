@@ -20,7 +20,7 @@ const findMapsScript = () => {
   try {
     const scripts = Array.from(document.querySelectorAll("script[src]"));
     return scripts.find((s) =>
-      s.src.includes("https://maps.googleapis.com/maps/api/js")
+      s.src.includes("https://maps.googleapis.com/maps/api/js"),
     );
   } catch (e) {
     return null;
@@ -41,13 +41,14 @@ const loadGoogleMaps = () => {
           if (hasPlaces()) return resolve();
 
           const addonAlready = document.querySelector(
-            'script[data-google="maps-places-addon"]'
+            'script[data-google="maps-places-addon"]',
           );
           if (addonAlready) {
             addonAlready.addEventListener("load", () => {
               try {
                 if (hasPlaces()) resolve();
-                else reject(new Error("Places addon loaded but still missing."));
+                else
+                  reject(new Error("Places addon loaded but still missing."));
               } catch (e) {
                 reject(e);
               }
@@ -66,8 +67,8 @@ const loadGoogleMaps = () => {
               if (!hasPlaces()) {
                 return reject(
                   new Error(
-                    "Google Maps loaded but Places library is missing. Check key / Places API."
-                  )
+                    "Google Maps loaded but Places library is missing. Check key / Places API.",
+                  ),
                 );
               }
               resolve();
@@ -121,8 +122,8 @@ const loadGoogleMaps = () => {
           if (!hasPlaces()) {
             return reject(
               new Error(
-                "Google Maps loaded but Places library is missing. Check API key permissions."
-              )
+                "Google Maps loaded but Places library is missing. Check API key permissions.",
+              ),
             );
           }
           resolve();
@@ -143,8 +144,8 @@ const loadGoogleMaps = () => {
 const AddressPickerModal = ({
   initialLatLng,
   initialAddress = "",
-    initialHouseFlatNumber = "",
-    initialCity="",
+  initialHouseFlatNumber = "",
+  initialCity = "",
   initialLandmark = "",
   onClose,
   onSelect,
@@ -164,7 +165,7 @@ const AddressPickerModal = ({
   const [houseFlatError, setHouseFlatError] = useState("");
 
   // keep address synced when opening modal with prefilled address
- // ✅ preload when modal opens / props change
+  // ✅ preload when modal opens / props change
   useEffect(() => {
     try {
       setAddr(initialAddress || "");
@@ -208,6 +209,16 @@ const AddressPickerModal = ({
       console.warn("validateHouseFlat error:", err);
       setHouseFlatError("Invalid value");
       return false;
+    }
+  };
+
+  const clearManualFields = () => {
+    try {
+      setHouseFlat("");
+      setLandmark("");
+      setHouseFlatError("");
+    } catch (e) {
+      console.warn("clearManualFields error:", e);
     }
   };
 
@@ -307,7 +318,7 @@ const AddressPickerModal = ({
 
         autocomplete = new window.google.maps.places.Autocomplete(
           inputRef.current,
-          { fields: ["formatted_address", "geometry"] }
+          { fields: ["formatted_address", "geometry"] },
         );
 
         ensureAutocompleteZIndex();
@@ -317,6 +328,9 @@ const AddressPickerModal = ({
             const place = autocomplete.getPlace();
             if (!place.geometry) return;
 
+            // ✅ User picked a new location → clear manual fields
+            clearManualFields();
+
             const pos = {
               lat: place.geometry.location.lat(),
               lng: place.geometry.location.lng(),
@@ -325,7 +339,6 @@ const AddressPickerModal = ({
             setLatLng(pos);
             reverseGeocode(pos, place.formatted_address);
 
-            // ✅ ensure dropdown always stays above overlays
             ensureAutocompleteZIndex();
           } catch (err) {
             console.warn("place_changed error:", err);
@@ -341,6 +354,9 @@ const AddressPickerModal = ({
 
         map.addListener("click", (e) => {
           try {
+            // ✅ New location chosen → clear manual fields
+            clearManualFields();
+
             const pos = { lat: e.latLng.lat(), lng: e.latLng.lng() };
             setLatLng(pos);
             markerRef.current.setPosition(pos);
@@ -352,6 +368,9 @@ const AddressPickerModal = ({
 
         marker.addListener("dragend", () => {
           try {
+            // ✅ New location chosen → clear manual fields
+            clearManualFields();
+
             const pos = {
               lat: markerRef.current.getPosition().lat(),
               lng: markerRef.current.getPosition().lng(),
@@ -385,7 +404,7 @@ const AddressPickerModal = ({
               init(initialLatLng || { lat: 12.9716, lng: 77.5946 });
             }
           },
-          () => init(initialLatLng || { lat: 12.9716, lng: 77.5946 })
+          () => init(initialLatLng || { lat: 12.9716, lng: 77.5946 }),
         );
       } else {
         init(initialLatLng || { lat: 12.9716, lng: 77.5946 });
@@ -453,11 +472,12 @@ const AddressPickerModal = ({
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ address: addressPayload }),
-          }
+          },
         );
 
         const data = await res.json();
-        if (!res.ok) throw new Error(data?.message || "Failed to update address");
+        if (!res.ok)
+          throw new Error(data?.message || "Failed to update address");
 
         onSelect({
           formattedAddress: addr,
@@ -492,10 +512,12 @@ const AddressPickerModal = ({
             <input
               ref={inputRef}
               placeholder="Search location or paste address"
+              onChange={() => clearManualFields()}
               style={addrStyles.search}
               onFocus={() => {
                 try {
-                  const containers = document.querySelectorAll(".pac-container");
+                  const containers =
+                    document.querySelectorAll(".pac-container");
                   containers.forEach((el) => {
                     el.style.zIndex = "2147483647";
                     el.style.position = "fixed";
@@ -932,7 +954,6 @@ export default AddressPickerModal;
 //     lng: latLng.lng,
 //   },
 // });
-
 
 //       onClose();
 //       return;

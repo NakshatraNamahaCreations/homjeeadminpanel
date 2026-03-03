@@ -69,7 +69,7 @@ const OngoingLeadDetails = () => {
   const [cashPayment, setCashPayment] = useState("");
 
   const [showRescheduleModal, setShowRescheduleModal] = useState(false);
-
+  const [changingVendor, setChangingVendor] = useState(false);
   const [paymentDetails, setPaymentDetails] = useState({
     totalAmount: 0,
     amountPaid: 0,
@@ -497,7 +497,7 @@ const OngoingLeadDetails = () => {
   };
 
   // -----------------------------
-  // Fetch vendors
+  // Fetch vendors (FULL UPDATED)
   // -----------------------------
   const fetchAvailableVendors = async () => {
     try {
@@ -507,8 +507,15 @@ const OngoingLeadDetails = () => {
       const lat = booking?.address?.location?.coordinates?.[1];
       const lng = booking?.address?.location?.coordinates?.[0];
 
-      if (lat == null || lng == null)
+      if (lat == null || lng == null) {
         throw new Error("Booking location not available");
+      }
+
+      // ✅ CORRECT REQUIRED TEAM MEMBERS (your UI uses teamMembersRequired)
+      const required =
+        booking?.serviceType === "deep_cleaning"
+          ? Number(maxRequiredTeamMembers || 1)
+          : 1;
 
       const payload = {
         lat,
@@ -518,11 +525,9 @@ const OngoingLeadDetails = () => {
         serviceType: booking?.serviceType,
       };
 
+      // send to backend also (if your backend supports it)
       if (booking?.serviceType === "deep_cleaning") {
-        payload.requiredTeamMembers = booking?.service?.reduce(
-          (max, s) => Math.max(max, s.teamMembers || 1),
-          1,
-        );
+        payload.requiredTeamMembers = required;
       }
 
       const res = await fetch(`${BASE_URL}/vendor/get-available-vendor`, {
@@ -531,14 +536,55 @@ const OngoingLeadDetails = () => {
         body: JSON.stringify(payload),
       });
 
-      if (!res.ok) throw new Error(`Vendor API error: ${res.status}`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.message || `Vendor API error: ${res.status}`);
+      }
 
-      const data = await res.json();
-      setVendors(data.data || []);
+      const list = Array.isArray(data?.data) ? data.data : [];
+
+      // ✅ Remove currently assigned vendor from list (recommended)
+      const assignedVendorId =
+        booking?.assignedProfessional?.professionalId ||
+        booking?.assignedProfessional?._id ||
+        "";
+
+      // ✅ FRONTEND FILTER:
+      // Deep Cleaning => show only vendors who have enough team
+      // Other service types => show all
+      const filtered =
+        booking?.serviceType === "deep_cleaning"
+          ? list
+              .filter((v) => {
+                try {
+                  const available = Number(v?.availableTeamCount ?? 0);
+                  return Number.isFinite(available) && available >= required;
+                } catch {
+                  return false;
+                }
+              })
+              .filter((v) => String(v?._id || "") !== String(assignedVendorId)) // exclude assigned
+          : list.filter(
+              (v) => String(v?._id || "") !== String(assignedVendorId), // exclude assigned
+            );
+
+      setVendors(filtered);
+
+      // ✅ If currently selected vendor not present after filtering, reset selection
+      setSelectedVendor((prev) => {
+        try {
+          if (!prev) return prev;
+          const exists = filtered.some((v) => String(v?._id) === String(prev));
+          return exists ? prev : "";
+        } catch {
+          return "";
+        }
+      });
     } catch (err) {
       console.error("Available vendor fetch error:", err);
-      setVendorsError(err.message);
+      setVendorsError(err?.message || "Failed to fetch available vendors");
       setVendors([]);
+      setSelectedVendor("");
     } finally {
       setVendorsLoading(false);
     }
@@ -547,7 +593,7 @@ const OngoingLeadDetails = () => {
   useEffect(() => {
     if (booking) fetchAvailableVendors();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [booking]);
+  }, [booking, maxRequiredTeamMembers]);
 
   // -----------------------------
   // Fetch assigned vendor details
@@ -627,16 +673,79 @@ const OngoingLeadDetails = () => {
     }
   };
 
-  const handleVendorChange = async (e) => {
-    try {
-      const val = e?.target?.value || "";
-      setSelectedVendor(val);
-      alert("vendor change"); // keep your existing logic
-    } catch (err) {
-      console.error("handleVendorChange error:", err);
-    }
+  const getOldVendorId = () => {
+    // ✅ try all likely places (because your booking structure may differ)
+    return (
+      booking?.assignedProfessional?.professionalId ||
+      booking?.assignedProfessional?._id ||
+      ""
+    );
   };
 
+  const handleVendorChange = async (e) => {
+    try {
+      const newVendorId = e?.target?.value || "";
+      setSelectedVendor(newVendorId);
+
+      if (!newVendorId) return;
+
+      const oldVendorId = getOldVendorId();
+
+      if (!bookingId) {
+        alert("Missing bookingId");
+        return;
+      }
+
+      if (!oldVendorId) {
+        alert(
+          "Old vendor id not found in booking. Please refresh and try again.",
+        );
+        return;
+      }
+
+      if (String(oldVendorId) === String(newVendorId)) {
+        alert("Selected vendor is already assigned.");
+        return;
+      }
+
+      setChangingVendor(true);
+
+      const payload = {
+        bookingId, // from useParams
+        oldVendorId, // current assigned vendor
+        newVendorId, // selected vendor from dropdown
+      };
+
+      const res = await fetch(
+        `${BASE_URL}/bookings/change-vendor/lead/vendor/replace`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+      );
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(data?.message || `Change vendor failed: ${res.status}`);
+      }
+
+      alert("Vendor changed successfully ✅");
+
+      // ✅ refresh booking + available vendors list
+      await fetchBooking();
+      await fetchAvailableVendors();
+
+      // optional: reset dropdown to placeholder
+      setSelectedVendor("");
+    } catch (err) {
+      console.error("handleVendorChange error:", err);
+      alert(err?.message || "Failed to change vendor");
+    } finally {
+      setChangingVendor(false);
+    }
+  };
   // ✅ UPDATED Cash Payment handler (installment wise + installmentStage)
   const handleCashPayment = async () => {
     try {
@@ -1891,15 +2000,20 @@ const OngoingLeadDetails = () => {
                       style={{ width: 220, borderRadius: 10, fontSize: "12px" }}
                       value={selectedVendor}
                       onChange={handleVendorChange}
+                      disabled={vendorsLoading || changingVendor}
                     >
-                      <option value="">Change Vendor</option>
+                      <option value="">
+                        {changingVendor
+                          ? "Changing vendor..."
+                          : "Change Vendor"}
+                      </option>
                       {vendorsLoading && (
                         <option disabled>Loading vendors...</option>
                       )}
                       {vendorsError && <option disabled>{vendorsError}</option>}
                       {vendors.map((v) => (
                         <option key={v._id} value={v._id}>
-                          {v.vendor.vendorName}
+                          {v.vendor.vendorName} (Team: {v.availableTeamCount})
                         </option>
                       ))}
                     </select>

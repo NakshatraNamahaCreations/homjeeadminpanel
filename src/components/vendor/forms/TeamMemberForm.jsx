@@ -372,8 +372,6 @@ const TeamMemberForm = ({
               <option value="Savings">Savings</option>
               <option value="Current">Current</option>
               <option value="Salary">Salary</option>
-              <option value="Fixed Deposit">Fixed Deposit</option>
-              <option value="Recurring Deposit">Recurring Deposit</option>
             </Form.Select>
             <Form.Control.Feedback type="invalid">
               {errors.accountType}

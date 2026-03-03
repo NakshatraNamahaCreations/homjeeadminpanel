@@ -289,6 +289,33 @@ const emptyForm = {
   // longitude: "",
 };
 
+const logFormDataPayload = (fd, title = "FORMDATA PAYLOAD") => {
+  console.log(`\n================ ${title} ================`);
+
+  const out = {};
+
+  for (const [key, value] of fd.entries()) {
+    if (value instanceof File) {
+      out[key] = {
+        type: "File",
+        name: value.name,
+        size: value.size,
+        mime: value.type,
+      };
+    } else {
+      // try to parse JSON strings (vendor/member/documents/bankDetails/address)
+      try {
+        out[key] = JSON.parse(value);
+      } catch {
+        out[key] = value;
+      }
+    }
+  }
+
+  console.log(out);
+  console.log("=============== END ===============\n");
+};
+
 const TeamMemberModal = ({
   show,
   onHide,
@@ -448,7 +475,11 @@ const TeamMemberModal = ({
         : `${BASE_URL}/vendor/team/add`;
 
       const method = isEditing ? "put" : "post";
-
+      console.log("API =>", { method, url });
+      logFormDataPayload(
+        fd,
+        isEditing ? "VENDOR UPDATE PAYLOAD" : "VENDOR CREATE PAYLOAD",
+      );
       await axios[method](url, fd, {
         headers: { "Content-Type": "multipart/form-data" },
       });

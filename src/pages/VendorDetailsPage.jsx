@@ -132,8 +132,6 @@
 //     }
 //   }, []);
 
- 
-
 //   const openEditVendorModal = (vendor) => {
 //     setIsEditingVendor(true);
 //     setEditingVendorId(vendor.id);
@@ -612,7 +610,7 @@
 //               }
 //             : null
 //         }
-   
+
 //       />
 
 //       <AddressPickerModal
@@ -702,7 +700,7 @@ const VendorDetailsPage = () => {
     try {
       setLoading(true);
       const response = await axios.get(
-        `${BASE_URL}/vendor/get-vendor-by-vendorId/${id}`
+        `${BASE_URL}/vendor/get-vendor-by-vendorId/${id}`,
       );
 
       const vendorData = response.data.vendor;
@@ -739,7 +737,7 @@ const VendorDetailsPage = () => {
           other: vendorData.documents?.otherPolicy || "",
         },
         team: (vendorData.team || []).map(normalizeMember),
-        wallet: (vendorData?.wallet || []),
+        wallet: vendorData?.wallet || [],
       };
 
       setSelectedVendor(detailedVendor);
@@ -748,7 +746,7 @@ const VendorDetailsPage = () => {
     } catch (error) {
       console.error("Error fetching vendor details:", error);
       setError(
-        error.response?.data?.message || "Failed to load vendor details"
+        error.response?.data?.message || "Failed to load vendor details",
       );
     } finally {
       setLoading(false);
@@ -766,7 +764,7 @@ const VendorDetailsPage = () => {
         `${BASE_URL}/ratings/vendor-ratings/${id}/latest`,
         {
           params: { limit: 50 },
-        }
+        },
       );
 
       const list = Array.isArray(data?.data) ? data.data : [];
@@ -774,7 +772,7 @@ const VendorDetailsPage = () => {
     } catch (err) {
       console.error("fetchVendorRatings error:", err);
       setRatingsError(
-        err?.response?.data?.message || err.message || "Failed to load ratings"
+        err?.response?.data?.message || err.message || "Failed to load ratings",
       );
       setVendorRatings([]);
     } finally {
@@ -852,7 +850,9 @@ const VendorDetailsPage = () => {
       const serverCoins = Number(data?.wallet?.coins ?? coinsBalance);
       setCoinsBalance(serverCoins);
 
-      setSelectedVendor((prev) => (prev ? { ...prev, coins: serverCoins } : prev));
+      setSelectedVendor((prev) =>
+        prev ? { ...prev, coins: serverCoins } : prev,
+      );
     } catch (err) {
       alert(err?.response?.data?.message || "Failed to add coins");
     }
@@ -873,7 +873,9 @@ const VendorDetailsPage = () => {
       const serverCoins = Number(data?.wallet?.coins ?? coinsBalance);
       setCoinsBalance(serverCoins);
 
-      setSelectedVendor((prev) => (prev ? { ...prev, coins: serverCoins } : prev));
+      setSelectedVendor((prev) =>
+        prev ? { ...prev, coins: serverCoins } : prev,
+      );
     } catch (err) {
       alert(err?.response?.data?.message || "Failed to reduce coins");
     }

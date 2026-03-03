@@ -8,6 +8,32 @@ import axios from "axios";
 import { BASE_URL } from "../../../utils/config";
 import AddressPickerModal from "../modals/AddressPickerModal";
 
+const logFormDataPayload = (fd, title = "FORMDATA PAYLOAD") => {
+  console.log(`\n================ ${title} ================`);
+
+  const out = {};
+
+  for (const [key, value] of fd.entries()) {
+    if (value instanceof File) {
+      out[key] = {
+        type: "File",
+        name: value.name,
+        size: value.size,
+        mime: value.type,
+      };
+    } else {
+      // try to parse JSON strings (vendor/member/documents/bankDetails/address)
+      try {
+        out[key] = JSON.parse(value);
+      } catch {
+        out[key] = value;
+      }
+    }
+  }
+
+  console.log(out);
+  console.log("=============== END ===============\n");
+};
 const VendorModal = ({
   show,
   onHide,
@@ -169,7 +195,7 @@ const VendorModal = ({
         appendIfFile("aadhaarbackImage", files.aadhaarbackImage);
         appendIfFile("panImage", files.panImage);
         appendIfFile("otherPolicy", files.otherPolicy);
-
+      
         await axios.put(`${BASE_URL}/vendor/update-vendor/${vendorId}`, fd, {
           headers: { "Content-Type": "multipart/form-data" },
         });
@@ -187,6 +213,10 @@ const VendorModal = ({
         if (files.panImage) fd.append("panImage", files.panImage);
         if (files.otherPolicy) fd.append("otherPolicy", files.otherPolicy);
 
+        logFormDataPayload(
+          fd,
+          isEditing ? "VENDOR UPDATE PAYLOAD" : "VENDOR CREATE PAYLOAD",
+        );
         await axios.post(`${BASE_URL}/vendor/create-vendor`, fd, {
           headers: { "Content-Type": "multipart/form-data" },
         });
@@ -195,7 +225,7 @@ const VendorModal = ({
       onSuccess();
       onHide();
     } catch (error) {
-       console.error("Error saving team member:", error);
+      console.error("Error saving team member:", error);
 
       const msg =
         error?.response?.data?.error || // ✅ show actual backend error first
@@ -217,11 +247,11 @@ const VendorModal = ({
         </Modal.Title>
       </Modal.Header>
       <Modal.Body>
-          {submitError ? (
-            <div className="alert alert-danger" style={{ marginBottom: 12 }}>
-              {submitError}
-            </div>
-          ) : null}
+        {submitError ? (
+          <div className="alert alert-danger" style={{ marginBottom: 12 }}>
+            {submitError}
+          </div>
+        ) : null}
         <Form onSubmit={handleSubmit}>
           <VendorForm
             formData={formData}

@@ -38,6 +38,7 @@ const TimePickerModal = ({
   packageId,        // ✅ can be ARRAY now
   coordinates,
   bookingId,
+  city,
 }) => {
   const [dates] = useState(nextNDays(14));
   const [selectedDate, setSelectedDate] = useState(yyyymmdd(dates[0]));
@@ -82,6 +83,7 @@ useEffect(() => {
               date: selectedDate,
               lat,
               lng,
+              city
             }
           : {
               serviceType: "house_painting",
@@ -161,7 +163,7 @@ useEffect(() => {
     <div style={styles.overlay}>
       <div style={styles.sheet}>
         <div style={styles.header}>
-          <h3>Select Service Time</h3>
+        <h6 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Select Service Time</h6>
           <FaTimes onClick={onClose} style={{ cursor: "pointer" }} />
         </div>
 
@@ -233,7 +235,6 @@ useEffect(() => {
 };
 
 /* ------------------ STYLES ------------------ */
-
 const styles = {
   overlay: {
     position: "fixed",
@@ -250,57 +251,65 @@ const styles = {
     background: "#fff",
     borderRadius: 12,
     overflow: "hidden",
+    fontSize: 13, // ✅ base font smaller
   },
   header: {
-    padding: 16,
+    padding: 12, // ✅ smaller
     borderBottom: "1px solid #eee",
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
+    fontSize: 14, // ✅ smaller header text
+    fontWeight: 700,
   },
   dateRow: {
     display: "flex",
-    gap: 10,
-    padding: 16,
+    gap: 8, // ✅ smaller gap
+    padding: 12, // ✅ smaller padding
     overflowX: "auto",
   },
   dateBtn: {
-    padding: "10px 14px",
+    padding: "8px 10px", // ✅ smaller
     borderRadius: 10,
     background: "#fff",
     cursor: "pointer",
-    minWidth: 100,
+    minWidth: 88, // ✅ smaller
     fontWeight: 600,
+    fontSize: 12, // ✅ smaller date font
+    lineHeight: 1.2,
   },
   grid: {
     display: "grid",
     gridTemplateColumns: "repeat(4, 1fr)",
-    gap: 12,
+    gap: 10, // ✅ smaller
   },
   timeBtn: {
-    padding: 14,
+    padding: 10, // ✅ smaller
     borderRadius: 10,
     background: "#fff",
     cursor: "pointer",
     fontWeight: 600,
+    fontSize: 12, // ✅ smaller time font
   },
   msg: {
     textAlign: "center",
     color: "#777",
-    padding: 20,
+    padding: 16, // ✅ smaller
+    fontSize: 12, // ✅ smaller message
   },
   footer: {
-    padding: 16,
+    padding: 12, // ✅ smaller
     borderTop: "1px solid #eee",
   },
   confirmBtn: {
     width: "100%",
-    padding: 14,
+    padding: 12, // ✅ smaller
     borderRadius: 12,
     border: "none",
     color: "#fff",
     fontWeight: 700,
     cursor: "pointer",
+    fontSize: 13, // ✅ smaller button text
   },
 };
 
