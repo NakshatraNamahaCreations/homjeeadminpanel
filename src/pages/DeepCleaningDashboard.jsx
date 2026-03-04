@@ -2195,7 +2195,7 @@ const DeepCleaningDashboard = () => {
       {/* ✅ Edit City Config Modal */}
       <Modal show={showModal} onHide={() => setShowModal(false)}>
         <Modal.Header closeButton>
-          <Modal.Title style={{ fontSize: "16px" }}>Edit City Config</Modal.Title>
+          <Modal.Title style={{ fontSize: "16px" }}>Edit Package </Modal.Title>
         </Modal.Header>
 
         <Modal.Body>
@@ -2302,7 +2302,7 @@ const DeepCleaningDashboard = () => {
             style={{ borderColor: "black" }}
             disabled={pkgSaving}
           >
-            {pkgSaving ? "Saving..." : "Save City Config"}
+            {pkgSaving ? "Saving..." : "Save"}
           </Button>
         </Modal.Footer>
       </Modal>
