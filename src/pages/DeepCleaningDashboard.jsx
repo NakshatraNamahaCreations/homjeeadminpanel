@@ -844,8 +844,6 @@
 
 // export default DeepCleaningDashboard;
 
-
-
 // import React, { useState, useMemo, useEffect } from "react";
 // import { Table, Container, Row, Col, Form, Modal, Button } from "react-bootstrap";
 // import { useNavigate } from "react-router-dom";
@@ -1621,7 +1619,16 @@
 // export default DeepCleaningDashboard;
 
 import React, { useState, useMemo, useEffect } from "react";
-import { Table, Container, Row, Col, Form, Modal, Button } from "react-bootstrap";
+import {
+  Table,
+  Container,
+  Row,
+  Col,
+  Form,
+  Modal,
+  Button,
+  Alert,
+} from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 import { BASE_URL } from "../utils/config";
 import axios from "axios";
@@ -1631,11 +1638,26 @@ const DEEP_CLEANING_DATA = [
   {
     category: "Furnished apartment",
     subcategories: [
-      { subcategory: "1 BHK Cleaning", services: ["Classic", "Premium", "Platinum"] },
-      { subcategory: "2 BHK Cleaning", services: ["Classic", "Premium", "Platinum"] },
-      { subcategory: "3 BHK Cleaning", services: ["Classic", "Premium", "Platinum"] },
-      { subcategory: "4 BHK Cleaning", services: ["Classic", "Premium", "Platinum"] },
-      { subcategory: "5+ BHK Cleaning", services: ["Classic", "Premium", "Platinum"] },
+      {
+        subcategory: "1 BHK Cleaning",
+        services: ["Classic", "Premium", "Platinum"],
+      },
+      {
+        subcategory: "2 BHK Cleaning",
+        services: ["Classic", "Premium", "Platinum"],
+      },
+      {
+        subcategory: "3 BHK Cleaning",
+        services: ["Classic", "Premium", "Platinum"],
+      },
+      {
+        subcategory: "4 BHK Cleaning",
+        services: ["Classic", "Premium", "Platinum"],
+      },
+      {
+        subcategory: "5+ BHK Cleaning",
+        services: ["Classic", "Premium", "Platinum"],
+      },
     ],
   },
   {
@@ -1651,8 +1673,14 @@ const DEEP_CLEANING_DATA = [
   {
     category: "Book by room",
     subcategories: [
-      { subcategory: "Bedroom Cleaning", services: ["Unfurnished", "Furnished"] },
-      { subcategory: "Living Room Cleaning", services: ["Unfurnished", "Furnished"] },
+      {
+        subcategory: "Bedroom Cleaning",
+        services: ["Unfurnished", "Furnished"],
+      },
+      {
+        subcategory: "Living Room Cleaning",
+        services: ["Unfurnished", "Furnished"],
+      },
       {
         subcategory: "Kitchen Cleaning",
         services: [
@@ -1672,25 +1700,67 @@ const DEEP_CLEANING_DATA = [
   {
     category: "Unfurnished bungalow/duplex",
     subcategories: [
-      { subcategory: "<1200 sqft Bungalow Cleaning", services: ["Classic", "Premium"] },
-      { subcategory: "1200-2000 sqft Bungalow Cleaning", services: ["Classic", "Premium"] },
-      { subcategory: "2000-3000 sqft Bungalow Cleaning", services: ["Classic", "Premium"] },
-      { subcategory: "3000-4000 sqft Bungalow Cleaning", services: ["Classic", "Premium"] },
-      { subcategory: "4000-5000 sqft Bungalow Cleaning", services: ["Classic", "Premium"] },
-      { subcategory: "5000-6000 sqft Bungalow Cleaning", services: ["Classic", "Premium"] },
-      { subcategory: "6000-7000 sqft Bungalow Cleaning", services: ["Classic", "Premium"] },
+      {
+        subcategory: "<1200 sqft Bungalow Cleaning",
+        services: ["Classic", "Premium"],
+      },
+      {
+        subcategory: "1200-2000 sqft Bungalow Cleaning",
+        services: ["Classic", "Premium"],
+      },
+      {
+        subcategory: "2000-3000 sqft Bungalow Cleaning",
+        services: ["Classic", "Premium"],
+      },
+      {
+        subcategory: "3000-4000 sqft Bungalow Cleaning",
+        services: ["Classic", "Premium"],
+      },
+      {
+        subcategory: "4000-5000 sqft Bungalow Cleaning",
+        services: ["Classic", "Premium"],
+      },
+      {
+        subcategory: "5000-6000 sqft Bungalow Cleaning",
+        services: ["Classic", "Premium"],
+      },
+      {
+        subcategory: "6000-7000 sqft Bungalow Cleaning",
+        services: ["Classic", "Premium"],
+      },
     ],
   },
   {
     category: "Furnished bungalow/duplex",
     subcategories: [
-      { subcategory: "<1200 sqft Bungalow Cleaning", services: ["Classic", "Premium", "Platinum"] },
-      { subcategory: "1200-2000 sqft Bungalow Cleaning", services: ["Classic", "Premium", "Platinum"] },
-      { subcategory: "2000-3000 sqft Bungalow Cleaning", services: ["Classic", "Premium", "Platinum"] },
-      { subcategory: "3000-4000 sqft Bungalow Cleaning", services: ["Classic", "Premium", "Platinum"] },
-      { subcategory: "4000-5000 sqft Bungalow Cleaning", services: ["Classic", "Premium", "Platinum"] },
-      { subcategory: "5000-6000 sqft Bungalow Cleaning", services: ["Classic", "Premium", "Platinum"] },
-      { subcategory: "6000-7000 sqft Bungalow Cleaning", services: ["Classic", "Premium", "Platinum"] },
+      {
+        subcategory: "<1200 sqft Bungalow Cleaning",
+        services: ["Classic", "Premium", "Platinum"],
+      },
+      {
+        subcategory: "1200-2000 sqft Bungalow Cleaning",
+        services: ["Classic", "Premium", "Platinum"],
+      },
+      {
+        subcategory: "2000-3000 sqft Bungalow Cleaning",
+        services: ["Classic", "Premium", "Platinum"],
+      },
+      {
+        subcategory: "3000-4000 sqft Bungalow Cleaning",
+        services: ["Classic", "Premium", "Platinum"],
+      },
+      {
+        subcategory: "4000-5000 sqft Bungalow Cleaning",
+        services: ["Classic", "Premium", "Platinum"],
+      },
+      {
+        subcategory: "5000-6000 sqft Bungalow Cleaning",
+        services: ["Classic", "Premium", "Platinum"],
+      },
+      {
+        subcategory: "6000-7000 sqft Bungalow Cleaning",
+        services: ["Classic", "Premium", "Platinum"],
+      },
     ],
   },
   {
@@ -1698,11 +1768,22 @@ const DEEP_CLEANING_DATA = [
     subcategories: [
       {
         subcategory: "Kitchen Appliances Cleaning",
-        services: ["Chimney", "Microwave", "Stove", "Single Door Fridge", "Double Door Fridge"],
+        services: [
+          "Chimney",
+          "Microwave",
+          "Stove",
+          "Single Door Fridge",
+          "Double Door Fridge",
+        ],
       },
       {
         subcategory: "Sofa & Upholstery Wet Shampooing",
-        services: ["Sofa (5 seats)", "Carpet (upto 25 sqft)", "Cushion Chair", "Mattress"],
+        services: [
+          "Sofa (5 seats)",
+          "Carpet (upto 25 sqft)",
+          "Cushion Chair",
+          "Mattress",
+        ],
       },
       { subcategory: "Utensil Removal & Placement", services: [] },
       { subcategory: "Cabinet Cleaning (Upto 2)", services: [] },
@@ -1719,11 +1800,12 @@ const DeepCleaningDashboard = () => {
   const [cities, setCities] = useState([]);
   const [cityId, setCityId] = useState("");
 
+  const [showSuccess, setShowSuccess] = useState(false);
   const selectedCityName = useMemo(() => {
     const c = cities.find((x) => String(x?._id) === String(cityId));
     return c?.city || "";
   }, [cities, cityId]);
-
+  console.log("selectedCityName", selectedCityName);
   // Minimum order
   const [minOrder, setMinOrder] = useState("");
   const [minOrderLoading, setMinOrderLoading] = useState(false);
@@ -1768,7 +1850,10 @@ const DeepCleaningDashboard = () => {
         subcategoryIndex.set(`${catObj.category}__${subObj.subcategory}`, sIdx);
 
         (subObj.services || []).forEach((sv, vIdx) => {
-          serviceIndex.set(`${catObj.category}__${subObj.subcategory}__${sv}`, vIdx);
+          serviceIndex.set(
+            `${catObj.category}__${subObj.subcategory}__${sv}`,
+            vIdx,
+          );
         });
       });
     });
@@ -1791,7 +1876,9 @@ const DeepCleaningDashboard = () => {
     const getSvIdx = (cat, sub, sv) => {
       if (!sv) return -1;
       const key = `${cat}__${sub}__${sv}`;
-      return ORDER_MAP.serviceIndex.has(key) ? ORDER_MAP.serviceIndex.get(key) : big;
+      return ORDER_MAP.serviceIndex.has(key)
+        ? ORDER_MAP.serviceIndex.get(key)
+        : big;
     };
 
     return [...packages].sort((a, b) => {
@@ -1830,25 +1917,57 @@ const DeepCleaningDashboard = () => {
     fetchCities();
   }, []);
 
-  // =========================
-  // Minimum order APIs (unchanged)
-  // =========================
-  const fetchMinimumOrder = async () => {
+  // const fetchMinimumOrder = async () => {
+  //   try {
+  //     setMinOrderLoading(true);
+  //     setMinOrderError("");
+  //     const res = await fetch(`${BASE_URL}/minimumorder/minimum-orders`);
+  //     const json = await res.json();
+  //     if (!json.success)
+  //       throw new Error(json.message || "Failed to load minimum order");
+  //     setMinOrder(String(json.data.amount));
+  //     setServerMinOrder(String(json.data.amount));
+  //   } catch (err) {
+  //     setServerMinOrder("");
+  //     console.warn("Minimum order GET:", err.message);
+  //   } finally {
+  //     setMinOrderLoading(false);
+  //   }
+  // };
+
+  // useEffect(() => {
+  //   fetchMinimumOrder();
+  // }, []);
+
+  const minimumOrderValue = async () => {
     try {
-      setMinOrderLoading(true);
-      setMinOrderError("");
-      const res = await fetch(`${BASE_URL}/minimumorder/minimum-orders`);
-      const json = await res.json();
-      if (!json.success) throw new Error(json.message || "Failed to load minimum order");
-      setMinOrder(String(json.data.amount));
-      setServerMinOrder(String(json.data.amount));
-    } catch (err) {
-      setServerMinOrder("");
-      console.warn("Minimum order GET:", err.message);
-    } finally {
-      setMinOrderLoading(false);
+      if (!selectedCityName || !selectedCityName.trim()) return;
+
+      const res = await fetch(
+        `${BASE_URL}/minimumorder/get-minimum-orders/city/${encodeURIComponent(selectedCityName.trim())}`,
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to fetch minimum orders");
+      }
+
+      const pricing = data?.data || {};
+      console.log("minimum price", pricing);
+      setMinOrder(
+        pricing.amount !== undefined && pricing.amount !== null
+          ? String(pricing.amount)
+          : "",
+      );
+    } catch (error) {
+      console.error("Error while Mini order value:", error);
+      setMinOrder("");
     }
   };
+  useEffect(() => {
+    minimumOrderValue();
+  }, [selectedCityName]);
 
   const saveMinimumOrder = async () => {
     try {
@@ -1865,14 +1984,18 @@ const DeepCleaningDashboard = () => {
       const res = await fetch(`${BASE_URL}/minimumorder/minimum-orders`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: amountNum }),
+        body: JSON.stringify({ amount: amountNum, city: selectedCityName }),
       });
 
       const json = await res.json();
-      if (!json.success) throw new Error(json.message || "Failed to save minimum order");
+      if (!json.success)
+        throw new Error(json.message || "Failed to save minimum order");
 
-      await fetchMinimumOrder();
-      setMinOrderSuccess("Minimum order saved successfully.");
+      // await fetchMinimumOrder();
+      await minimumOrderValue();
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 3000);
+      // setMinOrderSuccess("Minimum order saved successfully.");
     } catch (err) {
       setMinOrderError(err.message);
     } finally {
@@ -1880,9 +2003,6 @@ const DeepCleaningDashboard = () => {
     }
   };
 
-  // =========================
-  // ✅ NEW: Fetch packages for selected city (merged master + city config)
-  // =========================
   const fetchPackagesByCity = async () => {
     try {
       if (!cityId) {
@@ -1893,10 +2013,11 @@ const DeepCleaningDashboard = () => {
       setLoading(true);
 
       const res = await fetch(
-        `${BASE_URL}/deeppackage/deep-cleaning-packages/by-city/${cityId}`
+        `${BASE_URL}/deeppackage/deep-cleaning-packages/by-city/${cityId}`,
       );
       const json = await res.json();
-      if (!json.success) throw new Error(json.message || "Failed to load packages");
+      if (!json.success)
+        throw new Error(json.message || "Failed to load packages");
 
       const list = (json.data || []).map((p) => ({
         // master identity
@@ -1932,25 +2053,19 @@ const DeepCleaningDashboard = () => {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-      }
+      },
     );
     const json = await res.json();
-    if (!json.success) throw new Error(json.message || "Failed to save city config");
+    if (!json.success)
+      throw new Error(json.message || "Failed to save city config");
     return json.data;
   };
-
-  useEffect(() => {
-    fetchMinimumOrder();
-  }, []);
 
   useEffect(() => {
     fetchPackagesByCity();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cityId]);
 
-  // =========================
-  // Modal handlers
-  // =========================
   const resetForm = () => {
     setForm({
       totalAmount: "",
@@ -1967,9 +2082,11 @@ const DeepCleaningDashboard = () => {
 
     setForm({
       totalAmount: pkg.totalAmount == null ? "" : String(pkg.totalAmount),
-      coinsForVendor: pkg.coinsForVendor == null ? "" : String(pkg.coinsForVendor),
+      coinsForVendor:
+        pkg.coinsForVendor == null ? "" : String(pkg.coinsForVendor),
       teamMembers: pkg.teamMembers == null ? "" : String(pkg.teamMembers),
-      durationMinutes: pkg.durationMinutes == null ? "" : String(pkg.durationMinutes),
+      durationMinutes:
+        pkg.durationMinutes == null ? "" : String(pkg.durationMinutes),
     });
 
     setErrorMessage("");
@@ -1984,10 +2101,14 @@ const DeepCleaningDashboard = () => {
     const team = Number(form.teamMembers);
     const dur = Number(form.durationMinutes);
 
-    if (!Number.isFinite(amount) || amount < 0) return "Total amount must be a valid number (>= 0).";
-    if (!Number.isFinite(coins) || coins < 0) return "Coins must be a valid number (>= 0).";
-    if (!Number.isFinite(team) || team < 1) return "Team members must be at least 1.";
-    if (!Number.isFinite(dur) || dur < 30) return "Duration must be at least 30 minutes.";
+    if (!Number.isFinite(amount) || amount < 0)
+      return "Total amount must be a valid number (>= 0).";
+    if (!Number.isFinite(coins) || coins < 0)
+      return "Coins must be a valid number (>= 0).";
+    if (!Number.isFinite(team) || team < 1)
+      return "Team members must be at least 1.";
+    if (!Number.isFinite(dur) || dur < 30)
+      return "Duration must be at least 30 minutes.";
 
     return "";
   };
@@ -2030,6 +2151,16 @@ const DeepCleaningDashboard = () => {
     <Container className="py-4">
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h5 className="fw-bold">Product Dashboard</h5>
+        {showSuccess && (
+          <Alert
+            variant="success"
+            onClose={() => setShowSuccess(false)}
+            dismissible
+            className="price-success-alert-productDash"
+          >
+            Minimum order saved successfully.
+          </Alert>
+        )}
 
         <div className="d-flex gap-2">
           <Form.Select
@@ -2063,22 +2194,23 @@ const DeepCleaningDashboard = () => {
         </div>
       </div>
 
-      <h5 className="fw-semibold mb-3" style={{ fontSize: "18px" }}>
-        Minimum Order (Deep Cleaning)
-      </h5>
+      <h6 className="fw-bold">Minimum Order (Deep Cleaning)</h6>
 
       <Row className="mb-2 align-items-center">
         <Col md={5}>
           <Form.Control
             type="number"
-            placeholder={minOrderLoading ? "Loading..." : "Minimum order amount"}
+            placeholder={
+              minOrderLoading ? "Loading..." : "Minimum order amount"
+            }
             value={minOrder}
+            min={0}
             onChange={(e) => setMinOrder(e.target.value)}
             style={{ fontSize: "12px" }}
             disabled={minOrderLoading || minOrderSaving}
           />
 
-          {minOrderError && (
+          {/* {minOrderError && (
             <div className="text-danger mt-1" style={{ fontSize: "12px" }}>
               {minOrderError}
             </div>
@@ -2087,15 +2219,15 @@ const DeepCleaningDashboard = () => {
             <div className="text-success mt-1" style={{ fontSize: "12px" }}>
               {minOrderSuccess}
             </div>
-          )}
+          )} */}
 
-          <div className="text-muted mt-1" style={{ fontSize: "12px" }}>
+          {/* <div className="text-muted mt-1" style={{ fontSize: "12px" }}>
             {serverMinOrder !== "" ? (
               <>Current (server) value: ₹{serverMinOrder}</>
             ) : (
               <>No minimum order set yet.</>
             )}
-          </div>
+          </div> */}
         </Col>
 
         <Col md={2}>
@@ -2113,7 +2245,7 @@ const DeepCleaningDashboard = () => {
           </Button>
         </Col>
       </Row>
-
+      <hr />
       <div className="d-flex justify-content-between align-items-center">
         <h6 className="fw-bold">Deep Cleaning Products Table</h6>
         <div className="d-flex align-items-center gap-2">
@@ -2162,7 +2294,12 @@ const DeepCleaningDashboard = () => {
           ) : (
             sortedPackages.map((pkg) => (
               <tr key={pkg.id}>
-                <td>{pkg.name || (pkg.service ? `${pkg.subcategory} - ${pkg.service}` : pkg.subcategory)}</td>
+                <td>
+                  {pkg.name ||
+                    (pkg.service
+                      ? `${pkg.subcategory} - ${pkg.service}`
+                      : pkg.subcategory)}
+                </td>
                 <td>{pkg.category}</td>
                 <td>{pkg.subcategory}</td>
                 <td>{pkg.service || "-"}</td>
@@ -2171,7 +2308,9 @@ const DeepCleaningDashboard = () => {
                 <td>{pkg.totalAmount == null ? "-" : pkg.totalAmount}</td>
                 <td>{pkg.coinsForVendor == null ? "-" : pkg.coinsForVendor}</td>
                 <td>{pkg.teamMembers == null ? "-" : pkg.teamMembers}</td>
-                <td>{pkg.durationMinutes == null ? "-" : pkg.durationMinutes}</td>
+                <td>
+                  {pkg.durationMinutes == null ? "-" : pkg.durationMinutes}
+                </td>
 
                 <td>
                   <div className="d-flex gap-2 justify-content-center">
@@ -2202,7 +2341,9 @@ const DeepCleaningDashboard = () => {
           <Form.Group className="mb-3">
             <Form.Label>City</Form.Label>
             <Form.Control value={selectedCityName || ""} disabled />
-            <div className="form-text">These values are saved only for the selected city.</div>
+            <div className="form-text">
+              These values are saved only for the selected city.
+            </div>
           </Form.Group>
 
           {/* ✅ show identity (read-only) */}
@@ -2244,7 +2385,9 @@ const DeepCleaningDashboard = () => {
                 <Form.Control
                   type="number"
                   value={form.totalAmount}
-                  onChange={(e) => setForm((p) => ({ ...p, totalAmount: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, totalAmount: e.target.value }))
+                  }
                 />
               </Form.Group>
             </Col>
@@ -2255,7 +2398,9 @@ const DeepCleaningDashboard = () => {
                 <Form.Control
                   type="number"
                   value={form.coinsForVendor}
-                  onChange={(e) => setForm((p) => ({ ...p, coinsForVendor: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, coinsForVendor: e.target.value }))
+                  }
                 />
               </Form.Group>
             </Col>
@@ -2266,7 +2411,9 @@ const DeepCleaningDashboard = () => {
                 <Form.Control
                   type="number"
                   value={form.teamMembers}
-                  onChange={(e) => setForm((p) => ({ ...p, teamMembers: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, teamMembers: e.target.value }))
+                  }
                 />
               </Form.Group>
             </Col>
@@ -2278,7 +2425,9 @@ const DeepCleaningDashboard = () => {
                   type="number"
                   placeholder="Eg: 30"
                   value={form.durationMinutes}
-                  onChange={(e) => setForm((p) => ({ ...p, durationMinutes: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, durationMinutes: e.target.value }))
+                  }
                 />
               </Form.Group>
             </Col>
@@ -2292,7 +2441,11 @@ const DeepCleaningDashboard = () => {
         </Modal.Body>
 
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowModal(false)} disabled={pkgSaving}>
+          <Button
+            variant="secondary"
+            onClick={() => setShowModal(false)}
+            disabled={pkgSaving}
+          >
             Cancel
           </Button>
 

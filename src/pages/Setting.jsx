@@ -33,6 +33,9 @@ const Settings = () => {
    * ========================= */
   const [admins, setAdmins] = useState([]);
   const [adminsLoading, setAdminsLoading] = useState(true);
+  const [isAlertOpen, setIsAlertOpen] = useState(false);
+  const [messageType, setMessageType] = useState(null);
+  const [id, setId] = useState(null);
 
   const [showAdminModal, setShowAdminModal] = useState(false);
   const [adminForm, setAdminForm] = useState({
@@ -62,6 +65,7 @@ const Settings = () => {
   const [btnLoading, setBtnLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [showSuccess, setShowSuccess] = useState(false);
 
   /* =========================
    * Auth Helpers
@@ -185,7 +189,9 @@ const Settings = () => {
 
     // ✅ enforce exactly 10 digits (input side)
     if (name === "mobileNumber") {
-      const digits = String(value || "").replace(/\D/g, "").slice(0, 10);
+      const digits = String(value || "")
+        .replace(/\D/g, "")
+        .slice(0, 10);
       setAdminForm((p) => ({ ...p, mobileNumber: digits }));
       return;
     }
@@ -202,7 +208,10 @@ const Settings = () => {
       setSuccess("");
 
       const name = String(adminForm.name || "").trim();
-      const mobileNumber = String(adminForm.mobileNumber || "").replace(/\D/g, "");
+      const mobileNumber = String(adminForm.mobileNumber || "").replace(
+        /\D/g,
+        "",
+      );
 
       if (name.length < 2) {
         setError("Admin name must be at least 2 characters");
@@ -234,9 +243,16 @@ const Settings = () => {
     }
   };
 
+  const confirmationPopup = (type, dataId) => {
+    setIsAlertOpen(true);
+    setMessageType(type);
+    setId(dataId);
+  };
+
   const handleDeleteAdmin = async (id) => {
-    const ok = window.confirm("Are you sure you want to delete this admin?");
-    if (!ok) return;
+    // const ok = window.confirm("Are you sure you want to delete this admin?");
+
+    // if (!ok) return;
 
     const loggedInAdminId = (() => {
       try {
@@ -258,8 +274,11 @@ const Settings = () => {
       await axios.delete(`${BASE_URL}/admin/auth/${id}`, {
         headers: authHeaders(),
       });
-
-      setSuccess("Admin deleted successfully");
+      setId(null);
+      setIsAlertOpen(false);
+      setShowSuccess(true);
+      // setSuccess("Admin deleted successfully");
+      setTimeout(() => setShowSuccess(false), 1000);
 
       if (loggedInAdminId && String(loggedInAdminId) === String(id)) {
         localStorage.removeItem("adminToken");
@@ -367,8 +386,8 @@ const Settings = () => {
   };
 
   const handleDeleteCity = async (id) => {
-    const ok = window.confirm("Are you sure you want to delete this city?");
-    if (!ok) return;
+    // const ok = window.confirm("Are you sure you want to delete this city?");
+    // if (!ok) return;
 
     try {
       setBtnLoading(true);
@@ -381,8 +400,11 @@ const Settings = () => {
       await axios.delete(CITY_API.DELETE(id), {
         headers: authHeaders(),
       });
-
-      setSuccess("City deleted successfully");
+      setId(null);
+      setIsAlertOpen(false);
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 1000);
+      // setSuccess("City deleted successfully");
       fetchCities();
     } catch (e) {
       if (e?.response?.status === 401) return handle401();
@@ -407,6 +429,17 @@ const Settings = () => {
         </Alert>
       )}
 
+      {showSuccess && (
+        <Alert
+          variant="success"
+          onClose={() => setShowSuccess(false)}
+          dismissible
+          className="price-success-alert-productDash"
+        >
+          {messageType == 1 ? "Admin" : "City"} deleted successfully
+        </Alert>
+      )}
+
       <Row className="g-3">
         {/* ===================== Admin Management ===================== */}
         <Col lg={12}>
@@ -414,7 +447,9 @@ const Settings = () => {
             <div className="d-flex justify-content-between align-items-center mb-3">
               <div>
                 <h6 className="mb-0">Admin Management</h6>
-                <small className="text-muted">Create and delete admin users</small>
+                <small className="text-muted">
+                  Create and delete admin users
+                </small>
               </div>
 
               <Button
@@ -458,7 +493,8 @@ const Settings = () => {
                           <Button
                             variant="outline-dark"
                             size="sm"
-                            onClick={() => handleDeleteAdmin(admin._id)}
+                            onClick={() => confirmationPopup(1, admin._id)}
+                            // onClick={() => handleDeleteAdmin(admin._id)}
                             disabled={btnLoading}
                           >
                             <FaTrash />
@@ -479,7 +515,9 @@ const Settings = () => {
             <div className="d-flex justify-content-between align-items-center mb-3">
               <div>
                 <h6 className="mb-0">City Management</h6>
-                <small className="text-muted">Add cities with feedback links</small>
+                <small className="text-muted">
+                  Add cities with feedback links
+                </small>
               </div>
 
               <Button
@@ -519,7 +557,11 @@ const Settings = () => {
                       <td>{c.city || "-"}</td>
                       <td style={{ textAlign: "left" }}>
                         {c.feedbackLink ? (
-                          <a href={c.feedbackLink} target="_blank" rel="noreferrer">
+                          <a
+                            href={c.feedbackLink}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
                             {c.feedbackLink}
                           </a>
                         ) : (
@@ -541,7 +583,8 @@ const Settings = () => {
                         <Button
                           variant="outline-dark"
                           size="sm"
-                          onClick={() => handleDeleteCity(c._id || c.id)}
+                          onClick={() => confirmationPopup(2, c._id || c.id)}
+                          // onClick={() => handleDeleteCity(c._id || c.id)}
                           disabled={btnLoading}
                         >
                           <FaTrash />
@@ -596,10 +639,19 @@ const Settings = () => {
           </Modal.Body>
 
           <Modal.Footer>
-            <Button variant="secondary" onClick={closeAdminModal} disabled={btnLoading}>
+            <Button
+              variant="secondary"
+              onClick={closeAdminModal}
+              disabled={btnLoading}
+            >
               Cancel
             </Button>
-            <Button type="submit" variant="" style={{ borderColor: "black" }} disabled={btnLoading}>
+            <Button
+              type="submit"
+              variant=""
+              style={{ borderColor: "black" }}
+              disabled={btnLoading}
+            >
               {btnLoading ? "Please wait..." : "Add"}
             </Button>
           </Modal.Footer>
@@ -646,22 +698,64 @@ const Settings = () => {
           </Modal.Body>
 
           <Modal.Footer>
-            <Button variant="secondary" onClick={closeCityModal} disabled={btnLoading}>
+            <Button
+              variant="secondary"
+              onClick={closeCityModal}
+              disabled={btnLoading}
+            >
               Cancel
             </Button>
-            <Button type="submit" variant="" style={{ borderColor: "black" }} disabled={btnLoading}>
+            <Button
+              type="submit"
+              variant=""
+              style={{ borderColor: "black" }}
+              disabled={btnLoading}
+            >
               {btnLoading ? "Please wait..." : isCityEditing ? "Update" : "Add"}
             </Button>
           </Modal.Footer>
         </Form>
+      </Modal>
+
+      {/* custom message alert */}
+      <Modal
+        show={isAlertOpen}
+        onHide={() => setIsAlertOpen(true)}
+        size="sm"
+        centered
+      >
+        <div className="p-3">
+          <Modal.Title>Alert</Modal.Title>
+          <div>
+            Are you sure you want to delete this{" "}
+            {messageType == 1 ? "admin" : "city"}?
+          </div>
+          <br />
+          <Button
+            variant="outline-danger"
+            onClick={() => setIsAlertOpen(false)}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            variant="danger"
+            style={{ marginLeft: "10px" }}
+            disabled={btnLoading}
+            onClick={() => {
+              if (messageType === 1) return handleDeleteAdmin(id);
+              if (messageType === 2) return handleDeleteCity(id);
+            }}
+          >
+            Yes
+          </Button>
+        </div>
       </Modal>
     </Container>
   );
 };
 
 export default Settings;
-
-
 
 // import React, { useEffect, useState, useCallback } from "react";
 // import {

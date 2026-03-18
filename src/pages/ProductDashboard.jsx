@@ -1,4 +1,3 @@
-
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Table,
@@ -8,6 +7,7 @@ import {
   Form,
   Modal,
   Button,
+  Alert,
 } from "react-bootstrap";
 import {
   FaPlus,
@@ -135,6 +135,7 @@ function SortableRow({
 const ProductsDashboard = () => {
   const [city, setCity] = useState("");
   const [cities, setCities] = useState([]);
+  const [pricingConfig, setPricingConfig] = useState(null);
   const navigate = useNavigate();
   const [category, setCategory] = useState("All Categories");
   const [showModal, setShowModal] = useState(false);
@@ -145,6 +146,8 @@ const ProductsDashboard = () => {
   const [siteVisitCharge, setSiteVisitCharge] = useState("");
   const [vendorCoins, setVendorCoins] = useState("");
   const [puttyPrice, setPuttyPrice] = useState("");
+
+  const [showSuccess, setShowSuccess] = useState(false);
 
   // Fetch city list
   useEffect(() => {
@@ -176,6 +179,49 @@ const ProductsDashboard = () => {
     };
     run();
   }, []);
+
+  const fetchPricingConfig = async () => {
+    try {
+      if (!city || !city.trim()) return;
+
+      const res = await fetch(
+        `${BASE_URL}/service/get-pricing-config/city/${encodeURIComponent(city.trim())}`,
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to fetch pricing config");
+      }
+
+      const pricing = data?.data || {};
+
+      setSiteVisitCharge(
+        pricing.siteVisitCharge !== undefined &&
+          pricing.siteVisitCharge !== null
+          ? String(pricing.siteVisitCharge)
+          : "",
+      );
+      setVendorCoins(
+        pricing.vendorCoins !== undefined && pricing.vendorCoins !== null
+          ? String(pricing.vendorCoins)
+          : "",
+      );
+      setPuttyPrice(
+        pricing.puttyPrice !== undefined && pricing.puttyPrice !== null
+          ? String(pricing.puttyPrice)
+          : "",
+      );
+    } catch (error) {
+      console.error("Fetch pricing config error:", error);
+      setSiteVisitCharge("");
+      setVendorCoins("");
+      setPuttyPrice("");
+    }
+  };
+  useEffect(() => {
+    fetchPricingConfig();
+  }, [city]);
 
   const fetchData = async () => {
     try {
@@ -240,13 +286,14 @@ const ProductsDashboard = () => {
         return;
       }
 
-      const res = await fetch(`${BASE_URL}/service/create`, {
+      const res = await fetch(`${BASE_URL}/service/pricing-config`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           siteVisitCharge: Number(siteVisitCharge),
           vendorCoins: Number(vendorCoins),
           puttyPrice: Number(puttyPrice),
+          city: city,
         }),
       });
 
@@ -254,9 +301,9 @@ const ProductsDashboard = () => {
 
       if (res.ok) {
         setSavedPricing(data.data);
-        setSiteVisitCharge("");
-        setVendorCoins("");
-        setPuttyPrice("");
+        fetchPricingConfig();
+        setShowSuccess(true);
+        setTimeout(() => setShowSuccess(false), 1000);
       } else {
         alert(data.message || "Something went wrong");
       }
@@ -455,11 +502,22 @@ const ProductsDashboard = () => {
 
   const showPaintTypeColumn = (type) => type === "Paints";
 
+  console.log("pricingConfig", pricingConfig);
+
   return (
     <Container className="py-4">
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h5 className="fw-bold">Product Dashboard</h5>
-
+        {showSuccess && (
+          <Alert
+            variant="success"
+            onClose={() => setShowSuccess(false)}
+            dismissible
+            className="price-success-alert-productDash"
+          >
+            Price Added!
+          </Alert>
+        )}
         <div className="d-flex gap-2">
           <Form.Select
             value={city || ""}
@@ -493,12 +551,16 @@ const ProductsDashboard = () => {
         </div>
       </div>
 
-      <h5 className="fw-semibold mb-3" style={{ fontSize: "18px" }}>
+      {/* <h5 className="fw-semibold mb-3" style={{ fontSize: "18px" }}>
         Product Pricing Configuration
-      </h5>
+      </h5> */}
+      <h6 className="fw-bold">Product Pricing Configuration</h6>
 
       <Row className="mb-4 align-items-center">
         <Col md={3}>
+          <lable style={{ fontSize: "13px", fontWeight: 600 }}>
+            Site Visit Charge (₹)
+          </lable>
           <Form.Control
             type="number"
             placeholder="Site Visit Charge (₹)"
@@ -508,6 +570,9 @@ const ProductsDashboard = () => {
           />
         </Col>
         <Col md={3}>
+          <lable style={{ fontSize: "13px", fontWeight: 600 }}>
+            Vendor Coins Needed
+          </lable>
           <Form.Control
             type="number"
             placeholder="Vendor Coins Needed"
@@ -517,6 +582,9 @@ const ProductsDashboard = () => {
           />
         </Col>
         <Col md={3}>
+          <lable style={{ fontSize: "13px", fontWeight: 600 }}>
+            Putty Price (₹)
+          </lable>
           <Form.Control
             type="number"
             placeholder="Putty Price (₹)"
@@ -526,6 +594,7 @@ const ProductsDashboard = () => {
           />
         </Col>
         <Col md={3}>
+          <br />
           <Button
             variant="success"
             style={{
@@ -541,8 +610,8 @@ const ProductsDashboard = () => {
           </Button>
         </Col>
       </Row>
-
-      {savedPricing && (
+      <hr />
+      {/* {savedPricing && (
         <Row className="mb-3">
           <Col md={4}>
             <div style={{ fontSize: "13px", fontWeight: "bold" }}>
@@ -560,7 +629,7 @@ const ProductsDashboard = () => {
             </div>
           </Col>
         </Row>
-      )}
+      )} */}
 
       {productTypes.map((type) => {
         const items = productsByType[type] || [];
