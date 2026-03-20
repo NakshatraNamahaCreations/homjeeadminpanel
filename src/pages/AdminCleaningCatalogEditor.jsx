@@ -12,7 +12,7 @@ export default function AdminCleaningCatalogEditor() {
   const navigate = useNavigate();
 
   // ✅ Read-only mode: no edits allowed
-  const READ_ONLY = true;
+  const READ_ONLY = false;
 
   const fetchConfig = async () => {
     try {
@@ -31,28 +31,38 @@ export default function AdminCleaningCatalogEditor() {
     fetchConfig();
   }, []);
 
-  if (loading) return <div>Loading...</div>;
+  if (loading)
+    return (
+      <div
+        style={{
+          position: "absolute",
+          left: "50%",
+          top: "40%",
+        }}
+      >
+        Loading...
+      </div>
+    );
   if (!config) return <div>{error || "No config found"}</div>;
 
   const categories = Object.keys(config.data || {});
-
+  console.log("config", categories);
   return (
     <div style={{ padding: 16 }}>
-        <Button
-          style={{
-            borderColor: "black",
-            backgroundColor: "transparent",
-            color: "black",
-            fontSize: "12px",
-          }}
-          onClick={() => navigate(-1)}
-        >
-        <FaArrowLeft/>  Back
-        </Button>
+      <Button
+        style={{
+          borderColor: "black",
+          backgroundColor: "transparent",
+          color: "black",
+          fontSize: "12px",
+        }}
+        onClick={() => navigate(-1)}
+      >
+        <FaArrowLeft /> Back
+      </Button>
       <div
         style={{ display: "flex", justifyContent: "space-between", gap: 12 }}
       >
-      
         <h2>Website Cleaning Catalog (v{config.version})</h2>
 
         {/* ✅ Hide save button completely in read-only */}

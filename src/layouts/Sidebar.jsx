@@ -21,9 +21,7 @@ const Sidebar = ({ isOpen }) => {
   const navigate = useNavigate();
 
   const handleLogout = () => {
-   
-      logout(); // Clear all auth data and redirect to login
-   
+    logout(); // Clear all auth data and redirect to login
   };
 
   const menuItems = [
@@ -31,19 +29,27 @@ const Sidebar = ({ isOpen }) => {
     { name: "Enquiries", path: "/enquiries", icon: <MdContactMail /> },
     { name: "New Leads", path: "/newleads", icon: <MdPersonAdd /> },
     { name: "Ongoing Leads", path: "/ongoing-leads", icon: <MdUpdate /> },
-    { name: "Money Dashboard", path: "/moneydashboard", icon: <MdAttachMoney /> },
-    { name: "Performance", path: "/performancedashboard", icon: <MdShowChart /> },
+    {
+      name: "Money Dashboard",
+      path: "/moneydashboard",
+      icon: <MdAttachMoney />,
+    },
+    {
+      name: "Performance",
+      path: "/performancedashboard",
+      icon: <MdShowChart />,
+    },
     { name: "Vendors", path: "/vendors-list", icon: <MdPeopleAlt /> },
     { name: "Products", path: "/product", icon: <MdCategory /> },
-    { name: "Push Notifications", path: "/notification", icon: <MdNotificationsActive /> },
+    // { name: "Push Notifications", path: "/notification", icon: <MdNotificationsActive /> },
     { name: "Whatsapp Notifications", path: "/whtsapp", icon: <MdMessage /> },
     { name: "Setting", path: "/setting", icon: <MdSettings /> },
-    { 
-      name: "Log out", 
-      path: "#", 
+    {
+      name: "Log out",
+      path: "#",
       icon: <MdExitToApp />,
       onClick: handleLogout, // Add onClick handler for logout
-      isLogout: true // Flag to identify logout item
+      isLogout: true, // Flag to identify logout item
     },
   ];
 
@@ -100,7 +106,7 @@ const Sidebar = ({ isOpen }) => {
       fontSize: "15px",
       color: "#dc3545",
       fontWeight: "bold",
-    }
+    },
   };
 
   return (
@@ -109,7 +115,7 @@ const Sidebar = ({ isOpen }) => {
         <ul style={styles.navList}>
           {menuItems.map((item) => {
             const isActive = location.pathname === item.path;
-            
+
             // For logout item, use button with onClick
             if (item.isLogout) {
               return (
@@ -139,7 +145,7 @@ const Sidebar = ({ isOpen }) => {
                 </li>
               );
             }
-            
+
             // For regular menu items, use Link
             return (
               <li key={item.name}>

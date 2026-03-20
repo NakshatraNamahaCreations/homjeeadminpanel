@@ -53,7 +53,11 @@ const VendorList = ({
   }
 
   if (error) {
-    return <div className="text-danger">Error: {error}</div>;
+    return (
+      <div className=" text-center text-danger" style={{ marginTop: "150px" }}>
+        {error}
+      </div>
+    );
   }
 
   if (vendors.length === 0) {

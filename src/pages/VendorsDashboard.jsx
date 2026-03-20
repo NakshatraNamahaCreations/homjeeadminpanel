@@ -27,8 +27,8 @@ const VendorsDashboard = () => {
   const [isEditingVendor, setIsEditingVendor] = useState(false);
   const [editingVendorId, setEditingVendorId] = useState(null);
   const [vendorFormData, setVendorFormData] = useState(null);
- const [cities, setCities] = useState([]);
-const [city, setCity] = useState(""); // ✅ will be set after API
+  const [cities, setCities] = useState([]);
+  const [city, setCity] = useState("All Cities"); // ✅ will be set after API
 
   const [search, setSearch] = useState("");
 
@@ -105,30 +105,30 @@ const [city, setCity] = useState(""); // ✅ will be set after API
   //   }
   // };
 
-useEffect(() => {
-  const fetchCities = async () => {
-    try {
-      const res = await axios.get(`${BASE_URL}/city/city-list`);
-      const list = Array.isArray(res?.data?.data) ? res.data.data : [];
+  useEffect(() => {
+    const fetchCities = async () => {
+      try {
+        const res = await axios.get(`${BASE_URL}/city/city-list`);
+        const list = Array.isArray(res?.data?.data) ? res.data.data : [];
 
-      setCities(list);
+        setCities(list);
 
-      // ✅ default select = first city from API response
-      if (list.length > 0) {
-        setCity(list[0]?.city || "");
-        fetchVendors(1, { city: list[0]?.city || "" }); // ✅ optional: auto-load vendors for first city
-      } else {
+        // ✅ default select = first city from API response
+        if (list.length > 0) {
+          setCity(list[0]?.city || "");
+          fetchVendors(1, { city: list[0]?.city || "" }); // ✅ optional: auto-load vendors for first city
+        } else {
+          setCity("");
+        }
+      } catch (err) {
+        console.error("Error fetching city list:", err);
+        setCities([]);
         setCity("");
       }
-    } catch (err) {
-      console.error("Error fetching city list:", err);
-      setCities([]);
-      setCity("");
-    }
-  };
+    };
 
-  fetchCities();
-}, []);
+    fetchCities();
+  }, []);
 
   const fetchVendors = async (page = 1, overrideFilters = {}) => {
     setLoading(true);
@@ -195,7 +195,7 @@ useEffect(() => {
 
       return fetchedVendors;
     } catch (error) {
-      console.error("Error fetching vendors:", error);
+      console.error("Error fetching vendors:", error); 
       setError(error.response?.data?.message || error.message);
       setVendors([]);
       return [];
@@ -287,20 +287,22 @@ useEffect(() => {
           <h5 className="fw-bold">Vendors Dashboard</h5>
           <div className="d-flex gap-2">
             <Form.Select
-  value={city}
-  onChange={(e) => {
-    const v = e.target.value;
-    setCity(v);
-    fetchVendors(1, { city: v });
-  }}
-  style={{ height: "34px", fontSize: "12px" }}
->
-  {cities.map((c) => (
-    <option key={c?._id} value={c?.city}>
-      {c?.city}
-    </option>
-  ))}
-</Form.Select>
+              value={city}
+              onChange={(e) => {
+                const v = e.target.value;
+                setCity(v);
+                fetchVendors(1, { city: v });
+              }}
+              style={{ height: "34px", fontSize: "12px" }}
+            >
+              <option>All Cities</option>
+
+              {cities.map((c) => (
+                <option key={c?._id} value={c?.city}>
+                  {c?.city}
+                </option>
+              ))}
+            </Form.Select>
             <Form.Select
               value={service}
               onChange={(e) => {
