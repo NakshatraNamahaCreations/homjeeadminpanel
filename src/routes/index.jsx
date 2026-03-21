@@ -91,6 +91,7 @@ import VendorDetailsPage from "../pages/VendorDetailsPage";
 import EnquiryDetails from "../pages/EnquiryDetails";
 import QuoteDetails from "../pages/QuoteDetails";
 import ProtectedRoute from "../layouts/ProtectedRoute";
+import WebsiteDeepCleanigCatalogEditor from "../pages/WebsiteDeepCleanigCatalogEditor";
 
 const AppRoutes = () => {
   return (
@@ -131,9 +132,13 @@ const AppRoutes = () => {
           <Route path="/all-reminders" element={<AllReminders />} />
           <Route path="/logout" element={<Logout />} />
           <Route path="/setting" element={<Settings />} />
-          <Route
+          {/* <Route
             path="/admincleaningcatalogeditor"
             element={<AdminCleaningCatalogEditor />}
+          /> */}
+          <Route
+            path="/admincleaningcatalogeditor"
+            element={<WebsiteDeepCleanigCatalogEditor />}
           />
 
           <Route path="/quote-details/:id" element={<QuoteDetails />} />

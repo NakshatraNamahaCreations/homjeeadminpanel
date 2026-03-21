@@ -219,7 +219,7 @@ const DeepCleaningDashboard = () => {
 
   const [errorMessage, setErrorMessage] = useState("");
   const [pkgSaving, setPkgSaving] = useState(false);
-
+  console.log("editingPkg", editingPkg);
   // =========================
   // ✅ ORDER MAP (same as your current)
   // =========================
@@ -526,6 +526,7 @@ const DeepCleaningDashboard = () => {
       setPkgSaving(true);
 
       await upsertCityConfig(editingPkg.id, {
+        category: editingPkg?.category,
         cityId,
         totalAmount: Number(form.totalAmount),
         coinsForVendor: Number(form.coinsForVendor),
