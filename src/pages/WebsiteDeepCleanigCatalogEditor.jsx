@@ -320,7 +320,7 @@ const WebsiteDeepCleanigCatalogEditor = () => {
         </tbody>
       </Table>
 
-      <Modal show={showModal} onHide={handleModalClose} centered>
+      {/* <Modal show={showModal} onHide={handleModalClose} centered>
         <Modal.Header closeButton>
           <Modal.Title style={{ fontSize: "16px" }}>Edit Package</Modal.Title>
         </Modal.Header>
@@ -458,7 +458,7 @@ const WebsiteDeepCleanigCatalogEditor = () => {
             {pkgSaving ? "Saving..." : "Save"}
           </Button>
         </Modal.Footer>
-      </Modal>
+      </Modal> */}
     </Container>
   );
 };
