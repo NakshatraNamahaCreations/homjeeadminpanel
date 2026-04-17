@@ -1,0 +1,40 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+/* Hide number input arrows - Chrome, Edge, Safari */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Hide number input arrows - Firefox */
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+
+.form-control[type="number"]::-webkit-inner-spin-button,
+.form-control[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+}
+.price-success-alert-productDash{
+  position: absolute;
+  top: 71px;
+  right: 20px;
+  z-index: 999;
+  min-width: 220px;
+  animation: slideRightToLeft 0.5s ease-out;
+}
+@keyframes slideRightToLeft {
+  from {
+    opacity: 0;
+    transform: translateX(120px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
