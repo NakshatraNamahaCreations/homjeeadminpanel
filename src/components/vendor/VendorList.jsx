@@ -95,10 +95,22 @@ const VendorList = ({
           {vendors.map((vendor) => (
             <tr
               key={vendor.id}
-              style={{ cursor: "pointer", fontSize: "12px" }}
+              style={{
+                cursor: "pointer",
+                fontSize: "12px",
+                opacity: vendor.isArchived ? 0.55 : 1,
+                background: vendor.isArchived ? "#fff4f4" : undefined,
+              }}
               onClick={() => onVendorSelect(vendor)}
             >
-              <td>{vendor.name}</td>
+              <td>
+                {vendor.name}
+                {vendor.isArchived && (
+                  <Badge bg="danger" className="ms-2" style={{ fontSize: 10 }}>
+                    Archived
+                  </Badge>
+                )}
+              </td>
               <td>{vendor.category}</td>
               <td>{vendor.city}</td>
               {/* <td>

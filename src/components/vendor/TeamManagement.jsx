@@ -135,17 +135,10 @@ const TeamManagement = ({
                   <Button
                     variant="outline-danger"
                     size="sm"
-                    onClick={() => {
-                      const ok = window.confirm(
-                        `Are you sure you want to remove ${
-                          member?.name || "this member"
-                        }?`
-                      );
-                      if (ok) onRemoveMember(member._id);
-                    }}
+                    onClick={() => onRemoveMember(member._id)}
                     style={{ borderRadius: 10 }}
                   >
-                    <FaTrash /> 
+                    <FaTrash />
                   </Button>
 
                   <Button

@@ -12,8 +12,10 @@ import {
 import { CSVLink } from "react-csv";
 import axios from "axios";
 import { BASE_URL } from "../utils/config";
+import { useDialog } from "../components/common/DialogContext";
 
 const MoneyDashboard = () => {
+  const { confirm, notify } = useDialog();
   const [showModal, setShowModal] = useState(false);
   const [payments, setPayments] = useState([]);
   const [overallCoinsIncome, setOverallCoinsIncome] = useState(0);
@@ -464,11 +466,20 @@ const [citiesLoading, setCitiesLoading] = useState(false);
     try {
       const id = payment?._id;
       if (!id) {
-        alert("Payment ID not found");
+        await notify({
+          title: "Payment not found",
+          message: "Payment ID is missing.",
+          variant: "warning",
+        });
         return;
       }
 
-      const yes = window.confirm("Mark this manual payment as PAID?");
+      const yes = await confirm({
+        title: "Mark as paid?",
+        message: "Mark this manual payment as PAID?",
+        variant: "question",
+        confirmLabel: "Mark Paid",
+      });
       if (!yes) return;
 
       setPayingId(id);
@@ -487,15 +498,23 @@ const [citiesLoading, setCitiesLoading] = useState(false);
       );
 
       if (res?.data?.success === false) {
-        alert(res?.data?.message || "Failed to mark as paid");
+        await notify({
+          title: "Failed to mark as paid",
+          message: res?.data?.message || "Please try again.",
+          variant: "danger",
+        });
         return;
       }
 
-      // alert("Payment marked as paid ✅");
       await fetchManualPayments();
     } catch (err) {
       console.error("markManualPaid error:", err);
-      alert(err?.response?.data?.message || "Error marking payment as paid");
+      await notify({
+        title: "Error",
+        message:
+          err?.response?.data?.message || "Error marking payment as paid.",
+        variant: "danger",
+      });
     } finally {
       setPayingId("");
     }

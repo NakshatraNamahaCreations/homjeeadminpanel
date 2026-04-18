@@ -8,14 +8,55 @@ import {
   Badge,
   Button,
 } from "react-bootstrap";
-import { FaStar, FaPhone, FaCog, FaMapMarkerAlt } from "react-icons/fa";
+import {
+  FaStar,
+  FaPhone,
+  FaCog,
+  FaMapMarkerAlt,
+  FaArchive,
+  FaUndo,
+} from "react-icons/fa";
+import { useDialog } from "../common/DialogContext";
 
-const VendorDetails = ({ vendor, onEditVendor, onBack }) => {
+const VendorDetails = ({
+  vendor,
+  onEditVendor,
+  onBack,
+  onArchiveToggle,
+  archiving = false,
+}) => {
+  const { notify } = useDialog();
   if (!vendor) return null;
+
+  const isArchived = vendor.isArchived === true;
 
   return (
     <>
-    
+      {/* Archived banner */}
+      {isArchived && (
+        <div
+          className="mb-3 p-3 rounded d-flex align-items-center justify-content-between flex-wrap gap-2"
+          style={{
+            background: "#fff4f4",
+            border: "1px solid #f5c2c7",
+            color: "#842029",
+          }}
+        >
+          <div className="d-flex align-items-center gap-2">
+            <FaArchive />
+            <strong style={{ fontSize: 13 }}>Archived vendor</strong>
+            <span style={{ fontSize: 12 }}>
+              — this vendor is blocked from the Vendor App.
+            </span>
+            {vendor.archiveReason ? (
+              <span className="text-muted" style={{ fontSize: 12 }}>
+                Reason: {vendor.archiveReason}
+              </span>
+            ) : null}
+          </div>
+        </div>
+      )}
+
       {/* Location + Actions Bar */}
       <Card
         className="mb-3 shadow-sm"
@@ -77,7 +118,7 @@ const VendorDetails = ({ vendor, onEditVendor, onBack }) => {
             </div>
 
             {/* Right: Actions */}
-            <div className="d-flex align-items-center gap-2 ms-md-auto">
+            <div className="d-flex align-items-center gap-2 ms-md-auto flex-wrap">
               <Button
                 variant="outline-dark"
                 onClick={() => onEditVendor(vendor)}
@@ -96,7 +137,13 @@ const VendorDetails = ({ vendor, onEditVendor, onBack }) => {
                 variant="dark"
                 onClick={() => {
                   if (!vendor?.lat || !vendor?.long) {
-                    return alert("Coordinates missing.");
+                    notify({
+                      title: "Coordinates missing",
+                      message:
+                        "This vendor does not have map coordinates yet. Edit the vendor to set them.",
+                      variant: "warning",
+                    });
+                    return;
                   }
                   window.open(
                     `https://www.google.com/maps?q=${vendor.lat},${vendor.long}`,
@@ -112,6 +159,31 @@ const VendorDetails = ({ vendor, onEditVendor, onBack }) => {
                 <FaMapMarkerAlt className="me-2" />
                 Open in Maps
               </Button>
+
+              {typeof onArchiveToggle === "function" && (
+                <Button
+                  variant={isArchived ? "success" : "outline-danger"}
+                  onClick={onArchiveToggle}
+                  disabled={archiving}
+                  style={{
+                    fontSize: 12,
+                    borderRadius: 10,
+                    padding: "8px 12px",
+                  }}
+                >
+                  {isArchived ? (
+                    <>
+                      <FaUndo className="me-2" />
+                      {archiving ? "Unarchiving..." : "Unarchive"}
+                    </>
+                  ) : (
+                    <>
+                      <FaArchive className="me-2" />
+                      {archiving ? "Archiving..." : "Archive"}
+                    </>
+                  )}
+                </Button>
+              )}
             </div>
           </div>
         </Card.Body>

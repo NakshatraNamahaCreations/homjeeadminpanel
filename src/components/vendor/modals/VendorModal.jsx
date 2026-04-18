@@ -7,6 +7,7 @@ import { validateVendorForm } from "../../../utils/helpers";
 import axios from "axios";
 import { BASE_URL } from "../../../utils/config";
 import AddressPickerModal from "../modals/AddressPickerModal";
+import { useDialog } from "../../common/DialogContext";
 
 const logFormDataPayload = (fd, title = "FORMDATA PAYLOAD") => {
   console.log(`\n================ ${title} ================`);
@@ -43,6 +44,7 @@ const VendorModal = ({
   onSuccess,
   // onAddressPickerOpen,
 }) => {
+  const { notify } = useDialog();
   const [formData, setFormData] = useState({
     vendorName: "",
     mobileNumber: "",
@@ -140,7 +142,11 @@ const VendorModal = ({
       isNaN(formData.latitude) ||
       isNaN(formData.longitude)
     ) {
-      alert("Please select a valid location using the map picker.");
+      await notify({
+        title: "Location required",
+        message: "Please select a valid location using the map picker.",
+        variant: "warning",
+      });
       return;
     }
 

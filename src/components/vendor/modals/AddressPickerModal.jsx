@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Modal, Button } from "react-bootstrap";
+import { useDialog } from "../../common/DialogContext";
 
 const GOOGLE_MAPS_API_KEY = "AIzaSyBF48uqsKVyp9P2NlDX-heBJksvvT_8Cqk";
 
@@ -236,6 +237,7 @@ const AddressPickerModal = ({
   initialAddress = "",
   initialLatLng,
 }) => {
+  const { notify } = useDialog();
   const mapDivRef = useRef(null);
   const mapRef = useRef(null);
   const markerRef = useRef(null);
@@ -489,7 +491,11 @@ const AddressPickerModal = ({
       if (loading) return;
 
       if (!latLng?.lat || !latLng?.lng) {
-        alert("Please select a valid location on the map.");
+        notify({
+          title: "No location selected",
+          message: "Please select a valid location on the map.",
+          variant: "warning",
+        });
         return;
       }
 
@@ -502,7 +508,11 @@ const AddressPickerModal = ({
 
       onHide();
     } catch (e) {
-      alert("Something went wrong while selecting location.");
+      notify({
+        title: "Something went wrong",
+        message: "Could not select this location. Please try again.",
+        variant: "danger",
+      });
     }
   };
 

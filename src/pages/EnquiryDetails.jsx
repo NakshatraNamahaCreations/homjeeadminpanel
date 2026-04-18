@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   FaArrowLeft,
@@ -6,12 +6,15 @@ import {
   FaPhone,
   FaEye,
   FaEyeSlash,
+  FaBell,
+  FaTimesCircle,
 } from "react-icons/fa";
 import { Button, Badge } from "react-bootstrap";
 import EditEnquiryModal from "./EditEnquiryModal";
 import ReminderModal from "./ReminderModal";
 import ConfirmModal from "./ConfirmModal";
 import { BASE_URL } from "../utils/config";
+import { useDialog } from "../components/common/DialogContext";
 
 const EnquiryDetails = () => {
   const navigate = useNavigate();
@@ -23,6 +26,8 @@ const EnquiryDetails = () => {
 
   const [showEdit, setShowEdit] = useState(false);
   const [showReminder, setShowReminder] = useState(false);
+  const [reminder, setReminder] = useState(null);
+  const { confirm, notify } = useDialog();
 
   const [confirmState, setConfirmState] = useState({
     show: false,
@@ -169,6 +174,70 @@ const EnquiryDetails = () => {
     if (!location?.state) fetchDetails();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, location?.state]);
+
+  /* ---------------------------
+     Fetch pending reminder for this booking
+     --------------------------- */
+  const fetchReminder = useCallback(async () => {
+    const bookingId = enquiry?.bookingId || id;
+    if (!bookingId) return;
+    try {
+      const res = await fetch(
+        `${BASE_URL}/reminders/by-booking/${bookingId}`,
+      );
+      const data = await res.json();
+      if (data?.success) {
+        setReminder(data.reminder || null);
+      }
+    } catch (err) {
+      console.error("fetchReminder error:", err);
+    }
+  }, [enquiry?.bookingId, id]);
+
+  useEffect(() => {
+    fetchReminder();
+  }, [fetchReminder]);
+
+  const handleCancelReminder = async () => {
+    const bookingId = enquiry?.bookingId || id;
+    if (!bookingId) return;
+
+    const ok = await confirm({
+      title: "Remove reminder?",
+      message: "The scheduled notification will be cancelled.",
+      variant: "danger",
+      confirmLabel: "Remove",
+    });
+    if (!ok) return;
+
+    try {
+      const res = await fetch(
+        `${BASE_URL}/reminders/by-booking/${bookingId}`,
+        { method: "DELETE" },
+      );
+      const data = await res.json();
+      if (data?.success) {
+        setReminder(null);
+        await notify({
+          title: "Reminder removed",
+          message: "This reminder has been cancelled.",
+          variant: "success",
+        });
+      } else {
+        await notify({
+          title: "Failed to remove",
+          message: data?.message || "Please try again.",
+          variant: "danger",
+        });
+      }
+    } catch (err) {
+      await notify({
+        title: "Error",
+        message: "Could not reach the server.",
+        variant: "danger",
+      });
+    }
+  };
 
   /* ---------------------------
      Update status helper
@@ -352,6 +421,47 @@ const EnquiryDetails = () => {
           <FaArrowLeft /> Back to List
         </Button>
       </div>
+
+      {reminder && reminder.status === "pending" && (
+        <div
+          className="mb-3 p-2 px-3 d-flex align-items-center justify-content-between flex-wrap gap-2"
+          style={{
+            background: "#fff8e1",
+            border: "1px solid #ffe082",
+            borderRadius: 10,
+            color: "#6b4b00",
+          }}
+        >
+          <div className="d-flex align-items-center gap-2">
+            <FaBell />
+            <span style={{ fontSize: 13, fontWeight: 600 }}>
+              Reminder set for{" "}
+              {reminder.reminderAt
+                ? new Date(reminder.reminderAt).toLocaleString("en-IN", {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  })
+                : `${new Date(reminder.reminderDate).toLocaleDateString(
+                    "en-IN",
+                  )} at ${reminder.reminderTime}`}
+            </span>
+            {reminder.note ? (
+              <span className="text-muted" style={{ fontSize: 12 }}>
+                — {reminder.note}
+              </span>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            className="btn btn-sm btn-outline-danger"
+            style={{ fontSize: 11, borderRadius: 8 }}
+            onClick={handleCancelReminder}
+          >
+            <FaTimesCircle className="me-1" />
+            Cancel
+          </button>
+        </div>
+      )}
 
       <div
         className="card shadow-sm border-0"
@@ -583,11 +693,17 @@ const EnquiryDetails = () => {
             </button>
 
             <button
-              className="btn btn-secondary"
-              style={{ borderRadius: 8, fontSize: 10, padding: "4px 8px" }}
+              className={`btn ${reminder ? "btn-warning" : "btn-secondary"}`}
+              style={{
+                borderRadius: 8,
+                fontSize: 10,
+                padding: "4px 8px",
+                color: reminder ? "#212529" : undefined,
+              }}
               onClick={() => setShowReminder(true)}
             >
-              Set Reminder
+              <FaBell className="me-1" />
+              {reminder ? "Edit Reminder" : "Set Reminder"}
             </button>
 
             {canShowMarkAsLead && (
@@ -679,6 +795,10 @@ const EnquiryDetails = () => {
           show={showReminder}
           onClose={() => setShowReminder(false)}
           enquiry={enquiry}
+          onSaved={(saved) => {
+            setReminder(saved || null);
+            fetchReminder();
+          }}
         />
       )}
     </div>

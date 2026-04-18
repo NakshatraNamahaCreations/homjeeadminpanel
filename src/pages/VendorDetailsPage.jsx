@@ -665,10 +665,12 @@ import TeamMemberDocsModal from "../components/vendor/modals/TeamMemberDocsModal
 import TeamMemberLeavesModal from "../components/vendor/modals/TeamMemberLeavesModal";
 import AddressPickerModal from "../components/vendor/modals/AddressPickerModal";
 import MemberDetailsModal from "../components/vendor/modals/MemberDetailsModal";
+import { useDialog } from "../components/common/DialogContext";
 
 const VendorDetailsPage = () => {
   const { vendorId } = useParams();
   const navigate = useNavigate();
+  const { confirm, prompt, notify } = useDialog();
 
   const [selectedVendor, setSelectedVendor] = useState(null);
   const [showAddVendorModal, setShowAddVendorModal] = useState(false);
@@ -712,6 +714,9 @@ const VendorDetailsPage = () => {
         category: vendorData.vendor?.serviceType || "",
         city: vendorData.vendor?.city || "",
         status: vendorData.activeStatus ? "Live" : "Inactive",
+        isArchived: vendorData.isArchived === true,
+        archivedAt: vendorData.archivedAt || null,
+        archiveReason: vendorData.archiveReason || "",
         rating: 4.5,
         phone: String(vendorData.vendor?.mobileNumber ?? ""),
         capacity: vendorData.vendor?.capacity || "",
@@ -839,7 +844,14 @@ const VendorDetailsPage = () => {
   const handleAddCoinsAPI = async () => {
     if (!selectedVendor) return;
     const coins = Number(coinDelta || 0);
-    if (coins <= 0) return alert("Enter a positive coin amount.");
+    if (coins <= 0) {
+      await notify({
+        title: "Invalid amount",
+        message: "Enter a positive coin amount.",
+        variant: "warning",
+      });
+      return;
+    }
 
     try {
       const { data } = await axios.post(`${BASE_URL}/vendor/add-coin`, {
@@ -854,15 +866,33 @@ const VendorDetailsPage = () => {
         prev ? { ...prev, coins: serverCoins } : prev,
       );
     } catch (err) {
-      alert(err?.response?.data?.message || "Failed to add coins");
+      await notify({
+        title: "Failed to add coins",
+        message: err?.response?.data?.message || "Please try again.",
+        variant: "danger",
+      });
     }
   };
 
   const handleReduceCoinsAPI = async () => {
     if (!selectedVendor) return;
     const coins = Number(coinDelta || 0);
-    if (coins <= 0) return alert("Enter a positive coin amount.");
-    if (coins > coinsBalance) return alert("Insufficient balance.");
+    if (coins <= 0) {
+      await notify({
+        title: "Invalid amount",
+        message: "Enter a positive coin amount.",
+        variant: "warning",
+      });
+      return;
+    }
+    if (coins > coinsBalance) {
+      await notify({
+        title: "Insufficient balance",
+        message: "The vendor does not have enough coins.",
+        variant: "warning",
+      });
+      return;
+    }
 
     try {
       const { data } = await axios.post(`${BASE_URL}/vendor/reduce-coin`, {
@@ -877,12 +907,25 @@ const VendorDetailsPage = () => {
         prev ? { ...prev, coins: serverCoins } : prev,
       );
     } catch (err) {
-      alert(err?.response?.data?.message || "Failed to reduce coins");
+      await notify({
+        title: "Failed to reduce coins",
+        message: err?.response?.data?.message || "Please try again.",
+        variant: "danger",
+      });
     }
   };
 
   const removeTeamMemberAPI = async (memberId) => {
     if (!selectedVendor) return;
+
+    const ok = await confirm({
+      title: "Remove team member?",
+      message:
+        "This will permanently remove the member from the vendor's team.",
+      variant: "danger",
+      confirmLabel: "Remove",
+    });
+    if (!ok) return;
 
     try {
       const { data } = await axios.post(`${BASE_URL}/vendor/team/remove`, {
@@ -894,7 +937,89 @@ const VendorDetailsPage = () => {
 
       setSelectedVendor((v) => (v ? { ...v, team: normalizedTeam } : v));
     } catch (err) {
-      alert(err?.response?.data?.message || "Failed to remove member");
+      await notify({
+        title: "Failed to remove member",
+        message: err?.response?.data?.message || "Please try again.",
+        variant: "danger",
+      });
+    }
+  };
+
+  const [archiving, setArchiving] = useState(false);
+
+  const handleArchiveToggle = async () => {
+    if (!selectedVendor) return;
+
+    const archiveNext = !selectedVendor.isArchived;
+
+    const ok = await confirm({
+      title: archiveNext ? "Archive vendor?" : "Unarchive vendor?",
+      message: archiveNext
+        ? `"${selectedVendor.name}" will be logged out of the Vendor App immediately and blocked from logging back in.`
+        : `"${selectedVendor.name}" will regain access to the Vendor App.`,
+      variant: archiveNext ? "danger" : "success",
+      confirmLabel: archiveNext ? "Archive" : "Unarchive",
+      cancelLabel: "Cancel",
+    });
+    if (!ok) return;
+
+    let reason = null;
+    if (archiveNext) {
+      const input = await prompt({
+        title: "Reason (optional)",
+        message: "Add a short note for why this vendor is being archived.",
+        placeholder: "e.g. repeated no-shows",
+        inputType: "textarea",
+        variant: "question",
+        confirmLabel: "Archive",
+        cancelLabel: "Cancel",
+      });
+      if (input === null) return; // user cancelled
+      reason = (input || "").trim() || null;
+    }
+
+    try {
+      setArchiving(true);
+      const endpoint = archiveNext
+        ? `${BASE_URL}/vendor/archive-vendor/${selectedVendor.id}`
+        : `${BASE_URL}/vendor/unarchive-vendor/${selectedVendor.id}`;
+
+      const { data } = await axios.put(
+        endpoint,
+        archiveNext ? { reason } : {},
+      );
+
+      const updated = data?.vendor;
+      setSelectedVendor((prev) =>
+        prev
+          ? {
+              ...prev,
+              isArchived: updated?.isArchived === true,
+              archivedAt: updated?.archivedAt || null,
+              archiveReason: updated?.archiveReason || "",
+            }
+          : prev,
+      );
+
+      await notify({
+        title: archiveNext ? "Vendor archived" : "Vendor unarchived",
+        message: archiveNext
+          ? "They will be logged out on the next app check."
+          : "They can log in again.",
+        variant: "success",
+        confirmLabel: "OK",
+      });
+    } catch (err) {
+      await notify({
+        title: "Action failed",
+        message:
+          err?.response?.data?.message ||
+          `Failed to ${archiveNext ? "archive" : "unarchive"} vendor.`,
+        variant: "danger",
+        confirmLabel: "Close",
+      });
+    } finally {
+      setArchiving(false);
     }
   };
 
@@ -1147,6 +1272,8 @@ const VendorDetailsPage = () => {
           <VendorDetails
             vendor={selectedVendor}
             onEditVendor={() => openEditVendorModal(selectedVendor)}
+            onArchiveToggle={handleArchiveToggle}
+            archiving={archiving}
           />
 
           <VendorCoins

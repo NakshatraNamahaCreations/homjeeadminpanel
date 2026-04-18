@@ -1,10 +1,13 @@
 import { BrowserRouter } from "react-router-dom";
 import AppRoutes from "./routes";
+import { DialogProvider } from "./components/common/DialogContext";
 
 function App() {
   return (
     <BrowserRouter>
-      <AppRoutes />
+      <DialogProvider>
+        <AppRoutes />
+      </DialogProvider>
     </BrowserRouter>
   );
 }

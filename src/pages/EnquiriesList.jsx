@@ -1,9 +1,25 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import CreateLeadModal from "./CreateLeadModal";
-import { FaMapMarkerAlt } from "react-icons/fa";
+import { FaMapMarkerAlt, FaBell } from "react-icons/fa";
 import { Badge } from "react-bootstrap";
 import { BASE_URL } from "../utils/config";
+
+const formatReminderWhen = (r) => {
+  if (!r) return "";
+  if (r.reminderAt) {
+    return new Date(r.reminderAt).toLocaleString("en-IN", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+  }
+  if (r.reminderDate && r.reminderTime) {
+    return `${new Date(r.reminderDate).toLocaleDateString("en-IN")} at ${
+      r.reminderTime
+    }`;
+  }
+  return "";
+};
 
 const genUID = () => `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
@@ -15,6 +31,7 @@ const EnquiriesList = () => {
 
   const [newEnquiries, setNewEnquiries] = useState([]);
   const [oldEnquiries, setOldEnquiries] = useState([]);
+  const [reminderMap, setReminderMap] = useState({});
 
   // ✅ loader
   const [loading, setLoading] = useState(true);
@@ -23,8 +40,24 @@ const EnquiriesList = () => {
     try {
       setLoading(true);
 
-      const res = await fetch(`${BASE_URL}/bookings/get-all-enquiries`);
-      const data = await res.json();
+      const [bookingsRes, remindersRes] = await Promise.all([
+        fetch(`${BASE_URL}/bookings/get-all-enquiries`),
+        fetch(`${BASE_URL}/reminders/pending-map`).catch(() => null),
+      ]);
+
+      const data = await bookingsRes.json();
+
+      // Non-fatal: if reminders endpoint fails, list still renders.
+      let rMap = {};
+      try {
+        if (remindersRes && remindersRes.ok) {
+          const rData = await remindersRes.json();
+          if (rData?.success && rData?.reminders) rMap = rData.reminders;
+        }
+      } catch (e) {
+        // ignore
+      }
+      setReminderMap(rMap);
 
       if (!data.allEnquies) {
         setLoading(false);
@@ -112,16 +145,23 @@ const EnquiriesList = () => {
     setVisibleLeads((v) => v + 6);
   };
 
-  const getCardStyle = (enquiry) => ({
-    backgroundColor: enquiry.raw?.isRead ? "#f8f9fa" : "#ebebeb",
-    padding: "15px",
-    borderRadius: "8px",
-    width: "100%",
-    boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
-    cursor: "pointer",
-    borderLeft: "4px solid #6c757d",
-    opacity: enquiry.raw?.isRead ? 0.9 : 1,
-  });
+  const getCardStyle = (enquiry) => {
+    const hasReminder = !!reminderMap[enquiry.bookingId];
+    return {
+      backgroundColor: hasReminder
+        ? "#fff8e1"
+        : enquiry.raw?.isRead
+        ? "#f8f9fa"
+        : "#ebebeb",
+      padding: "15px",
+      borderRadius: "8px",
+      width: "100%",
+      boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
+      cursor: "pointer",
+      borderLeft: hasReminder ? "4px solid #f0a30a" : "4px solid #6c757d",
+      opacity: enquiry.raw?.isRead && !hasReminder ? 0.9 : 1,
+    };
+  };
 
   const openDetails = (bookingId) => {
     navigate(`/enquiry-details/${bookingId}`);
@@ -220,7 +260,9 @@ const EnquiriesList = () => {
           >
             {(showOld ? oldEnquiries : newEnquiries)
               .slice(0, visibleLeads)
-              .map((enquiry) => (
+              .map((enquiry) => {
+                const reminder = reminderMap[enquiry.bookingId];
+                return (
                 <div
                   key={enquiry._uid}
                   style={getCardStyle(enquiry)}
@@ -247,6 +289,25 @@ const EnquiriesList = () => {
                       {enquiry.raw?.isRead && (
                         <Badge bg="success" style={{ fontSize: 10 }}>
                           Read
+                        </Badge>
+                      )}
+
+                      {reminder && (
+                        <Badge
+                          bg="warning"
+                          text="dark"
+                          style={{
+                            fontSize: 10,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 4,
+                          }}
+                          title={`Reminder: ${formatReminderWhen(reminder)}${
+                            reminder.note ? ` — ${reminder.note}` : ""
+                          }`}
+                        >
+                          <FaBell />
+                          Reminder
                         </Badge>
                       )}
                     </div>
@@ -278,13 +339,42 @@ const EnquiriesList = () => {
                     {enquiry.filledData?.location}
                   </p>
 
+                  {reminder && (
+                    <p
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        fontSize: 12,
+                        fontWeight: 600,
+                        marginTop: 4,
+                        color: "#6b4b00",
+                      }}
+                    >
+                      <FaBell />
+                      Reminder set for {formatReminderWhen(reminder)}
+                      {reminder.note ? (
+                        <span
+                          style={{
+                            fontWeight: 400,
+                            color: "#777",
+                            marginLeft: 4,
+                          }}
+                        >
+                          — {reminder.note}
+                        </span>
+                      ) : null}
+                    </p>
+                  )}
+
                   {showOld && enquiry.note && (
                     <p style={{ fontSize: 11, color: "#777", marginTop: 6 }}>
                       Moved to Old: <strong>{enquiry.note}</strong>
                     </p>
                   )}
                 </div>
-              ))}
+                );
+              })}
           </div>
 
           {(showOld ? oldEnquiries : newEnquiries).length > visibleLeads && (

@@ -156,6 +156,7 @@ const VendorsDashboard = () => {
         category: vendor.vendor.serviceType,
         city: vendor.vendor.city,
         // status ignored for now
+        isArchived: vendor.isArchived === true,
         rating: 4.5,
         phone: String(vendor.vendor.mobileNumber ?? ""),
         capacity: vendor.vendor.capacity,
