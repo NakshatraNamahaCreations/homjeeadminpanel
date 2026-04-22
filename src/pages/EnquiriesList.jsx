@@ -4,22 +4,7 @@ import CreateLeadModal from "./CreateLeadModal";
 import { FaMapMarkerAlt, FaBell } from "react-icons/fa";
 import { Badge } from "react-bootstrap";
 import { BASE_URL } from "../utils/config";
-
-const formatReminderWhen = (r) => {
-  if (!r) return "";
-  if (r.reminderAt) {
-    return new Date(r.reminderAt).toLocaleString("en-IN", {
-      dateStyle: "medium",
-      timeStyle: "short",
-    });
-  }
-  if (r.reminderDate && r.reminderTime) {
-    return `${new Date(r.reminderDate).toLocaleDateString("en-IN")} at ${
-      r.reminderTime
-    }`;
-  }
-  return "";
-};
+import { formatReminderWhen } from "../utils/helpers";
 
 const genUID = () => `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 

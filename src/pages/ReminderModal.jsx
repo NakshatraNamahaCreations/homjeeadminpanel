@@ -72,6 +72,10 @@ const ReminderModal = ({ show, onClose, enquiry, onSaved }) => {
           bookingId: enquiry.bookingId,
           reminderDate: date,
           reminderTime: time,
+          // Pass the exact intended instant so the server doesn't have to
+          // re-derive it and risk a timezone mismatch (server runs in UTC,
+          // admin is in IST).
+          reminderAt: scheduledAt.toISOString(),
           adminId,
           note: note.trim() || undefined,
         }),

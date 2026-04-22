@@ -329,6 +329,26 @@ export const formatDate = (dateString) => {
   });
 };
 
+// Canonical reminder "when" formatter. Shared by EnquiriesList,
+// EnquiryDetails, AllReminders so every surface shows the same value.
+// Always prefers the ISO `reminderAt` instant (source of truth) and falls
+// back to the legacy date+time strings only if the server didn't send one.
+export const formatReminderWhen = (r) => {
+  if (!r) return "";
+  if (r.reminderAt) {
+    return new Date(r.reminderAt).toLocaleString("en-IN", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+  }
+  if (r.reminderDate && r.reminderTime) {
+    return `${new Date(r.reminderDate).toLocaleDateString("en-IN")} at ${
+      r.reminderTime
+    }`;
+  }
+  return "";
+};
+
 // Helper function to calculate years of experience
 export const calculateExperience = (yearOfWorking) => {
   if (!yearOfWorking) return 0;

@@ -14,6 +14,7 @@ import EditEnquiryModal from "./EditEnquiryModal";
 import ReminderModal from "./ReminderModal";
 import ConfirmModal from "./ConfirmModal";
 import { BASE_URL } from "../utils/config";
+import { formatReminderWhen } from "../utils/helpers";
 import { useDialog } from "../components/common/DialogContext";
 
 const EnquiryDetails = () => {
@@ -78,8 +79,13 @@ const EnquiryDetails = () => {
       ).length
         ? [...new Set((b.service || []).map((s) => s.category))].join(", ")
         : b.serviceCategory || "N/A",
-      date: slotDate,
-      time: b.selectedSlot?.slotTime || b.bookingDetails?.bookingTime || "N/A",
+      date: slotDate || "N/A",
+
+      time:
+        b.selectedSlot?.slotTime ||
+        new Date(b.bookingDetails?.bookingDate).toLocaleTimeString() ||
+        "N/A",
+
       formName: b.formName || b.form || "N/A",
       createdDate,
       createdTime,
@@ -404,6 +410,7 @@ const EnquiryDetails = () => {
   if (!enquiry) return <p style={{ padding: 20 }}>Enquiry not found</p>;
 
   console.log("enquiry", enquiry);
+  console.log("reminder", reminder);
 
   return (
     <div className="container " style={{ fontFamily: "Poppins" }}>
@@ -434,15 +441,7 @@ const EnquiryDetails = () => {
           <div className="d-flex align-items-center gap-2">
             <FaBell />
             <span style={{ fontSize: 13, fontWeight: 600 }}>
-              Reminder set for{" "}
-              {reminder.reminderAt
-                ? new Date(reminder.reminderAt).toLocaleString("en-IN", {
-                    dateStyle: "medium",
-                    timeStyle: "short",
-                  })
-                : `${new Date(reminder.reminderDate).toLocaleDateString(
-                    "en-IN",
-                  )} at ${reminder.reminderTime}`}
+              Reminder set for {formatReminderWhen(reminder)}
             </span>
             {reminder.note ? (
               <span className="text-muted" style={{ fontSize: 12 }}>

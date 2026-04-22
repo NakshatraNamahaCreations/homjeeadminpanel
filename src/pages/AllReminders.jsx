@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { BASE_URL } from "../utils/config";
 import { FaArrowLeft, FaPhone, FaMapMarkerAlt, FaClock } from "react-icons/fa";
+import { formatReminderWhen } from "../utils/helpers";
 
 const AllReminders = () => {
   const [reminders, setReminders] = useState([]);
@@ -84,9 +85,7 @@ const AllReminders = () => {
                   </span>
 
                   <span style={styles.reminder}>
-                    <FaClock />{" "}
-                    {new Date(rem.reminderDate).toLocaleDateString()} at{" "}
-                    {rem.reminderTime}
+                    <FaClock /> {formatReminderWhen(rem)}
                   </span>
                 </div>
               </div>
