@@ -47,6 +47,8 @@ const EnquiriesList = () => {
 
       const data = await bookingsRes.json();
 
+      console.log("Fetched bookings:", data.allEnquies?.reverse());
+
       // Non-fatal: if reminders endpoint fails, list still renders.
       let rMap = {};
       try {
@@ -73,17 +75,20 @@ const EnquiriesList = () => {
           bookingId: booking?._id,
           date: booking?.selectedSlot?.slotDate
             ? new Date(booking.selectedSlot.slotDate).toLocaleDateString(
-                "en-GB"
+                "en-GB",
               )
-            : "—",
-          time: booking?.selectedSlot?.slotTime || "—",
+            : new Date(booking.createdDate).toLocaleDateString("en-GB") || "—",
+          time:
+            booking?.selectedSlot?.slotTime ||
+            new Date(booking.createdDate).toLocaleTimeString() ||
+            "--",
           name: booking?.customer?.name || "",
           contact: booking?.customer?.phone
             ? `+91 ${booking.customer.phone}`
             : "",
           category:
             [...new Set((booking?.service || []).map((s) => s.category))].join(
-              ", "
+              ", ",
             ) || "Service",
           formName: booking?.formName || "—",
           filledData: {
@@ -114,7 +119,7 @@ const EnquiriesList = () => {
           timestamp: new Date(
             booking?.createdDate ||
               booking?.selectedSlot?.slotDate ||
-              Date.now()
+              Date.now(),
           ).getTime(),
         };
 
@@ -145,14 +150,16 @@ const EnquiriesList = () => {
     setVisibleLeads((v) => v + 6);
   };
 
+  console.log("newEnquiries :", newEnquiries);
+
   const getCardStyle = (enquiry) => {
     const hasReminder = !!reminderMap[enquiry.bookingId];
     return {
       backgroundColor: hasReminder
         ? "#fff8e1"
         : enquiry.raw?.isRead
-        ? "#f8f9fa"
-        : "#ebebeb",
+          ? "#f8f9fa"
+          : "#ebebeb",
       padding: "15px",
       borderRadius: "8px",
       width: "100%",
@@ -263,116 +270,122 @@ const EnquiriesList = () => {
               .map((enquiry) => {
                 const reminder = reminderMap[enquiry.bookingId];
                 return (
-                <div
-                  key={enquiry._uid}
-                  style={getCardStyle(enquiry)}
-                  onClick={() => openDetails(enquiry.bookingId)}
-                >
-                  <div style={styles.cardHeader}>
-                    <div
-                      style={{ display: "flex", alignItems: "center", gap: 8 }}
-                    >
-                      <p
+                  <div
+                    key={enquiry._uid}
+                    style={getCardStyle(enquiry)}
+                    onClick={() => openDetails(enquiry.bookingId)}
+                  >
+                    <div style={styles.cardHeader}>
+                      <div
                         style={{
-                          fontSize: 14,
-                          fontWeight: "bold",
-                          color:
-                            enquiry.category === "Deep Cleaning"
-                              ? "red"
-                              : "#008E00",
-                          margin: 0,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
                         }}
                       >
-                        {enquiry.category}
-                      </p>
-
-                      {enquiry.raw?.isRead && (
-                        <Badge bg="success" style={{ fontSize: 10 }}>
-                          Read
-                        </Badge>
-                      )}
-
-                      {reminder && (
-                        <Badge
-                          bg="warning"
-                          text="dark"
+                        <p
                           style={{
-                            fontSize: 10,
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: 4,
+                            fontSize: 14,
+                            fontWeight: "bold",
+                            color:
+                              enquiry.category === "Deep Cleaning"
+                                ? "red"
+                                : "#008E00",
+                            margin: 0,
                           }}
-                          title={`Reminder: ${formatReminderWhen(reminder)}${
-                            reminder.note ? ` — ${reminder.note}` : ""
-                          }`}
                         >
-                          <FaBell />
-                          Reminder
-                        </Badge>
-                      )}
+                          {enquiry.category}
+                        </p>
+
+                        {enquiry.raw?.isRead && (
+                          <Badge bg="success" style={{ fontSize: 10 }}>
+                            Read
+                          </Badge>
+                        )}
+
+                        {reminder && (
+                          <Badge
+                            bg="warning"
+                            text="dark"
+                            style={{
+                              fontSize: 10,
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 4,
+                            }}
+                            title={`Reminder: ${formatReminderWhen(reminder)}${
+                              reminder.note ? ` — ${reminder.note}` : ""
+                            }`}
+                          >
+                            <FaBell />
+                            Reminder
+                          </Badge>
+                        )}
+                      </div>
+
+                      <p style={{ fontSize: 12, fontWeight: 600, margin: 0 }}>
+                        {enquiry.date}
+                      </p>
                     </div>
 
-                    <p style={{ fontSize: 12, fontWeight: 600, margin: 0 }}>
-                      {enquiry.date}
-                    </p>
-                  </div>
+                    <div style={styles.cardHeader}>
+                      <p
+                        style={{ fontWeight: "bold", fontSize: 14, margin: 0 }}
+                      >
+                        {enquiry.name}
+                      </p>
 
-                  <div style={styles.cardHeader}>
-                    <p style={{ fontWeight: "bold", fontSize: 14, margin: 0 }}>
-                      {enquiry.name}
-                    </p>
+                      <p style={{ fontSize: 12, fontWeight: 600, margin: 0 }}>
+                        {enquiry.time}
+                      </p>
+                    </div>
 
-                    <p style={{ fontSize: 12, fontWeight: 600, margin: 0 }}>
-                      {enquiry.time}
-                    </p>
-                  </div>
-
-                  <p
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      fontSize: 12,
-                      marginTop: 4,
-                    }}
-                  >
-                    <FaMapMarkerAlt style={{ marginRight: 5 }} />
-                    {enquiry.filledData?.location}
-                  </p>
-
-                  {reminder && (
                     <p
                       style={{
                         display: "flex",
                         alignItems: "center",
-                        gap: 6,
                         fontSize: 12,
-                        fontWeight: 600,
                         marginTop: 4,
-                        color: "#6b4b00",
                       }}
                     >
-                      <FaBell />
-                      Reminder set for {formatReminderWhen(reminder)}
-                      {reminder.note ? (
-                        <span
-                          style={{
-                            fontWeight: 400,
-                            color: "#777",
-                            marginLeft: 4,
-                          }}
-                        >
-                          — {reminder.note}
-                        </span>
-                      ) : null}
+                      <FaMapMarkerAlt style={{ marginRight: 5 }} />
+                      {enquiry.filledData?.location}
                     </p>
-                  )}
 
-                  {showOld && enquiry.note && (
-                    <p style={{ fontSize: 11, color: "#777", marginTop: 6 }}>
-                      Moved to Old: <strong>{enquiry.note}</strong>
-                    </p>
-                  )}
-                </div>
+                    {reminder && (
+                      <p
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                          fontSize: 12,
+                          fontWeight: 600,
+                          marginTop: 4,
+                          color: "#6b4b00",
+                        }}
+                      >
+                        <FaBell />
+                        Reminder set for {formatReminderWhen(reminder)}
+                        {reminder.note ? (
+                          <span
+                            style={{
+                              fontWeight: 400,
+                              color: "#777",
+                              marginLeft: 4,
+                            }}
+                          >
+                            — {reminder.note}
+                          </span>
+                        ) : null}
+                      </p>
+                    )}
+
+                    {showOld && enquiry.note && (
+                      <p style={{ fontSize: 11, color: "#777", marginTop: 6 }}>
+                        Moved to Old: <strong>{enquiry.note}</strong>
+                      </p>
+                    )}
+                  </div>
                 );
               })}
           </div>

@@ -182,9 +182,7 @@ const EnquiryDetails = () => {
     const bookingId = enquiry?.bookingId || id;
     if (!bookingId) return;
     try {
-      const res = await fetch(
-        `${BASE_URL}/reminders/by-booking/${bookingId}`,
-      );
+      const res = await fetch(`${BASE_URL}/reminders/by-booking/${bookingId}`);
       const data = await res.json();
       if (data?.success) {
         setReminder(data.reminder || null);
@@ -211,10 +209,9 @@ const EnquiryDetails = () => {
     if (!ok) return;
 
     try {
-      const res = await fetch(
-        `${BASE_URL}/reminders/by-booking/${bookingId}`,
-        { method: "DELETE" },
-      );
+      const res = await fetch(`${BASE_URL}/reminders/by-booking/${bookingId}`, {
+        method: "DELETE",
+      });
       const data = await res.json();
       if (data?.success) {
         setReminder(null);
@@ -406,6 +403,8 @@ const EnquiryDetails = () => {
 
   if (!enquiry) return <p style={{ padding: 20 }}>Enquiry not found</p>;
 
+  console.log("enquiry", enquiry);
+
   return (
     <div className="container " style={{ fontFamily: "Poppins" }}>
       <div
@@ -553,7 +552,7 @@ const EnquiryDetails = () => {
             </div>
           </div>
 
-          <a href={paymentLinkUrl} target="__balnk">
+          <a href={paymentLinkUrl} target="__blank">
             Open Payment link
           </a>
 
@@ -768,7 +767,7 @@ const EnquiryDetails = () => {
             // ✅ FIX: ADD THIS BACK
             if (confirmState.action === "markAsLead") {
               await updateStatusAPI("isEnquiry", false);
-              await fetchDetails(); 
+              await fetchDetails();
               navigate("/enquiries");
             }
           } catch (err) {
@@ -806,15 +805,6 @@ const EnquiryDetails = () => {
 };
 
 export default EnquiryDetails;
-
-
-
-
-
-
-
-
-
 
 // working code - 20-01
 // import React, { useEffect, useState } from "react";
