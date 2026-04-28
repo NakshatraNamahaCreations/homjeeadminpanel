@@ -68,6 +68,15 @@ import {
 } from "react-icons/fa";
 
 export const NOTIFICATION_CONFIG = {
+  // OTP-verified enquiry — customer hasn't booked yet (isEnquiry: true).
+  // Click should open the enquiry detail page so admin can call/follow up.
+  NEW_ENQUIRY_CREATED: {
+    color: "#f0a30a",
+    bg: "#fff8e1",
+    icon: FaUserPlus,
+    getRoute: (n) => `/enquiry-details/${n.bookingId}`,
+  },
+
   NEW_LEAD_CREATED: {
     color: "#0d6efd",
     bg: "#e7f1ff",
