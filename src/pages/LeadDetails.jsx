@@ -87,7 +87,7 @@ const LeadDetails = () => {
       try {
         setLoading(true);
         const res = await fetch(
-          `${BASE_URL}/bookings/get-bookings-by-bookingid/${id}`
+          `${BASE_URL}/bookings/get-bookings-by-bookingid/${id}`,
         );
         const data = await res.json();
         if (data?.booking) {
@@ -127,7 +127,7 @@ const LeadDetails = () => {
 
         if (!latitude || !longitude) {
           setNotificationStatus(
-            "No valid coordinates available for this lead."
+            "No valid coordinates available for this lead.",
           );
           setVendors([]);
           return;
@@ -145,7 +145,7 @@ const LeadDetails = () => {
           : "house-painting";
 
         const bookingRes = await fetch(
-          `${BASE_URL}/bookings/get-nearest-booking-by-location-${serviceCategorySlug}/${latitude}/${longitude}`
+          `${BASE_URL}/bookings/get-nearest-booking-by-location-${serviceCategorySlug}/${latitude}/${longitude}`,
         );
         const bookingData = await bookingRes.json();
 
@@ -162,7 +162,7 @@ const LeadDetails = () => {
             });
             setVendors(filteredVendors);
             setNotificationStatus(
-              filteredVendors.length ? "" : "No vendors found."
+              filteredVendors.length ? "" : "No vendors found.",
             );
           } else {
             setVendors([]);
@@ -210,7 +210,7 @@ const LeadDetails = () => {
               phone: chosen?.vendor?.mobileNumber || "",
             },
           }),
-        }
+        },
       );
 
       const result = await response.json();
@@ -219,7 +219,7 @@ const LeadDetails = () => {
         setNotificationStatus(
           `Vendor notified successfully for booking ${
             lead._id || lead.booking_id || ""
-          }.`
+          }.`,
         );
         setLead((prev) => ({
           ...prev,
@@ -457,7 +457,7 @@ const LeadDetails = () => {
                     if (lat && lng) {
                       window.open(
                         `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`,
-                        "_blank"
+                        "_blank",
                       );
                     } else {
                       alert("No valid location available for directions.");
@@ -1140,7 +1140,7 @@ export default LeadDetails;
 //       onClick={async () => {
 //         try {
 //           const response = await fetch(
-//             `https://homjee-backend.onrender.com/api/bookings/update-status`,
+//             `https://homjee-backend-jeyp.onrender.com/api/bookings/update-status`,
 //             {
 //               method: "POST",
 //               headers: { "Content-Type": "application/json" },
