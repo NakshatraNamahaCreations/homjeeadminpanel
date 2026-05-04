@@ -155,12 +155,7 @@ const VendorsDashboard = () => {
         profileImage: vendor.vendor.profileImage,
         category: vendor.vendor.serviceType,
         city: vendor.vendor.city,
-        // Derived status from backend: live | low_coins |
-        // team_unavailable | archived. statusLabel/statusColor are
-        // ready-to-render display strings.
-        status: vendor.status || "live",
-        statusLabel: vendor.statusLabel || "Live",
-        statusColor: vendor.statusColor || "#28a745",
+        // status ignored for now
         isArchived: vendor.isArchived === true,
         rating: 4.5,
         phone: String(vendor.vendor.mobileNumber ?? ""),

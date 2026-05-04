@@ -713,10 +713,7 @@ const VendorDetailsPage = () => {
         profileImage: vendorData.vendor?.profileImage || "",
         category: vendorData.vendor?.serviceType || "",
         city: vendorData.vendor?.city || "",
-        // Derived status from backend (live/low_coins/team_unavailable/archived).
-        status: vendorData.status || (vendorData.activeStatus ? "live" : "live"),
-        statusLabel: vendorData.statusLabel || "Live",
-        statusColor: vendorData.statusColor || "#28a745",
+        status: vendorData.activeStatus ? "Live" : "Inactive",
         isArchived: vendorData.isArchived === true,
         archivedAt: vendorData.archivedAt || null,
         archiveReason: vendorData.archiveReason || "",

@@ -195,32 +195,12 @@ const VendorDetails = ({
           <h4 className="fw-bold" style={{ fontSize: "16px" }}>
             {vendor.name}
           </h4>
-          {/* Derived vendor status pill: live / low_coins /
-              team_unavailable / archived. Color comes straight from the
-              backend so admin and vendor app stay in sync. */}
-          <span
-            style={{
-              display: "inline-block",
-              padding: "4px 12px",
-              borderRadius: 14,
-              fontSize: 12,
-              fontWeight: 600,
-              color:
-                (vendor.status || "live") === "team_unavailable"
-                  ? "#5a4500"
-                  : "#fff",
-              background: vendor.statusColor || "#28a745",
-            }}
+          {/* <Badge
+            bg={vendor.status === "Live" ? "success" : "warning"}
+            className="px-3 py-2"
           >
-            {vendor.statusLabel ||
-              (vendor.status === "archived"
-                ? "Archived"
-                : vendor.status === "low_coins"
-                  ? "Low Coins"
-                  : vendor.status === "team_unavailable"
-                    ? "Team Unavailable"
-                    : "Live")}
-          </span>
+            {vendor.status}
+          </Badge> */}
         </div>
         
         <Row className="mb-3">

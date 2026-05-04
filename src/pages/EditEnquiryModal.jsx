@@ -2891,7 +2891,7 @@ export default function EditEnquiryModal({
       const data = await res.json();
       if (!res.ok) throw new Error(data?.message || "Update failed.");
 
-      onUpdated?.();
+      onUpdated?.(data?.booking);
       onClose?.();
     } catch (err) {
       alert(err?.message || "Error updating enquiry.");

@@ -150,8 +150,6 @@ const EnquiryDetails = () => {
      (handle API shape: { booking: {...} } or { data: {...} })
      --------------------------------------------------- */
   const fetchDetails = async () => {
-    if (location?.state) return; // don't fetch when we already have state
-
     setLoading(true);
     try {
       const res = await fetch(

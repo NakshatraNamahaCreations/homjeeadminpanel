@@ -92,6 +92,19 @@ const OngoingLeadDetails = () => {
   const [measurementsLoading, setMeasurementsLoading] = useState(false);
   const [measurementsError, setMeasurementsError] = useState(null);
 
+  // ✅ Notified vendors (new-lead mode): list of vendors invited for this lead
+  // + dropdown of all vendors of the booking's city to manually notify more.
+  const [notifiedVendors, setNotifiedVendors] = useState([]);
+  const [notifiedLoading, setNotifiedLoading] = useState(false);
+  const [notifiedError, setNotifiedError] = useState(null);
+
+  const [cityVendors, setCityVendors] = useState([]);
+  const [cityVendorsLoading, setCityVendorsLoading] = useState(false);
+  const [cityVendorsError, setCityVendorsError] = useState(null);
+
+  const [selectedCityVendor, setSelectedCityVendor] = useState("");
+  const [notifying, setNotifying] = useState(false);
+
   // -----------------------------
   // Helpers
   // -----------------------------
@@ -291,6 +304,19 @@ const OngoingLeadDetails = () => {
     booking?.bookingDetails?.status === "Admin Cancelled" ||
     booking?.bookingDetails?.status === "Cancelled";
 
+  // ✅ "New lead" mode: no vendor has accepted yet AND lead isn't cancelled.
+  // Once any invitedVendor responds with "accepted" (or assignedProfessional
+  // gains an acceptedDate via the legacy flow), the lead transitions to
+  // ongoing and we render the existing Vendor Assign card instead.
+  const acceptedInvite = (booking?.invitedVendors || []).find(
+    (iv) =>
+      String(iv?.responseStatus || "")
+        .toLowerCase()
+        .trim() === "accepted",
+  );
+  const isNewLead =
+    !!booking && !isCancelled && !acceptedInvite && !booking?.assignedProfessional?.acceptedDate;
+
   const paidAmount = booking?.bookingDetails?.paidAmount ?? 0;
   const isrefundAmount = (booking?.bookingDetails?.refundAmount ?? 0) > 0;
 
@@ -479,6 +505,133 @@ const OngoingLeadDetails = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [booking]);
+
+  // -----------------------------
+  // ✅ Notified Vendors (new-lead mode)
+  // -----------------------------
+  const fetchNotifiedVendors = async () => {
+    try {
+      if (!bookingId) return;
+      setNotifiedLoading(true);
+      setNotifiedError(null);
+
+      const res = await fetch(
+        `${BASE_URL}/bookings/notified-vendors/${bookingId}`,
+      );
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok)
+        throw new Error(data?.message || "Failed to fetch notified vendors");
+
+      setNotifiedVendors(Array.isArray(data?.data) ? data.data : []);
+    } catch (err) {
+      console.error("fetchNotifiedVendors error:", err);
+      setNotifiedError(err?.message || "Failed to fetch notified vendors");
+      setNotifiedVendors([]);
+    } finally {
+      setNotifiedLoading(false);
+    }
+  };
+
+  // Pulls all vendors of the booking's city (regardless of availability /
+  // coins / team / area), then filters by service type on the client to
+  // stay consistent with how the existing UI matches vendor.serviceType
+  // (e.g. "Deep Cleaning" / "House Painting").
+  const fetchCityVendors = async () => {
+    try {
+      const city = booking?.address?.city || "";
+      if (!city) {
+        setCityVendors([]);
+        return;
+      }
+
+      setCityVendorsLoading(true);
+      setCityVendorsError(null);
+
+      const res = await fetch(
+        `${BASE_URL}/vendor/get-all-vendor?city=${encodeURIComponent(city)}&page=1&limit=500`,
+      );
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok && res.status !== 404) {
+        throw new Error(data?.message || "Failed to fetch city vendors");
+      }
+
+      const list = Array.isArray(data?.vendor) ? data.vendor : [];
+
+      // Per business rule: list every vendor of this city for the matching
+      // service type — Deep Cleaning lead → Deep Cleaning vendors only,
+      // House Painting lead → House Painting vendors only. Availability /
+      // coins / team status / sub-locality / service area are NOT applied;
+      // admin can notify any of them. Archived vendors are excluded.
+      const isDeepCleaning = booking?.serviceType === "deep_cleaning";
+      const filtered = list.filter((v) => {
+        try {
+          if (v?.isArchived) return false;
+          const st = String(v?.vendor?.serviceType || "").toLowerCase();
+          return isDeepCleaning ? st.includes("deep") : st.includes("paint");
+        } catch {
+          return false;
+        }
+      });
+
+      setCityVendors(filtered);
+    } catch (err) {
+      console.error("fetchCityVendors error:", err);
+      setCityVendorsError(err?.message || "Failed to fetch city vendors");
+      setCityVendors([]);
+    } finally {
+      setCityVendorsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    try {
+      if (!booking) return;
+      if (!isNewLead) return;
+
+      fetchNotifiedVendors();
+      fetchCityVendors();
+    } catch (err) {
+      console.error("notified-vendors effect error:", err);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [booking, isNewLead]);
+
+  const handleNotifyChosenVendor = async () => {
+    try {
+      if (!selectedCityVendor) {
+        alert("Please select a vendor first");
+        return;
+      }
+      if (!bookingId) {
+        alert("Missing bookingId");
+        return;
+      }
+
+      setNotifying(true);
+
+      const res = await fetch(`${BASE_URL}/bookings/notify-vendor`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookingId, vendorId: selectedCityVendor }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.message || "Failed to notify vendor");
+
+      setSelectedCityVendor("");
+      await fetchNotifiedVendors();
+      await fetchBooking();
+
+      alert(data?.message || "Vendor notified");
+    } catch (err) {
+      console.error("handleNotifyChosenVendor error:", err);
+      alert(err?.message || "Failed to notify vendor");
+    } finally {
+      setNotifying(false);
+    }
+  };
 
   const handleViewQuote = (quote) => {
     try {
@@ -954,6 +1107,8 @@ const OngoingLeadDetails = () => {
     booking?.bookingDetails?.status || "",
   ).toLowerCase();
   const isProjectCompleted = normalizedStatus === "project completed";
+
+  // console.log("assigned vendor", assigned?.profile);
 
   return (
     <div
@@ -2066,20 +2221,285 @@ const OngoingLeadDetails = () => {
 
             {/* Right Column */}
             <div className="col-md-5">
-              {/* Vendor Assign */}
-              <div
-                className="card"
-                style={{
-                  borderRadius: 8,
-                  minHeight: 280,
-                  border: isTeamMismatch
-                    ? "2px solid #dc3545"
-                    : "1px solid #e0e0e0",
-                  boxShadow: isTeamMismatch
-                    ? "0 0 0 3px rgba(220,53,69,0.15)"
-                    : "none",
-                }}
-              >
+              {isNewLead ? (
+                /* Vendor Notified (new-lead mode) */
+                <div
+                  className="card"
+                  style={{
+                    borderRadius: 8,
+                    minHeight: 280,
+                    border: "1px solid #e0e0e0",
+                  }}
+                >
+                  <div className="card-body">
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        marginBottom: 10,
+                      }}
+                    >
+                      <h6 className="fw-bold mb-0" style={{ fontSize: 14 }}>
+                        Vendor Notified
+                      </h6>
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 800,
+                          padding: "4px 10px",
+                          borderRadius: 999,
+                          border: "1px solid #e9ecef",
+                          background: "#f8f9fa",
+                          color: "#6c757d",
+                        }}
+                      >
+                        {notifiedLoading
+                          ? "Loading..."
+                          : `${notifiedVendors.length} Vendor${notifiedVendors.length === 1 ? "" : "s"}`}
+                      </span>
+                    </div>
+
+                    {notifiedError && (
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: "#dc3545",
+                          background: "#fdecea",
+                          border: "1px solid #f5c2c7",
+                          padding: "8px 10px",
+                          borderRadius: 8,
+                          marginBottom: 10,
+                        }}
+                      >
+                        {notifiedError}
+                      </div>
+                    )}
+
+                    {!notifiedLoading &&
+                      !notifiedError &&
+                      notifiedVendors.length === 0 && (
+                        <div
+                          style={{
+                            fontSize: 12,
+                            color: "#6c757d",
+                            background: "#f8f9fa",
+                            border: "1px dashed #dee2e6",
+                            padding: "10px 12px",
+                            borderRadius: 8,
+                          }}
+                        >
+                          No vendors have been notified for this lead yet.
+                        </div>
+                      )}
+
+                    {notifiedVendors.length > 0 && (
+                      <div
+                        style={{
+                          maxHeight: 280,
+                          overflowY: "auto",
+                          paddingRight: 4,
+                        }}
+                      >
+                        {notifiedVendors.map((nv) => (
+                          <div
+                            key={nv.vendorId}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 12,
+                              padding: "10px 8px",
+                              border: "1px solid #eef0f3",
+                              borderRadius: 10,
+                              marginBottom: 8,
+                              background: "#fff",
+                            }}
+                          >
+                            <img
+                              src={nv.profileImage || vendorImg}
+                              alt={nv.name}
+                              onError={(e) => {
+                                e.currentTarget.src = vendorImg;
+                              }}
+                              style={{
+                                width: 44,
+                                height: 44,
+                                borderRadius: "50%",
+                                objectFit: "cover",
+                                flexShrink: 0,
+                              }}
+                            />
+
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div
+                                style={{
+                                  fontSize: 13,
+                                  fontWeight: 700,
+                                  color: "#111",
+                                  whiteSpace: "nowrap",
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                }}
+                                title={nv.name}
+                              >
+                                {nv.name}
+                              </div>
+
+                              {nv.invitedAt && (
+                                <div
+                                  style={{ fontSize: 11, color: "#8a8f98" }}
+                                >
+                                  Notified{" "}
+                                  {new Date(nv.invitedAt)
+                                    .toLocaleString("en-GB", {
+                                      day: "2-digit",
+                                      month: "2-digit",
+                                      year: "numeric",
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                      hour12: true,
+                                    })
+                                    .replace(",", "")
+                                    .replace(/\b(am|pm)\b/g, (m) =>
+                                      m.toUpperCase(),
+                                    )}
+                                </div>
+                              )}
+
+                              {nv.responseStatus &&
+                                nv.responseStatus !== "pending" && (
+                                  <span
+                                    style={{
+                                      display: "inline-block",
+                                      marginTop: 4,
+                                      padding: "2px 8px",
+                                      borderRadius: 999,
+                                      fontSize: 10,
+                                      fontWeight: 700,
+                                      textTransform: "capitalize",
+                                      color:
+                                        nv.responseStatus === "accepted"
+                                          ? "#28a745"
+                                          : nv.responseStatus === "declined"
+                                            ? "#dc3545"
+                                            : "#6c757d",
+                                      background:
+                                        nv.responseStatus === "accepted"
+                                          ? "#e6f4ea"
+                                          : nv.responseStatus === "declined"
+                                            ? "#fdecea"
+                                            : "#f8f9fa",
+                                      border:
+                                        nv.responseStatus === "accepted"
+                                          ? "1px solid #b7e1c5"
+                                          : nv.responseStatus === "declined"
+                                            ? "1px solid #f5c2c7"
+                                            : "1px solid #e9ecef",
+                                    }}
+                                  >
+                                    {nv.responseStatus.replace(/_/g, " ")}
+                                  </span>
+                                )}
+                            </div>
+
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-outline-danger"
+                              style={{
+                                borderRadius: 8,
+                                fontSize: 11,
+                                fontWeight: 700,
+                                whiteSpace: "nowrap",
+                              }}
+                              onClick={() =>
+                                navigate(`/vendor-details/${nv.vendorId}`)
+                              }
+                            >
+                              View Profile
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <hr style={{ margin: "14px 0" }} />
+
+                    <h6
+                      className="fw-bold mb-2"
+                      style={{ fontSize: 13 }}
+                    >
+                      Notify another vendor in this city
+                    </h6>
+
+                    {cityVendorsError && (
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: "#dc3545",
+                          marginBottom: 8,
+                        }}
+                      >
+                        {cityVendorsError}
+                      </div>
+                    )}
+
+                    <select
+                      className="form-select mb-2"
+                      style={{ fontSize: 12 }}
+                      value={selectedCityVendor}
+                      onChange={(e) =>
+                        setSelectedCityVendor(e?.target?.value || "")
+                      }
+                      disabled={cityVendorsLoading || notifying}
+                    >
+                      <option value="">
+                        {cityVendorsLoading
+                          ? "Loading vendors..."
+                          : `Select a vendor (${cityVendors.length} in ${booking?.address?.city || "this city"})`}
+                      </option>
+                      {cityVendors.map((v) => {
+                        const alreadyNotified = notifiedVendors.some(
+                          (nv) => String(nv.vendorId) === String(v?._id),
+                        );
+                        return (
+                          <option key={v._id} value={v._id}>
+                            {v?.vendor?.vendorName || "Unnamed Vendor"}
+                            {alreadyNotified ? " (already notified)" : ""}
+                          </option>
+                        );
+                      })}
+                    </select>
+
+                    <button
+                      type="button"
+                      className="btn btn-danger btn-sm w-100"
+                      style={{
+                        borderRadius: 8,
+                        fontSize: 12,
+                        fontWeight: 700,
+                      }}
+                      disabled={!selectedCityVendor || notifying}
+                      onClick={handleNotifyChosenVendor}
+                    >
+                      {notifying ? "Notifying..." : "Notify Vendor"}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* Vendor Assign (ongoing mode) */
+                <div
+                  className="card"
+                  style={{
+                    borderRadius: 8,
+                    minHeight: 280,
+                    border: isTeamMismatch
+                      ? "2px solid #dc3545"
+                      : "1px solid #e0e0e0",
+                    boxShadow: isTeamMismatch
+                      ? "0 0 0 3px rgba(220,53,69,0.15)"
+                      : "none",
+                  }}
+                >
                 <div className="card-body text-center">
                   <h6
                     className="fw-bold"
@@ -2097,11 +2517,7 @@ const OngoingLeadDetails = () => {
                     }}
                   >
                     <img
-                      src={
-                        assigned?.profileImage ||
-                        assigned?.vendor?.profileImage ||
-                        vendorImg
-                      }
+                      src={assigned?.profile || vendorImg}
                       alt="Vendor"
                       style={{
                         width: 70,
@@ -2241,7 +2657,8 @@ const OngoingLeadDetails = () => {
                     </p>
                   </div>
                 </div>
-              </div>
+                </div>
+              )}
 
               {/* ✅ Measurement Summary (House Painting only) */}
 

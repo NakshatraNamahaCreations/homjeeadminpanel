@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { FaTimes } from "react-icons/fa";
 import { BASE_URL } from "../utils/config";
-import { pickServiceCityFromComponents } from "../utils/serviceCity";
 
 // Utility to load Google Maps API
 const GOOGLE_MAPS_API_KEY = "AIzaSyBF48uqsKVyp9P2NlDX-heBJksvvT_8Cqk";
@@ -152,7 +151,6 @@ const AddressPickerModal = ({
   onSelect,
   bookingId,
 }) => {
-  const mapDivRef = useRef(null);
   const mapRef = useRef(null);
   const inputRef = useRef(null);
   const geocoderRef = useRef(null);
@@ -265,12 +263,17 @@ const AddressPickerModal = ({
               const formattedAddress = results[0].formatted_address;
               const addressComponents = results[0].address_components;
 
-              // Resolves satellite cities to their canonical service area
-              // (Pimpri-Chinchwad → Pune, Madivala/Indiranagar → Bengaluru,
-              // etc.). Walks every component, snaps to the first known
-              // canonical alias; falls back to Google's locality if none.
-              let detectedCity =
-                pickServiceCityFromComponents(addressComponents) || "";
+              let detectedCity = "";
+
+              for (const comp of addressComponents) {
+                const types = comp.types;
+                if (types.includes("locality")) detectedCity = comp.long_name;
+                else if (
+                  types.includes("administrative_area_level_2") &&
+                  !detectedCity
+                )
+                  detectedCity = comp.long_name;
+              }
 
               if (detectedCity)
                 detectedCity =
@@ -298,7 +301,7 @@ const AddressPickerModal = ({
         geocoder = new window.google.maps.Geocoder();
         geocoderRef.current = geocoder;
 
-        map = new window.google.maps.Map(mapDivRef.current, {
+        map = new window.google.maps.Map(mapRef.current, {
           center: posToUse,
           zoom: 16,
           streetViewControl: false,
@@ -420,12 +423,7 @@ const AddressPickerModal = ({
         }
       });
     };
-    // Init the map once on mount. The parent passes a fresh `initialLatLng`
-    // object literal on every render — keeping it in deps would re-init the
-    // map / autocomplete / marker on every parent re-render and stack
-    // listeners, which breaks search → pin behaviour.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [initialLatLng, initialAddress]);
 
   const onSave = async () => {
     try {
@@ -527,7 +525,7 @@ const AddressPickerModal = ({
                 } catch (e) {}
               }}
             />
-            <div ref={mapDivRef} style={addrStyles.mapBox} />
+            <div ref={mapRef} style={addrStyles.mapBox} />
           </div>
 
           <div style={addrStyles.formCol}>

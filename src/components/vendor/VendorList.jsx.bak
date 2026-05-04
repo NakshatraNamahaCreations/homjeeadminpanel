@@ -2,48 +2,6 @@ import React from "react";
 import { Table, Button, Badge, Pagination } from "react-bootstrap";
 import { FaPhone, FaCog, FaStar } from "react-icons/fa";
 
-// Inline status pill that picks color from `vendor.statusColor` (sent by
-// the backend). Falls back to legacy `isArchived` if status fields aren't
-// present (older response shape).
-const StatusPill = ({ vendor }) => {
-  const status = vendor?.status || (vendor?.isArchived ? "archived" : "live");
-  const label =
-    vendor?.statusLabel ||
-    (status === "archived"
-      ? "Archived"
-      : status === "low_coins"
-        ? "Low Coins"
-        : status === "team_unavailable"
-          ? "Team Unavailable"
-          : "Live");
-  const color =
-    vendor?.statusColor ||
-    (status === "archived"
-      ? "#dc3545"
-      : status === "low_coins"
-        ? "#fd7e14"
-        : status === "team_unavailable"
-          ? "#ffc107"
-          : "#28a745");
-  return (
-    <span
-      style={{
-        display: "inline-block",
-        padding: "3px 8px",
-        borderRadius: 12,
-        fontSize: 10,
-        fontWeight: 600,
-        color: status === "team_unavailable" ? "#5a4500" : "#fff",
-        background: color,
-        whiteSpace: "nowrap",
-      }}
-      title={label}
-    >
-      {label}
-    </span>
-  );
-};
-
 const VendorList = ({
   vendors,
   loading,
@@ -128,7 +86,7 @@ const VendorList = ({
             <th>Vendor Name</th>
             <th>Category</th>
             <th>City</th>
-            <th>Status</th>
+            {/* <th>Status</th> */}
             <th>Rating</th>
             <th>Actions</th>
           </tr>
@@ -145,12 +103,21 @@ const VendorList = ({
               }}
               onClick={() => onVendorSelect(vendor)}
             >
-              <td>{vendor.name}</td>
+              <td>
+                {vendor.name}
+                {vendor.isArchived && (
+                  <Badge bg="danger" className="ms-2" style={{ fontSize: 10 }}>
+                    Archived
+                  </Badge>
+                )}
+              </td>
               <td>{vendor.category}</td>
               <td>{vendor.city}</td>
-              <td>
-                <StatusPill vendor={vendor} />
-              </td>
+              {/* <td>
+                <Badge bg={vendor.status === "Live" ? "success" : "warning"}>
+                  {vendor.status}
+                </Badge>
+              </td> */}
               <td>
                 <FaStar className="text-warning" /> {vendor.rating}
               </td>

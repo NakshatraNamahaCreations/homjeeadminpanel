@@ -1034,7 +1034,6 @@ import AddressPickerModal from "./AddressPickerModal";
 import TimePickerModal from "./TimePickerModal";
 import { useNavigate } from "react-router-dom";
 import { MdCancel } from "react-icons/md";
-import { resolveServiceCity } from "../utils/serviceCity";
 
 /* ---------------------------
    ✅ SAFE NUMBER HELPERS
@@ -1121,53 +1120,17 @@ const CreateLeadModal = ({ onClose }) => {
   };
 
   /* -----------------------------------------------------------
-     Detect City From Address (alias-aware fallback)
-     Only used when the city wasn't already set by the address picker /
-     existing-user load. Walks each known canonical alias and snaps the
-     formatted-address string to the parent metro (e.g. "Pimpri-Chinchwad"
-     in the formatted address → "Pune").
+     Detect City From Address (UNCHANGED)
   ------------------------------------------------------------ */
   useEffect(() => {
     if (!leadData.googleAddress) return;
 
-    const lower = leadData.googleAddress.toLowerCase();
-    // Tokens we know about and their parent service city. Listed
-    // most-specific-first so e.g. "pimpri-chinchwad" is matched before
-    // a generic "pune" check would have caught it.
-    const SUBSTRING_HINTS = [
-      ["pimpri-chinchwad", "Pune"],
-      ["pimpri chinchwad", "Pune"],
-      ["pimpri", "Pune"],
-      ["chinchwad", "Pune"],
-      ["bengaluru", "Bengaluru"],
-      ["bangalore", "Bengaluru"],
-      ["mysuru", "Mysuru"],
-      ["mysore", "Mysuru"],
-      ["pune", "Pune"],
-      ["mumbai", "Mumbai"],
-      ["bombay", "Mumbai"],
-      ["hyderabad", "Hyderabad"],
-      ["secunderabad", "Hyderabad"],
-      ["chennai", "Chennai"],
-      ["madras", "Chennai"],
-      ["kolkata", "Kolkata"],
-      ["calcutta", "Kolkata"],
-      ["delhi", "Delhi"],
-      ["ahmedabad", "Ahmedabad"],
-      ["jaipur", "Jaipur"],
-      ["lucknow", "Lucknow"],
-    ];
-
+    const addr = leadData.googleAddress.toLowerCase();
     let detectedCity = "";
-    for (const [needle, canonical] of SUBSTRING_HINTS) {
-      if (lower.includes(needle)) {
-        detectedCity = canonical;
-        break;
-      }
-    }
-    // Belt-and-braces: feed it through the canonical resolver too in case
-    // the address picker already set a satellite name.
-    detectedCity = resolveServiceCity(detectedCity || leadData.city);
+
+    if (addr.includes("bengaluru")) detectedCity = "Bengaluru";
+    else if (addr.includes("mysuru")) detectedCity = "Mysuru";
+    else if (addr.includes("pune")) detectedCity = "Pune";
 
     if (detectedCity && leadData.city !== detectedCity) {
       setLeadData((prev) => ({ ...prev, city: detectedCity }));
