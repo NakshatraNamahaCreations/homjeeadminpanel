@@ -533,10 +533,13 @@ const OngoingLeadDetails = () => {
     }
   };
 
-  // Pulls all vendors of the booking's city (regardless of availability /
-  // coins / team / area), then filters by service type on the client to
-  // stay consistent with how the existing UI matches vendor.serviceType
-  // (e.g. "Deep Cleaning" / "House Painting").
+  // Pulls vendors of the booking's city for the matching service type.
+  // Backend `serviceType` query is a case-insensitive substring match, so a
+  // keyword token ("deep" / "paint") catches every label variant
+  // ("Deep Cleaning", "deep-cleaner", "House Painting", "house-painter").
+  // Per business rule: availability / coins / team / sub-locality gates
+  // are NOT applied — admin can notify any of them. Archived vendors are
+  // dropped client-side as a final safety net.
   const fetchCityVendors = async () => {
     try {
       const city = booking?.address?.city || "";
@@ -548,8 +551,13 @@ const OngoingLeadDetails = () => {
       setCityVendorsLoading(true);
       setCityVendorsError(null);
 
+      const serviceTypeKeyword =
+        booking?.serviceType === "deep_cleaning" ? "deep" : "paint";
+
       const res = await fetch(
-        `${BASE_URL}/vendor/get-all-vendor?city=${encodeURIComponent(city)}&page=1&limit=500`,
+        `${BASE_URL}/vendor/get-all-vendor?city=${encodeURIComponent(
+          city,
+        )}&serviceType=${encodeURIComponent(serviceTypeKeyword)}&page=1&limit=500`,
       );
       const data = await res.json().catch(() => ({}));
 
@@ -558,22 +566,7 @@ const OngoingLeadDetails = () => {
       }
 
       const list = Array.isArray(data?.vendor) ? data.vendor : [];
-
-      // Per business rule: list every vendor of this city for the matching
-      // service type — Deep Cleaning lead → Deep Cleaning vendors only,
-      // House Painting lead → House Painting vendors only. Availability /
-      // coins / team status / sub-locality / service area are NOT applied;
-      // admin can notify any of them. Archived vendors are excluded.
-      const isDeepCleaning = booking?.serviceType === "deep_cleaning";
-      const filtered = list.filter((v) => {
-        try {
-          if (v?.isArchived) return false;
-          const st = String(v?.vendor?.serviceType || "").toLowerCase();
-          return isDeepCleaning ? st.includes("deep") : st.includes("paint");
-        } catch {
-          return false;
-        }
-      });
+      const filtered = list.filter((v) => !v?.isArchived);
 
       setCityVendors(filtered);
     } catch (err) {
