@@ -126,6 +126,7 @@ const VendorList = ({
         <thead className="table-dark">
           <tr style={{ fontSize: "14px" }}>
             <th>Vendor Name</th>
+            <th>location</th>
             <th>Category</th>
             <th>City</th>
             <th>Status</th>
@@ -146,6 +147,7 @@ const VendorList = ({
               onClick={() => onVendorSelect(vendor)}
             >
               <td>{vendor.name}</td>
+              <td>{vendor.serviceArea}</td>
               <td>{vendor.category}</td>
               <td>{vendor.city}</td>
               <td>
